@@ -1,0 +1,17 @@
+build/
+
+# Local datasets and model weights can be very large.
+data/raw/
+models/*
+!models/.gitkeep
+
+# Python caches and virtual environments.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editor and OS noise.
+.DS_Store
+.idea/
+.vscode/

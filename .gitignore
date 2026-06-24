@@ -1,4 +1,6 @@
 build/
+build-*/
+third_party/pdfium/
 
 # Local datasets and model weights can be very large.
 data/raw/

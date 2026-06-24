@@ -183,6 +183,11 @@ cmake --build build
 ./build/doc_parser input.pdf --out output/
 ```
 
+## Development
+
+- Dependency setup notes: [docs/dependencies.md](docs/dependencies.md)
+- Commit message convention: [docs/commit-convention.md](docs/commit-convention.md)
+
 ## License
 
 License is not selected yet.

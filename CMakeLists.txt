@@ -18,6 +18,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(CLI11)
 
+option(DOC_PARSER_ENABLE_PDFIUM "Enable PDFium integration" ON)
+
+if(DOC_PARSER_ENABLE_PDFIUM)
+    if(NOT DEFINED PDFium_DIR)
+        set(PDFium_DIR "${CMAKE_SOURCE_DIR}/third_party/pdfium")
+    endif()
+
+    find_package(PDFium CONFIG REQUIRED)
+endif()
+
 add_executable(doc_parser
     cpp/app/main.cpp
 )
@@ -26,6 +36,13 @@ target_link_libraries(doc_parser
     PRIVATE
         CLI11::CLI11
 )
+
+if(DOC_PARSER_ENABLE_PDFIUM)
+    target_link_libraries(doc_parser
+        PRIVATE
+            pdfium
+    )
+endif()
 
 target_compile_options(doc_parser
     PRIVATE

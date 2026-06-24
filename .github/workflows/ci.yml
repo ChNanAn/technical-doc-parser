@@ -20,8 +20,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check PDFium setup script
+        run: bash tests/check_pdfium_setup_script.sh
+
+      - name: Install PDFium
+        run: bash scripts/setup_pdfium.sh
+
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium
 
       - name: Build
         run: cmake --build build --config Release --parallel

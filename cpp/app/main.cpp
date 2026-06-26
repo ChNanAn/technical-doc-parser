@@ -1,5 +1,10 @@
 #include <CLI/CLI.hpp>
 
+#if DOC_PARSER_ENABLE_PDFIUM
+#include "pdf/pdf_library.h"
+#include "pdf/pdf_reader.h"
+#endif
+
 #include <iostream>
 #include <string>
 
@@ -28,10 +33,26 @@ int main(int argc, char** argv) {
         return app.exit(e);
     }
 
+#if DOC_PARSER_ENABLE_PDFIUM
+    doc_parser::pdf::PdfLibrary pdf_library;
+    doc_parser::pdf::PdfReader reader;
+
+    if (!reader.open(options.input_pdf)) {
+        std::cerr << "error: failed to open PDF: " << options.input_pdf << '\n';
+        return 2;
+    }
+
+    std::cout << "input_pdf: " << options.input_pdf << '\n'
+              << "output_dir: " << options.output_dir << '\n'
+              << "dpi: " << options.dpi << '\n'
+              << "debug: " << (options.debug ? "true" : "false") << '\n'
+              << "pages: " << reader.pageCount() << '\n';
+#else
     std::cout << "input_pdf: " << options.input_pdf << '\n'
               << "output_dir: " << options.output_dir << '\n'
               << "dpi: " << options.dpi << '\n'
               << "debug: " << (options.debug ? "true" : "false") << '\n';
+#endif
 
     return 0;
 }

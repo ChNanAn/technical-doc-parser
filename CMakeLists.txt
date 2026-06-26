@@ -31,6 +31,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 
     add_library(doc_parser_pdf
         cpp/pdf/pdf_library.cpp
+        cpp/pdf/pdf_reader.cpp
     )
 
     target_include_directories(doc_parser_pdf
@@ -63,6 +64,11 @@ if(DOC_PARSER_ENABLE_PDFIUM)
         PRIVATE
             doc_parser_pdf
     )
+
+    target_compile_definitions(doc_parser
+        PRIVATE
+            DOC_PARSER_ENABLE_PDFIUM=1
+    )
 endif()
 
 target_compile_options(doc_parser
@@ -86,4 +92,20 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     )
 
     add_test(NAME pdf_library_smoke COMMAND pdf_library_smoke)
+
+    add_executable(pdf_reader_smoke
+        tests/pdf_reader_smoke.cpp
+    )
+
+    target_link_libraries(pdf_reader_smoke
+        PRIVATE
+            doc_parser_pdf
+    )
+
+    target_compile_options(pdf_reader_smoke
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
+
+    add_test(NAME pdf_reader_smoke COMMAND pdf_reader_smoke)
 endif()

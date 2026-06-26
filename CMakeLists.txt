@@ -40,6 +40,12 @@ if(DOC_PARSER_ENABLE_PDFIUM)
             cpp
     )
 
+    target_include_directories(doc_parser_pdf
+        SYSTEM
+        PRIVATE
+            third_party/stb
+    )
+
     target_link_libraries(doc_parser_pdf
         PUBLIC
             pdfium
@@ -69,6 +75,11 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     target_compile_definitions(doc_parser
         PRIVATE
             DOC_PARSER_ENABLE_PDFIUM=1
+    )
+
+    add_test(
+        NAME cli_render_smoke
+        COMMAND bash ${CMAKE_SOURCE_DIR}/tests/cli_render_smoke.sh $<TARGET_FILE:doc_parser>
     )
 endif()
 
@@ -109,4 +120,20 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     )
 
     add_test(NAME pdf_reader_smoke COMMAND pdf_reader_smoke)
+
+    add_executable(pdf_render_smoke
+        tests/pdf_render_smoke.cpp
+    )
+
+    target_link_libraries(pdf_render_smoke
+        PRIVATE
+            doc_parser_pdf
+    )
+
+    target_compile_options(pdf_render_smoke
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
+
+    add_test(NAME pdf_render_smoke COMMAND pdf_render_smoke)
 endif()

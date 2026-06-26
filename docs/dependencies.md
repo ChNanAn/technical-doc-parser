@@ -53,3 +53,15 @@ Current policy:
 - Direct PDFium calls are serialized inside the PDF module.
 
 This keeps the public API simple while leaving room for future batch processing or worker-process parallelism.
+
+## stb_image_write
+
+The first PDF rendering milestone uses [`stb_image_write.h`](https://github.com/nothings/stb) to write PNG files without adding a large image-processing dependency too early.
+
+The vendored header lives at:
+
+```text
+third_party/stb/stb_image_write.h
+```
+
+OpenCV will be introduced later for preprocessing, but the initial PDF-to-PNG path intentionally stays small.

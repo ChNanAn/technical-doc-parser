@@ -22,6 +22,7 @@ public:
 
     bool open(const std::string& path);
     int pageCount() const;
+    bool renderPageToPng(int page_index, int dpi, const std::string& output_path) const;
 
 private:
     FPDF_DOCUMENT document_ = nullptr;

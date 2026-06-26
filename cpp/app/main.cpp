@@ -5,6 +5,7 @@
 #include "pdf/pdf_reader.h"
 #endif
 
+#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -42,11 +43,30 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    const int pages = reader.pageCount();
     std::cout << "input_pdf: " << options.input_pdf << '\n'
               << "output_dir: " << options.output_dir << '\n'
               << "dpi: " << options.dpi << '\n'
               << "debug: " << (options.debug ? "true" : "false") << '\n'
-              << "pages: " << reader.pageCount() << '\n';
+              << "pages: " << pages << '\n';
+
+    const std::filesystem::path output_dir(options.output_dir);
+    const std::filesystem::path pages_dir = output_dir / "pages";
+    std::error_code ec;
+    std::filesystem::create_directories(pages_dir, ec);
+    if (ec) {
+        std::cerr << "error: failed to create output directory: " << pages_dir << '\n';
+        return 2;
+    }
+
+    for (int page_index = 0; page_index < pages; ++page_index) {
+        const auto output_path = pages_dir / ("page_" + std::to_string(page_index + 1) + ".png");
+        if (!reader.renderPageToPng(page_index, options.dpi, output_path.string())) {
+            std::cerr << "error: failed to render page " << page_index + 1 << '\n';
+            return 2;
+        }
+        std::cout << "wrote: " << output_path.string() << '\n';
+    }
 #else
     std::cout << "input_pdf: " << options.input_pdf << '\n'
               << "output_dir: " << options.output_dir << '\n'

@@ -1,8 +1,11 @@
 #include "pdf/pdf_reader.h"
 
+#include "pdf/pdfium_runtime.h"
+
 namespace doc_parser::pdf {
 
 PdfReader::~PdfReader() {
+    std::lock_guard<std::mutex> lock(detail::pdfiumMutex());
     if (document_ != nullptr) {
         FPDF_CloseDocument(document_);
         document_ = nullptr;
@@ -10,6 +13,7 @@ PdfReader::~PdfReader() {
 }
 
 bool PdfReader::open(const std::string& path) {
+    std::lock_guard<std::mutex> lock(detail::pdfiumMutex());
     if (document_ != nullptr) {
         FPDF_CloseDocument(document_);
         document_ = nullptr;
@@ -20,6 +24,7 @@ bool PdfReader::open(const std::string& path) {
 }
 
 int PdfReader::pageCount() const {
+    std::lock_guard<std::mutex> lock(detail::pdfiumMutex());
     if (document_ == nullptr) {
         return 0;
     }

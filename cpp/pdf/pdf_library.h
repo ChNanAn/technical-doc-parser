@@ -2,6 +2,8 @@
 
 namespace doc_parser::pdf {
 
+// Manages the process-wide PDFium lifetime. Create one instance near
+// application startup and keep it alive longer than all PdfReader objects.
 class PdfLibrary {
 public:
     PdfLibrary();

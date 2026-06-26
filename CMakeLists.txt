@@ -32,6 +32,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     add_library(doc_parser_pdf
         cpp/pdf/pdf_library.cpp
         cpp/pdf/pdf_reader.cpp
+        cpp/pdf/pdfium_runtime.cpp
     )
 
     target_include_directories(doc_parser_pdf

@@ -40,3 +40,16 @@ bash scripts/setup_pdfium.sh --force
 ```
 
 `third_party/pdfium/` is intentionally not committed because PDFium binaries are platform-specific and should be reproducible from the pinned setup script.
+
+### Threading policy
+
+PDFium is treated as a process-wide native dependency. The project keeps PDFium initialization in `PdfLibrary` and document ownership in `PdfReader`.
+
+Current policy:
+
+- Create one `PdfLibrary` near application startup.
+- Keep `PdfLibrary` alive longer than all `PdfReader` objects.
+- Do not share one `PdfReader` instance across threads.
+- Direct PDFium calls are serialized inside the PDF module.
+
+This keeps the public API simple while leaving room for future batch processing or worker-process parallelism.

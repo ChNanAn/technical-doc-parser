@@ -6,6 +6,9 @@
 
 namespace doc_parser::pdf {
 
+// Owns one FPDF_DOCUMENT. PdfReader instances are not thread-safe and must not
+// be shared across threads. Different readers may be used by different threads;
+// direct PDFium calls are serialized internally by the PDF module.
 class PdfReader {
 public:
     PdfReader() = default;

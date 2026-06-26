@@ -63,7 +63,7 @@ This repository targets technical and table-heavy documents such as:
 - scientific PDFs
 - table-heavy enterprise documents
 
-The first objective is to build a reliable end-to-end parsing system. Model fine-tuning is part of the roadmap, but the project prioritizes measurable engineering progress: reproducible pipelines, structured outputs, evaluation scripts, and deployable C++ components.
+The first objective is to build a reliable end-to-end parsing system. Model fine-tuning is part of the long-term plan, but the project prioritizes measurable engineering progress: reproducible pipelines, structured outputs, evaluation scripts, and deployable C++ components.
 
 ## Architecture
 
@@ -113,58 +113,45 @@ The project is designed around public datasets so the work can be reproduced:
 
 For demos, the project can also use a small collection of public technical manuals or specifications.
 
-## Roadmap
+## Implementation Milestones
 
-### Month 1: PDF and Image Pipeline
+### Phase 1: PDF Ingestion
 
-- Create a C++17/CMake project.
-- Render PDF pages with PDFium.
-- Save each page as an image.
-- Add OpenCV preprocessing:
-  - grayscale conversion
-  - binarization
-  - denoising
-  - deskewing
-- Produce debug images for each processing stage.
+- Maintain a reproducible C++17/CMake build.
+- Integrate PDFium through a pinned setup script.
+- Open PDF documents and inspect page metadata.
+- Render pages to image files.
+- Produce a minimal JSON/Markdown export.
 
-### Month 2: Layout Baseline
+### Phase 2: Image Preprocessing
 
-- Add a DocLayNet data adapter.
-- Train or evaluate a layout detection baseline.
-- Normalize layout output into document blocks:
-  - title
-  - text
-  - table
-  - figure
-  - list
-  - header/footer
+- Add OpenCV preprocessing.
+- Implement grayscale conversion, binarization, denoising, and deskewing.
+- Preserve intermediate debug artifacts for inspection and regression tests.
 
-### Month 3: OCR Integration
+### Phase 3: OCR and Text Reconstruction
 
 - Integrate an OCR baseline.
-- Normalize OCR output into words, lines, and blocks.
-- Implement reading-order reconstruction.
-- Merge OCR text with detected layout regions.
+- Normalize words, lines, confidence scores, and bounding boxes.
+- Reconstruct reading order and merge OCR text into page-level structures.
 
-### Month 4: Table Extraction
+### Phase 4: Layout Analysis
 
-- Add table detection and structure recovery.
-- Evaluate PubTables-1M or Table Transformer baselines.
+- Use DocLayNet for layout detection experiments.
+- Normalize layout regions into title, text, table, figure, list, header, and footer blocks.
+- Combine layout regions with OCR text.
+
+### Phase 5: Table Structure Recovery
+
+- Use PubTables-1M or Table Transformer as a table baseline.
 - Implement a rule-based `TableStructureBuilder` for line-based and aligned-text tables.
 - Export tables as JSON and Markdown.
 
-### Month 5: Document Tree and Export
+### Phase 6: Deployment and Evaluation
 
-- Combine layout, OCR, and table results into a single document tree.
-- Export structured JSON.
-- Export readable Markdown.
-- Add evaluation scripts and sample reports.
-
-### Month 6: C++ Inference and Deployment
-
-- Export trained models to ONNX.
+- Export models to ONNX where applicable.
 - Add C++ ONNX Runtime wrappers.
-- Benchmark Python vs C++ inference.
+- Add benchmark scripts and performance reports.
 - Add Docker packaging and optional HTTP/gRPC service.
 
 ## Current Status
@@ -187,6 +174,7 @@ cmake --build build
 
 - Dependency setup notes: [docs/dependencies.md](docs/dependencies.md)
 - Commit message convention: [docs/commit-convention.md](docs/commit-convention.md)
+- Development plan: [docs/roadmap.md](docs/roadmap.md)
 
 ## License
 

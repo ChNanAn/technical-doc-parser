@@ -18,6 +18,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(CLI11)
 
+enable_testing()
+
 option(DOC_PARSER_ENABLE_PDFIUM "Enable PDFium integration" ON)
 
 if(DOC_PARSER_ENABLE_PDFIUM)
@@ -26,6 +28,25 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     endif()
 
     find_package(PDFium CONFIG REQUIRED)
+
+    add_library(doc_parser_pdf
+        cpp/pdf/pdf_library.cpp
+    )
+
+    target_include_directories(doc_parser_pdf
+        PUBLIC
+            cpp
+    )
+
+    target_link_libraries(doc_parser_pdf
+        PUBLIC
+            pdfium
+    )
+
+    target_compile_options(doc_parser_pdf
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
 endif()
 
 add_executable(doc_parser
@@ -40,7 +61,7 @@ target_link_libraries(doc_parser
 if(DOC_PARSER_ENABLE_PDFIUM)
     target_link_libraries(doc_parser
         PRIVATE
-            pdfium
+            doc_parser_pdf
     )
 endif()
 
@@ -48,3 +69,21 @@ target_compile_options(doc_parser
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
 )
+
+if(DOC_PARSER_ENABLE_PDFIUM)
+    add_executable(pdf_library_smoke
+        tests/pdf_library_smoke.cpp
+    )
+
+    target_link_libraries(pdf_library_smoke
+        PRIVATE
+            doc_parser_pdf
+    )
+
+    target_compile_options(pdf_library_smoke
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
+
+    add_test(NAME pdf_library_smoke COMMAND pdf_library_smoke)
+endif()

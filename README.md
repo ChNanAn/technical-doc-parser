@@ -53,15 +53,9 @@ Example JSON:
 
 ## Scope
 
-This repository targets technical and table-heavy documents such as:
+This repository targets technical and table-heavy PDFs, especially documents that contain specifications, parameter tables, reports, standards, and other structured tabular data.
 
-- technical manuals
-- patents
-- tenders
-- reports
-- specifications
-- scientific PDFs
-- table-heavy enterprise documents
+The core layout, table, and OCR stages are intended to be developed and evaluated with public datasets first. Domain-specific technical document behavior is expected to come from schema design, table/parameter post-processing, traceable output, and a small curated demo set rather than from a large proprietary industrial dataset.
 
 The first objective is to build a reliable end-to-end parsing system. Model fine-tuning is part of the long-term plan, but the project prioritizes measurable engineering progress: reproducible pipelines, structured outputs, evaluation scripts, and deployable C++ components.
 
@@ -69,13 +63,13 @@ The first objective is to build a reliable end-to-end parsing system. Model fine
 
 This project is not intended to be a general-purpose document parsing platform. Its long-term value is in a narrower, engineering-focused direction:
 
-- **Technical and table-heavy PDFs**: optimize for specifications, manuals, tenders, reports, standards, and parameter-heavy documents instead of trying to cover every document category equally.
+- **Technical and table-heavy PDFs**: optimize for documents with specifications, parameter tables, reports, standards, and dense structured data instead of trying to cover every document category equally.
 - **Structured technical data**: recover sections, parameter names, values, units, conditions, table headers, merged cells, and source page coordinates rather than only producing plain Markdown.
 - **C++ native core**: keep the parsing core suitable for CLI use, library embedding, private deployment, and future ONNX Runtime inference.
 - **Explainable pipeline**: preserve intermediate artifacts such as rendered pages, preprocessing outputs, OCR boxes, layout regions, table cells, reading order, and debug overlays.
 - **RAG-ready output**: generate metadata-rich JSON and Markdown chunks that retain section hierarchy, table structure, page numbers, and bounding boxes for retrieval and question-answering workflows.
 
-The goal is to build a focused technical PDF structure engine: smaller in scope than broad document parsing platforms, but deeper in table reconstruction, parameter extraction, traceability, and native deployment.
+The goal is to build a focused technical PDF structure engine: smaller in scope than broad document parsing platforms, but deeper in table reconstruction, parameter-oriented post-processing, traceability, and native deployment.
 
 ## Architecture
 
@@ -123,7 +117,7 @@ The project is designed around public datasets so the work can be reproduced:
 - [PubTables-1M](https://github.com/microsoft/table-transformer): large-scale table detection and table structure recognition dataset.
 - [FUNSD](https://guillaumejaume.github.io/FUNSD/): small scanned form understanding dataset for OCR, entities, and relations.
 
-For demos, the project can also use a small collection of public technical manuals or specifications.
+For demos and targeted evaluation, the project can also use a small curated set of public technical PDFs.
 
 ## Implementation Milestones
 

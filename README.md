@@ -65,6 +65,18 @@ This repository targets technical and table-heavy documents such as:
 
 The first objective is to build a reliable end-to-end parsing system. Model fine-tuning is part of the long-term plan, but the project prioritizes measurable engineering progress: reproducible pipelines, structured outputs, evaluation scripts, and deployable C++ components.
 
+## Project Focus
+
+This project is not intended to be a general-purpose document parsing platform. Its long-term value is in a narrower, engineering-focused direction:
+
+- **Technical and table-heavy PDFs**: optimize for specifications, manuals, tenders, reports, standards, and parameter-heavy documents instead of trying to cover every document category equally.
+- **Structured technical data**: recover sections, parameter names, values, units, conditions, table headers, merged cells, and source page coordinates rather than only producing plain Markdown.
+- **C++ native core**: keep the parsing core suitable for CLI use, library embedding, private deployment, and future ONNX Runtime inference.
+- **Explainable pipeline**: preserve intermediate artifacts such as rendered pages, preprocessing outputs, OCR boxes, layout regions, table cells, reading order, and debug overlays.
+- **RAG-ready output**: generate metadata-rich JSON and Markdown chunks that retain section hierarchy, table structure, page numbers, and bounding boxes for retrieval and question-answering workflows.
+
+The goal is to build a focused technical PDF structure engine: smaller in scope than broad document parsing platforms, but deeper in table reconstruction, parameter extraction, traceability, and native deployment.
+
 ## Architecture
 
 ```text
@@ -156,7 +168,7 @@ For demos, the project can also use a small collection of public technical manua
 
 ## Current Status
 
-Early project scaffold. The first milestone is a minimal C++ CLI that can render PDF pages and write them to an output directory.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, PDFium lifetime management, PDF open/page-count support, and CI smoke tests. The next milestone is page rendering to image files.
 
 ## Build
 

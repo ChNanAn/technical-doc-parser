@@ -66,6 +66,12 @@ endif()
 
 add_executable(doc_parser
     cpp/app/main.cpp
+    cpp/pipeline/document_pipeline.cpp
+)
+
+target_include_directories(doc_parser
+    PRIVATE
+        cpp
 )
 
 target_link_libraries(doc_parser

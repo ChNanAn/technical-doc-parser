@@ -6,14 +6,34 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PDF_PATH="$ROOT_DIR/tests/fixtures/pdfs/pdfjs-basicapi.pdf"
 OUT_DIR="/tmp/technical-doc-parser-cli-smoke-output"
 PNG_PATH="$OUT_DIR/pages/page_1.png"
+JSON_PATH="$OUT_DIR/document.json"
 
 rm -rf "$OUT_DIR"
 "$DOC_PARSER" "$PDF_PATH" --out "$OUT_DIR" --dpi 72
 
 test -f "$PNG_PATH"
+test -f "$JSON_PATH"
 
 python3 - <<'PY'
+import json
 from pathlib import Path
+
+manifest = json.loads(Path("/tmp/technical-doc-parser-cli-smoke-output/document.json").read_text())
+if manifest["source"]["path"] == "":
+    raise SystemExit("source path is empty")
+if manifest["source"]["type"] != "pdf":
+    raise SystemExit(f"unexpected source type: {manifest['source']['type']!r}")
+if manifest["render"]["dpi"] != 72:
+    raise SystemExit(f"unexpected dpi: {manifest['render']['dpi']!r}")
+if not manifest["pages"]:
+    raise SystemExit("pages array is empty")
+first_page = manifest["pages"][0]
+if first_page["page_index"] != 0:
+    raise SystemExit(f"unexpected page_index: {first_page['page_index']!r}")
+if first_page["page_number"] != 1:
+    raise SystemExit(f"unexpected page_number: {first_page['page_number']!r}")
+if first_page["image"] != "pages/page_1.png":
+    raise SystemExit(f"unexpected image path: {first_page['image']!r}")
 
 png = Path("/tmp/technical-doc-parser-cli-smoke-output/pages/page_1.png")
 expected = b"\x89PNG\r\n\x1a\n"

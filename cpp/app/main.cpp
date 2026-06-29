@@ -6,7 +6,9 @@
 #endif
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <string>
 
 struct CliOptions {
@@ -59,14 +61,39 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    nlohmann::json manifest;
+    manifest["source"] = {
+        {"path", options.input_pdf},
+        {"type", "pdf"},
+    };
+    manifest["render"] = {
+        {"dpi", options.dpi},
+    };
+    manifest["pages"] = nlohmann::json::array();
+
     for (int page_index = 0; page_index < pages; ++page_index) {
-        const auto output_path = pages_dir / ("page_" + std::to_string(page_index + 1) + ".png");
+        const std::string relative_image = "pages/page_" + std::to_string(page_index + 1) + ".png";
+        const auto output_path = output_dir / std::filesystem::path(relative_image);
         if (!reader.renderPageToPng(page_index, options.dpi, output_path.string())) {
             std::cerr << "error: failed to render page " << page_index + 1 << '\n';
             return 2;
         }
+        manifest["pages"].push_back({
+            {"page_index", page_index},
+            {"page_number", page_index + 1},
+            {"image", relative_image},
+        });
         std::cout << "wrote: " << output_path.string() << '\n';
     }
+
+    const auto manifest_path = output_dir / "document.json";
+    std::ofstream manifest_file(manifest_path);
+    if (!manifest_file) {
+        std::cerr << "error: failed to write manifest: " << manifest_path << '\n';
+        return 2;
+    }
+    manifest_file << manifest.dump(2) << '\n';
+    std::cout << "wrote: " << manifest_path.string() << '\n';
 #else
     std::cout << "input_pdf: " << options.input_pdf << '\n'
               << "output_dir: " << options.output_dir << '\n'

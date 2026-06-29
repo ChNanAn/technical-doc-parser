@@ -65,3 +65,36 @@ third_party/stb/stb_image_write.h
 ```
 
 OpenCV will be introduced later for preprocessing, but the initial PDF-to-PNG path intentionally stays small.
+
+## nlohmann/json
+
+Structured parser output is written with [`nlohmann/json`](https://github.com/nlohmann/json), pulled by CMake `FetchContent`.
+
+The current pinned version is:
+
+```text
+v3.11.3
+```
+
+The first manifest is intentionally small:
+
+```json
+{
+  "source": {
+    "path": "input.pdf",
+    "type": "pdf"
+  },
+  "render": {
+    "dpi": 72
+  },
+  "pages": [
+    {
+      "page_index": 0,
+      "page_number": 1,
+      "image": "pages/page_1.png"
+    }
+  ]
+}
+```
+
+OCR, layout, and table fields will be added by later pipeline stages.

@@ -1,5 +1,7 @@
 #include "pipeline/document_pipeline.h"
 
+#include "pipeline/pipeline_context.h"
+
 #if DOC_PARSER_ENABLE_PDFIUM
 #include "pdf/pdf_library.h"
 #include "pdf/pdf_reader.h"
@@ -14,45 +16,45 @@
 namespace doc_parser::pipeline {
 
 bool DocumentPipeline::run(const app::CliOptions& options) const {
+    const PipelineContext context = PipelineContext::fromOptions(options);
+
 #if DOC_PARSER_ENABLE_PDFIUM
     pdf::PdfLibrary pdf_library;
     pdf::PdfReader reader;
 
-    if (!reader.open(options.input_pdf)) {
-        std::cerr << "error: failed to open PDF: " << options.input_pdf << '\n';
+    if (!reader.open(context.input_pdf.string())) {
+        std::cerr << "error: failed to open PDF: " << context.input_pdf << '\n';
         return false;
     }
 
     const int pages = reader.pageCount();
-    std::cout << "input_pdf: " << options.input_pdf << '\n'
-              << "output_dir: " << options.output_dir << '\n'
-              << "dpi: " << options.dpi << '\n'
-              << "debug: " << (options.debug ? "true" : "false") << '\n'
+    std::cout << "input_pdf: " << context.input_pdf.string() << '\n'
+              << "output_dir: " << context.output.root.string() << '\n'
+              << "dpi: " << context.render.dpi << '\n'
+              << "debug: " << (context.debug ? "true" : "false") << '\n'
               << "pages: " << pages << '\n';
 
-    const std::filesystem::path output_dir(options.output_dir);
-    const std::filesystem::path pages_dir = output_dir / "pages";
     std::error_code ec;
-    std::filesystem::create_directories(pages_dir, ec);
+    std::filesystem::create_directories(context.output.pages_dir, ec);
     if (ec) {
-        std::cerr << "error: failed to create output directory: " << pages_dir << '\n';
+        std::cerr << "error: failed to create output directory: " << context.output.pages_dir << '\n';
         return false;
     }
 
     nlohmann::json manifest;
     manifest["source"] = {
-        {"path", options.input_pdf},
+        {"path", context.input_pdf.string()},
         {"type", "pdf"},
     };
     manifest["render"] = {
-        {"dpi", options.dpi},
+        {"dpi", context.render.dpi},
     };
     manifest["pages"] = nlohmann::json::array();
 
     for (int page_index = 0; page_index < pages; ++page_index) {
         const std::string relative_image = "pages/page_" + std::to_string(page_index + 1) + ".png";
-        const auto output_path = output_dir / std::filesystem::path(relative_image);
-        if (!reader.renderPageToPng(page_index, options.dpi, output_path.string())) {
+        const auto output_path = context.output.root / std::filesystem::path(relative_image);
+        if (!reader.renderPageToPng(page_index, context.render.dpi, output_path.string())) {
             std::cerr << "error: failed to render page " << page_index + 1 << '\n';
             return false;
         }
@@ -64,20 +66,19 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         std::cout << "wrote: " << output_path.string() << '\n';
     }
 
-    const auto manifest_path = output_dir / "document.json";
-    std::ofstream manifest_file(manifest_path);
+    std::ofstream manifest_file(context.output.manifest_json);
     if (!manifest_file) {
-        std::cerr << "error: failed to write manifest: " << manifest_path << '\n';
+        std::cerr << "error: failed to write manifest: " << context.output.manifest_json << '\n';
         return false;
     }
     manifest_file << manifest.dump(2) << '\n';
-    std::cout << "wrote: " << manifest_path.string() << '\n';
+    std::cout << "wrote: " << context.output.manifest_json.string() << '\n';
     return true;
 #else
-    std::cout << "input_pdf: " << options.input_pdf << '\n'
-              << "output_dir: " << options.output_dir << '\n'
-              << "dpi: " << options.dpi << '\n'
-              << "debug: " << (options.debug ? "true" : "false") << '\n';
+    std::cout << "input_pdf: " << context.input_pdf.string() << '\n'
+              << "output_dir: " << context.output.root.string() << '\n'
+              << "dpi: " << context.render.dpi << '\n'
+              << "debug: " << (context.debug ? "true" : "false") << '\n';
     return true;
 #endif
 }

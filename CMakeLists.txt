@@ -66,6 +66,7 @@ endif()
 
 add_executable(doc_parser
     cpp/app/main.cpp
+    cpp/pipeline/pipeline_context.cpp
     cpp/pipeline/document_pipeline.cpp
 )
 

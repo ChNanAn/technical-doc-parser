@@ -104,6 +104,22 @@ target_compile_options(doc_parser
         $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
 )
 
+add_executable(text_model_smoke
+    tests/text_model_smoke.cpp
+)
+
+target_include_directories(text_model_smoke
+    PRIVATE
+        cpp
+)
+
+target_compile_options(text_model_smoke
+    PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+)
+
+add_test(NAME text_model_smoke COMMAND text_model_smoke)
+
 if(DOC_PARSER_ENABLE_PDFIUM)
     add_executable(pdf_library_smoke
         tests/pdf_library_smoke.cpp

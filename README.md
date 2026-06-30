@@ -71,27 +71,135 @@ This project is not intended to be a general-purpose document parsing platform. 
 
 The goal is to build a focused technical PDF structure engine: smaller in scope than broad document parsing platforms, but deeper in table reconstruction, parameter-oriented post-processing, traceability, and native deployment.
 
-## Architecture
+## Pipeline Boundaries
+
+The parser is organized as a staged pipeline. Each stage should have a narrow responsibility and pass typed intermediate data to the next stage. Implementation details can evolve, but stage boundaries should stay stable.
 
 ```text
-PDF
+PDF input
+  -> PDF ingestion
   -> page rendering
-  -> image preprocessing
-  -> OCR
-  -> layout detection
-  -> table extraction
-  -> document tree
-  -> JSON / Markdown
+  -> text extraction
+  -> layout analysis
+  -> table structure recovery
+  -> document assembly
+  -> export
 ```
+
+### Stage Responsibilities
+
+**PDF ingestion**
+
+Owns PDF backend setup and document access. This stage opens the PDF, manages PDFium lifetime, reads page count and page metadata, and hides PDFium-specific resource management from the rest of the pipeline.
+
+**Page rendering**
+
+Converts PDF pages into page images with stable output paths and render settings. It does not perform OCR, layout detection, or table reconstruction.
+
+Current output:
+
+```text
+pages/page_1.png
+pages/page_2.png
+```
+
+**Text extraction**
+
+Provides a unified text extraction interface. The pipeline should call one text extraction stage, not branch directly between PDFium, OCR, or future model-based extractors.
+
+Current strategy:
+
+```text
+PDF text layer -> PageText
+```
+
+Future strategy:
+
+```text
+if PDF text layer is usable:
+  use PDF text layer
+else:
+  use OCR
+```
+
+Both PDF text layer and OCR must normalize into the same internal text model:
+
+```text
+TextSpan -> TextLine -> PageText
+```
+
+This stage only provides text, coordinates, confidence, and source information. It does not decide whether a region is a title, paragraph, table, or figure.
+
+**Layout analysis**
+
+Classifies page regions into semantic block types such as:
+
+```text
+title
+text
+table
+figure
+header
+footer
+```
+
+Layout consumes page images and normalized text. It should output layout blocks with bounding boxes and confidence scores. It should not reconstruct table cells or export Markdown.
+
+**Table structure recovery**
+
+Consumes table layout blocks and the text tokens that fall inside those blocks. This stage is responsible for rows, columns, cells, merged cells, and table reading order.
+
+It should not care whether text came from the PDF text layer or OCR. It only consumes normalized text tokens and coordinates.
+
+**Document assembly**
+
+Combines layout blocks, text tokens, table structures, page metadata, and reading order into a structured document tree.
+
+This is the first stage that should create user-facing document structure:
+
+```text
+pages
+  blocks
+    title/text/table/figure
+```
+
+**Export**
+
+Writes the final consumer-facing outputs:
+
+```text
+document.json
+document.md
+```
+
+Export should not expose raw intermediate data by default. Intermediate values such as `PageText`, OCR boxes, layout proposals, and table debug cells should be preserved only in debug mode or explicit diagnostic outputs.
+
+### Intermediate Data Policy
+
+Intermediate models are for communication between stages, not the public output contract.
+
+Examples:
+
+```text
+PageText      text extraction -> layout/table
+LayoutBlock   layout -> document assembly/table
+TableCell     table recovery -> document assembly/export
+```
+
+Normal output should be the assembled document result. Debug output can include intermediate data to support inspection and regression tests.
+
+### Module Layout
 
 Planned module layout:
 
 ```text
 cpp/
   app/          CLI entrypoint
-  pdf/          PDFium-based PDF rendering
+  pipeline/     pipeline orchestration and stage interfaces
+  document/     shared internal document models
+  pdf/          PDFium-based PDF access, rendering, and PDF text extraction
   image/        OpenCV preprocessing
-  ocr/          OCR result normalization
+  ocr/          OCR adapters and text normalization
   layout/       layout block detection
   table/        table structure recovery
   inference/    ONNX Runtime inference wrappers
@@ -162,7 +270,15 @@ For demos and targeted evaluation, the project can also use a small curated set 
 
 ## Current Status
 
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, PDFium lifetime management, PDF open/page-count support, and CI smoke tests. The next milestone is page rendering to image files.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, PDFium lifetime management, PDF open/page-count support, page rendering, an internal text model, PDF text layer extraction, and smoke tests for the main pipeline pieces.
+
+The current pipeline is intentionally small:
+
+```text
+PDF -> rendered pages -> PageText -> minimal manifest
+```
+
+Next implementation work should keep the same stage boundaries while adding layout blocks, table structure recovery, and a dedicated export layer.
 
 ## Build
 

@@ -38,6 +38,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 
     add_library(doc_parser_pdf
         cpp/pdf/pdf_library.cpp
+        cpp/pdf/pdf_page_renderer.cpp
         cpp/pdf/pdf_reader.cpp
         cpp/pdf/pdfium_runtime.cpp
     )

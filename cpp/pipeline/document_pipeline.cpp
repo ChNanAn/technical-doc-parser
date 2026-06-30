@@ -4,14 +4,14 @@
 
 #if DOC_PARSER_ENABLE_PDFIUM
 #include "pdf/pdf_library.h"
+#include "pdf/pdf_page_renderer.h"
 #include "pdf/pdf_reader.h"
 #endif
 
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
-#include <string>
+#include <vector>
 
 namespace doc_parser::pipeline {
 
@@ -34,10 +34,17 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
               << "debug: " << (context.debug ? "true" : "false") << '\n'
               << "pages: " << pages << '\n';
 
-    std::error_code ec;
-    std::filesystem::create_directories(context.output.pages_dir, ec);
-    if (ec) {
-        std::cerr << "error: failed to create output directory: " << context.output.pages_dir << '\n';
+    pdf::PdfPageRenderer page_renderer;
+    std::vector<pdf::RenderedPage> rendered_pages;
+    if (!page_renderer.renderPages(
+            reader,
+            {
+                context.render.dpi,
+                context.output.root,
+                context.output.pages_dir,
+            },
+            rendered_pages
+        )) {
         return false;
     }
 
@@ -51,19 +58,13 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     };
     manifest["pages"] = nlohmann::json::array();
 
-    for (int page_index = 0; page_index < pages; ++page_index) {
-        const std::string relative_image = "pages/page_" + std::to_string(page_index + 1) + ".png";
-        const auto output_path = context.output.root / std::filesystem::path(relative_image);
-        if (!reader.renderPageToPng(page_index, context.render.dpi, output_path.string())) {
-            std::cerr << "error: failed to render page " << page_index + 1 << '\n';
-            return false;
-        }
+    for (const auto& page : rendered_pages) {
         manifest["pages"].push_back({
-            {"page_index", page_index},
-            {"page_number", page_index + 1},
-            {"image", relative_image},
+            {"page_index", page.page_index},
+            {"page_number", page.page_number},
+            {"image", page.relative_image},
         });
-        std::cout << "wrote: " << output_path.string() << '\n';
+        std::cout << "wrote: " << page.output_path.string() << '\n';
     }
 
     std::ofstream manifest_file(context.output.manifest_json);

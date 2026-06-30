@@ -1,0 +1,61 @@
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+BreakBeforeBraces: Attach  
+
+PointerAlignment: Left
+DerivePointerAlignment: false
+
+AccessModifierOffset: -4
+IndentAccessModifiers: false
+
+BinPackArguments: false
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+ConstructorInitializerIndentWidth: 4
+BreakConstructorInitializers: BeforeColon
+
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^"(lib/|core/|utils/|common/).*"'
+    Priority: 1
+  - Regex: '^".*"'
+    Priority: 2
+  - Regex: '^<(boost|gtest|gmock|absl)/.*>'
+    Priority: 3
+  - Regex: '^<[a-z].*>'
+    Priority: 4
+  - Regex: '^<.*>'
+    Priority: 5
+
+NamespaceIndentation: None
+FixNamespaceComments: true    
+
+Standard: c++17
+
+ReflowComments: true
+AlignTrailingComments: true   
+
+SpaceBeforeParens: ControlStatements
+SpacesInContainerLiterals: true
+Cpp11BracedListStyle: true
+EmptyLineBeforeAccessModifier: Always
+
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+AlignAfterOpenBracket: Align  
+
+PenaltyBreakAssignment: 10
+PenaltyBreakBeforeFirstCallParameter: 10
+PenaltyBreakComment: 10
+PenaltyBreakFirstLessLess: 10
+PenaltyBreakString: 10
+PenaltyExcessCharacter: 100   
+PenaltyReturnTypeOnItsOwnLine: 60

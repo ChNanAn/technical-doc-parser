@@ -286,8 +286,8 @@ Configure and build:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release --parallel
-./build/doc_parser input.pdf --out output/
+cmake --build build --config Release --target doc_parser --parallel
+./build/cpp/app/doc_parser input.pdf --out output/
 ```
 
 PDFium is downloaded automatically during CMake configure when it is missing. The pinned package is installed under `third_party/pdfium`, which is not committed to git.

@@ -282,15 +282,15 @@ Next implementation work should keep the same stage boundaries while adding layo
 
 ## Build
 
-Build instructions will be added after the initial CMake target and dependencies are wired.
-
-Planned local build:
+Configure and build:
 
 ```bash
-cmake -S . -B build
-cmake --build build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 ./build/doc_parser input.pdf --out output/
 ```
+
+PDFium is downloaded automatically during CMake configure when it is missing. The pinned package is installed under `third_party/pdfium`, which is not committed to git.
 
 ## Development
 

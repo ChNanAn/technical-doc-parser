@@ -6,16 +6,35 @@ This project keeps large native dependencies out of git. They are downloaded int
 
 PDF rendering uses prebuilt PDFium binaries from [`bblanchon/pdfium-binaries`](https://github.com/bblanchon/pdfium-binaries).
 
-Install the pinned Linux x64 build:
+CMake downloads the pinned Linux x64 build automatically when PDFium is enabled and the package is missing:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
+```
+
+The downloaded package is installed into:
+
+```text
+third_party/pdfium
+```
+
+Automatic setup can be disabled:
+
+```bash
+cmake -S . -B build -DDOC_PARSER_AUTO_SETUP_PDFIUM=OFF
+```
+
+The setup script can still be run manually when refreshing the local copy or debugging dependency setup:
 
 ```bash
 bash scripts/setup_pdfium.sh
 ```
 
-Then configure CMake:
+To use a custom PDFium location:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium
+cmake -S . -B build -DPDFium_DIR=/path/to/pdfium
 cmake --build build --config Release --parallel
 ```
 
@@ -39,7 +58,7 @@ To refresh the local copy:
 bash scripts/setup_pdfium.sh --force
 ```
 
-`third_party/pdfium/` is intentionally not committed because PDFium binaries are platform-specific and should be reproducible from the pinned setup script.
+`third_party/pdfium/` is intentionally not committed because PDFium binaries are platform-specific and should be reproducible from CMake setup or the pinned setup script.
 
 ### Threading policy
 

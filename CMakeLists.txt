@@ -40,6 +40,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
         cpp/pdf/pdf_library.cpp
         cpp/pdf/pdf_page_renderer.cpp
         cpp/pdf/pdf_reader.cpp
+        cpp/pdf/pdf_text_extractor.cpp
         cpp/pdf/pdfium_runtime.cpp
     )
 
@@ -83,6 +84,11 @@ target_link_libraries(doc_parser
 )
 
 if(DOC_PARSER_ENABLE_PDFIUM)
+    target_sources(doc_parser
+        PRIVATE
+            cpp/pipeline/text_extraction_stage.cpp
+    )
+
     target_link_libraries(doc_parser
         PRIVATE
             doc_parser_pdf
@@ -152,6 +158,25 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     )
 
     add_test(NAME pdf_reader_smoke COMMAND pdf_reader_smoke)
+
+    add_executable(pdf_text_extractor_smoke
+        tests/pdf_text_extractor_smoke.cpp
+    )
+
+    target_link_libraries(pdf_text_extractor_smoke
+        PRIVATE
+            doc_parser_pdf
+    )
+
+    target_compile_options(pdf_text_extractor_smoke
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
+
+    add_test(
+        NAME pdf_text_extractor_smoke
+        COMMAND pdf_text_extractor_smoke ${CMAKE_SOURCE_DIR}/tests/fixtures/pdfs/pdfjs-basicapi.pdf
+    )
 
     add_executable(pdf_render_smoke
         tests/pdf_render_smoke.cpp

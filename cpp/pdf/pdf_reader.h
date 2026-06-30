@@ -6,6 +6,8 @@
 
 namespace doc_parser::pdf {
 
+class PdfTextExtractor;
+
 // Owns one FPDF_DOCUMENT. PdfReader instances are not thread-safe and must not
 // be shared across threads. Different readers may be used by different threads;
 // direct PDFium calls are serialized internally by the PDF module.
@@ -25,6 +27,8 @@ public:
     bool renderPageToPng(int page_index, int dpi, const std::string& output_path) const;
 
 private:
+    friend class PdfTextExtractor;
+
     FPDF_DOCUMENT document_ = nullptr;
 };
 

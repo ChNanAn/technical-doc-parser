@@ -36,12 +36,12 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
       - name: Show help
-        run: ./build/doc_parser --help
+        run: ./build/cpp/app/doc_parser --help
 
       - name: Check argument validation
         run: |
           set +e
-          ./build/doc_parser missing.pdf --out output
+          ./build/cpp/app/doc_parser missing.pdf --out output
           status=$?
           set -e
           test "$status" -ne 0

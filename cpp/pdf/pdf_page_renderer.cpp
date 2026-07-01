@@ -1,5 +1,8 @@
 #include "pdf/pdf_page_renderer.h"
 
+#include "pdf/pdf_reader.h"
+#include "pdf/render_service.h"
+
 #include <cstddef>
 #include <filesystem>
 #include <iostream>

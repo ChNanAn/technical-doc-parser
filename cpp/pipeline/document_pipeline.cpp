@@ -5,8 +5,9 @@
 #if DOC_PARSER_ENABLE_PDFIUM
 #include "document/text_model.h"
 #include "pdf/pdf_library.h"
-#include "pdf/pdf_page_renderer.h"
 #include "pdf/pdf_reader.h"
+#include "pdf/render_service.h"
+#include "pdf/text_service.h"
 #include "pipeline/text_extraction_stage.h"
 #endif
 
@@ -77,57 +78,49 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     const PipelineContext context = PipelineContext::fromOptions(options);
 
 #if DOC_PARSER_ENABLE_PDFIUM
-    pdf::PdfLibrary pdf_library;
-    pdf::PdfReader reader;
+    const std::string input_pdf_path = context.input_pdf.string();
 
-    if (!reader.open(context.input_pdf.string())) {
+    pdf::PdfLibrary library;  // PDFium process init
+    pdf::PdfReader source;
+    if (!source.open(input_pdf_path)) {
         std::cerr << "error: failed to open PDF: " << context.input_pdf << '\n';
         return false;
     }
 
-    const int pages = reader.pageCount();
-    std::cout << "input_pdf: " << context.input_pdf.string() << '\n'
+    std::cout << "input_pdf: " << input_pdf_path << '\n'
               << "output_dir: " << context.output.root.string() << '\n'
               << "dpi: " << context.render.dpi << '\n'
               << "debug: " << (context.debug ? "true" : "false") << '\n'
-              << "pages: " << pages << '\n';
+              << "pages: " << source.pageCount() << '\n';
 
-    pdf::PdfPageRenderer page_renderer;
+    TextExtractionStage text_extraction;
+    std::vector<document::PageText> page_texts;
+    if (!text_extraction.extract(source, context.render.dpi, page_texts)) {
+        return false;
+    }
+
+    pdf::RenderService render;
     std::vector<pdf::RenderedPage> rendered_pages;
-    if (!page_renderer.renderPages(
-            reader,
+    if (!render.renderPages(
+            source,
             {
                 context.render.dpi,
                 context.output.root,
                 context.output.pages_dir,
             },
-            rendered_pages
-        )) {
+            rendered_pages)) {
         return false;
     }
 
     nlohmann::json manifest;
     manifest["source"] = {
-        {"path", context.input_pdf.string()},
+        {"path", input_pdf_path},
         {"type", "pdf"},
     };
     manifest["render"] = {
         {"dpi", context.render.dpi},
     };
     manifest["pages"] = nlohmann::json::array();
-
-    TextExtractionStage text_extraction;
-    std::vector<document::PageText> page_texts;
-    if (!text_extraction.extract(
-            {
-                &reader,
-                &rendered_pages,
-                context.render.dpi,
-            },
-            page_texts
-        )) {
-        return false;
-    }
 
     for (std::size_t index = 0; index < rendered_pages.size(); ++index) {
         const auto& page = rendered_pages[index];

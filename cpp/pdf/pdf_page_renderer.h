@@ -1,33 +1,21 @@
 #pragma once
 
-#include "pdf/pdf_reader.h"
-
 #include <filesystem>
-#include <string>
 #include <vector>
 
 namespace doc_parser::pdf {
 
-struct RenderRequest {
-    int dpi = 200;
-    std::filesystem::path output_root;
-    std::filesystem::path pages_dir;
-};
+// Forward decls — full definitions live in pdf/render_service.h
+class PdfReader;
+struct RenderRequest;
+struct RenderedPage;
 
-struct RenderedPage {
-    int page_index = 0;
-    int page_number = 0;
-    std::string relative_image;
-    std::filesystem::path output_path;
-};
-
+// Internal — invoked by RenderService.
 class PdfPageRenderer {
 public:
-    bool renderPages(
-        const PdfReader& reader,
-        const RenderRequest& request,
-        std::vector<RenderedPage>& pages
-    ) const;
+    bool renderPages(const PdfReader& reader,
+                     const RenderRequest& request,
+                     std::vector<RenderedPage>& pages) const;
 };
 
 }  // namespace doc_parser::pdf

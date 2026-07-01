@@ -12,11 +12,20 @@
 namespace doc_parser::pdf {
 
 PdfReader::~PdfReader() {
+    close();
+}
+
+void PdfReader::close() {
     std::lock_guard<std::mutex> lock(detail::pdfiumMutex());
     if (document_ != nullptr) {
         FPDF_CloseDocument(document_);
         document_ = nullptr;
     }
+}
+
+bool PdfReader::isOpen() const {
+    std::lock_guard<std::mutex> lock(detail::pdfiumMutex());
+    return document_ != nullptr;
 }
 
 bool PdfReader::open(const std::string& path) {

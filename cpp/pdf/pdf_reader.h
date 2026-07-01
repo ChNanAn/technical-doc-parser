@@ -23,6 +23,8 @@ public:
     PdfReader& operator=(PdfReader&&) = delete;
 
     bool open(const std::string& path);
+    void close();
+    bool isOpen() const;
     int pageCount() const;
     bool renderPageToPng(int page_index, int dpi, const std::string& output_path) const;
 

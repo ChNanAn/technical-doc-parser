@@ -1,12 +1,13 @@
 #include "pdf/pdf_text_extractor.h"
 
+#include "document/text_normalizer.h"
 #include "pdf/pdfium_runtime.h"
 #include "pdf/pdfium_scoped_handles.h"
 
-#include <algorithm>
 #include <fpdf_text.h>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace doc_parser::pdf {
 namespace {
@@ -39,76 +40,6 @@ document::BBox toRenderedBBox(double left, double right, double bottom, double t
         (page_height - bottom) * scale,
     };
 }
-
-void expandBBox(document::BBox& target, const document::BBox& value) {
-    target.x0 = std::min(target.x0, value.x0);
-    target.y0 = std::min(target.y0, value.y0);
-    target.x1 = std::max(target.x1, value.x1);
-    target.y1 = std::max(target.y1, value.y1);
-}
-
-bool isInlineWhitespace(unsigned int codepoint) { return codepoint == ' ' || codepoint == '\t'; }
-
-void startLine(document::PageText& page_text, const document::TextSpan& span) {
-    document::TextLine line;
-    line.text = span.text;
-    line.bbox = span.bbox;
-    line.source = span.source;
-    line.confidence = span.confidence;
-    line.spans.push_back(span);
-    page_text.lines.push_back(line);
-}
-
-void appendTextToLine(document::PageText& page_text, const std::string& text, const document::BBox& bbox) {
-    if (page_text.lines.empty()) {
-        return;
-    }
-
-    document::TextLine& line = page_text.lines.back();
-    line.text += text;
-    expandBBox(line.bbox, bbox);
-}
-
-void appendSpan(document::PageText& page_text, const document::TextSpan& span) {
-    if (page_text.lines.empty()) {
-        startLine(page_text, span);
-        return;
-    }
-
-    document::TextLine& line = page_text.lines.back();
-    expandBBox(line.bbox, span.bbox);
-    line.spans.push_back(span);
-}
-
-class SpanAccumulator {
-public:
-    void add(document::PageText& page_text, const document::TextSpan& span) {
-        appendTextToLine(page_text, span.text, span.bbox);
-
-        if (!has_span_) {
-            current_ = span;
-            has_span_ = true;
-            return;
-        }
-
-        current_.text += span.text;
-        expandBBox(current_.bbox, span.bbox);
-    }
-
-    void flush(document::PageText& page_text) {
-        if (!has_span_) {
-            return;
-        }
-
-        appendSpan(page_text, current_);
-        current_ = {};
-        has_span_ = false;
-    }
-
-private:
-    document::TextSpan current_;
-    bool has_span_ = false;
-};
 
 } // namespace
 
@@ -143,19 +74,21 @@ bool PdfTextExtractor::extractPageText(const PdfReader& reader,
     const double scale = static_cast<double>(request.dpi) / 72.0;
     const int char_count = FPDFText_CountChars(text_page.get());
     if (char_count <= 0) {
+        page_text = document::TextNormalizer().normalize(request.page_index, {});
         return true;
     }
 
-    bool pending_new_line = false;
-    SpanAccumulator span_accumulator;
+    std::vector<document::TextToken> tokens;
+    tokens.reserve(static_cast<std::size_t>(char_count));
     for (int index = 0; index < char_count; ++index) {
         const unsigned int codepoint = FPDFText_GetUnicode(text_page.get(), index);
         if (codepoint == 0) {
             continue;
         }
         if (codepoint == '\r' || codepoint == '\n') {
-            span_accumulator.flush(page_text);
-            pending_new_line = true;
+            document::TextToken line_break;
+            line_break.kind = document::TextTokenKind::LineBreak;
+            tokens.push_back(line_break);
             continue;
         }
 
@@ -170,33 +103,16 @@ bool PdfTextExtractor::extractPageText(const PdfReader& reader,
             continue;
         }
 
-        document::TextSpan span;
-        span.text = toUtf8(codepoint);
-        span.bbox = toRenderedBBox(left, right, bottom, top, page_height, scale);
-        span.source = document::TextSource::PdfTextLayer;
-        span.confidence = 1.0;
-
-        if (pending_new_line || page_text.lines.empty()) {
-            span_accumulator.flush(page_text);
-            startLine(page_text, span);
-            page_text.lines.back().text.clear();
-            page_text.lines.back().spans.clear();
-            pending_new_line = false;
-        }
-
-        if (isInlineWhitespace(codepoint)) {
-            span_accumulator.flush(page_text);
-            appendTextToLine(page_text, span.text, span.bbox);
-        } else {
-            span_accumulator.add(page_text, span);
-        }
+        tokens.push_back({
+            document::TextTokenKind::Glyph,
+            toUtf8(codepoint),
+            toRenderedBBox(left, right, bottom, top, page_height, scale),
+            document::TextSource::PdfTextLayer,
+            1.0,
+        });
     }
-    span_accumulator.flush(page_text);
 
-    page_text.has_text = !page_text.lines.empty();
-    page_text.preferred_source = page_text.has_text ? document::TextSource::PdfTextLayer
-                                                    : document::TextSource::Unknown;
-
+    page_text = document::TextNormalizer().normalize(request.page_index, tokens);
     return true;
 }
 

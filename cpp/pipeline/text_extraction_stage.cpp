@@ -3,6 +3,7 @@
 namespace doc_parser::pipeline {
 
 bool TextExtractionStage::extract(const pdf::PdfDocument& source,
+                                  const std::vector<document::PageArtifact>& pages,
                                   int dpi,
                                   std::vector<document::PageText>& page_texts) const {
     page_texts.clear();
@@ -15,8 +16,18 @@ bool TextExtractionStage::extract(const pdf::PdfDocument& source,
         return false;
     }
 
-    // TODO(ocr): for pages where page_texts[i].has_text is false, dispatch
-    // to an OCR adapter and update the entry in place.
+    if (page_texts.size() != pages.size()) {
+        return false;
+    }
+
+    for (std::size_t index = 0; index < page_texts.size(); ++index) {
+        if (page_texts[index].has_text) {
+            continue;
+        }
+        if (!ocr_.recognize(pages[index], dpi, page_texts[index])) {
+            return false;
+        }
+    }
 
     return true;
 }

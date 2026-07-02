@@ -22,6 +22,7 @@ target_include_directories(doc_parser_pdf
 
 target_link_libraries(doc_parser_pdf
     PUBLIC
+        doc_parser_document
         pdfium
 )
 

@@ -11,6 +11,19 @@ doc_parser_set_common_warnings(text_model_smoke)
 
 add_test(NAME text_model_smoke COMMAND text_model_smoke)
 
+add_executable(text_normalizer_smoke
+    text_normalizer_smoke.cpp
+)
+
+target_link_libraries(text_normalizer_smoke
+    PRIVATE
+        doc_parser_document
+)
+
+doc_parser_set_common_warnings(text_normalizer_smoke)
+
+add_test(NAME text_normalizer_smoke COMMAND text_normalizer_smoke)
+
 if(DOC_PARSER_ENABLE_OPENCV)
     add_executable(image_preprocessor_smoke
         image_preprocessor_smoke.cpp

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <vector>
 
 namespace doc_parser::exporter {
 namespace {
@@ -57,36 +58,47 @@ nlohmann::json pageTextToJson(const document::PageText& page_text) {
     };
 }
 
+nlohmann::json debugImagesToJson(const std::vector<document::DebugImageArtifact>& images) {
+    nlohmann::json image_json = nlohmann::json::array();
+    for (const auto& image : images) {
+        image_json.push_back({
+            {"name", image.name},
+            {"image", image.relative_image},
+        });
+    }
+    return image_json;
+}
+
 } // namespace
 
 bool JsonManifestWriter::write(const JsonManifestInput& input) const {
-    if (input.rendered_pages == nullptr || input.output_path.empty()) {
+    if (input.document == nullptr || input.output_path.empty()) {
         return false;
     }
-    if (input.debug && (input.page_texts == nullptr || input.page_texts->size() != input.rendered_pages->size())) {
-        std::cerr << "error: debug manifest requires one PageText per rendered page\n";
-        return false;
-    }
+
+    const document::ParsedDocument& document = *input.document;
 
     nlohmann::json manifest;
     manifest["source"] = {
-        {"path", input.source_path},
-        {"type", "pdf"},
+        {"path", document.source.path},
+        {"type", document.source.type},
     };
     manifest["render"] = {
-        {"dpi", input.dpi},
+        {"dpi", document.dpi},
     };
     manifest["pages"] = nlohmann::json::array();
 
-    for (std::size_t index = 0; index < input.rendered_pages->size(); ++index) {
-        const auto& page = input.rendered_pages->at(index);
+    for (const auto& page : document.pages) {
         nlohmann::json page_json = {
             {"page_index", page.page_index},
             {"page_number", page.page_number},
-            {"image", page.relative_image},
+            {"image", page.image.relative_image},
         };
         if (input.debug) {
-            page_json["debug"]["text"] = pageTextToJson(input.page_texts->at(index));
+            page_json["debug"]["text"] = pageTextToJson(page.text);
+            if (!page.image.debug_images.empty()) {
+                page_json["debug"]["images"] = debugImagesToJson(page.image.debug_images);
+            }
         }
         manifest["pages"].push_back(page_json);
     }

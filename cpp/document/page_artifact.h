@@ -15,11 +15,18 @@ struct PageBitmap {
     std::vector<unsigned char> pixels;
 };
 
+struct DebugImageArtifact {
+    std::string name;
+    std::string relative_image;
+    std::filesystem::path output_path;
+};
+
 struct PageArtifact {
     int page_index = 0;
     int page_number = 0;
     std::string relative_image;
     std::filesystem::path output_path;
+    std::vector<DebugImageArtifact> debug_images;
 };
 
 } // namespace doc_parser::document

@@ -39,6 +39,9 @@ option(DOC_PARSER_ENABLE_PDFIUM "Enable PDFium integration" ON)
 option(DOC_PARSER_AUTO_SETUP_PDFIUM "Download pinned PDFium during CMake configure if it is missing" ON)
 option(DOC_PARSER_ENABLE_OPENCV "Enable OpenCV image preprocessing" ON)
 
+add_subdirectory(cpp/document)
+add_subdirectory(cpp/ocr)
+
 if(DOC_PARSER_ENABLE_PDFIUM)
     include(PDFium)
     doc_parser_setup_pdfium()

@@ -25,11 +25,24 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     target_link_libraries(doc_parser
         PRIVATE
             doc_parser_pdf
+            doc_parser_ocr
     )
 
     target_compile_definitions(doc_parser
         PRIVATE
             DOC_PARSER_ENABLE_PDFIUM=1
+    )
+endif()
+
+if(DOC_PARSER_ENABLE_OPENCV)
+    target_link_libraries(doc_parser
+        PRIVATE
+            doc_parser_image
+    )
+
+    target_compile_definitions(doc_parser
+        PRIVATE
+            DOC_PARSER_ENABLE_OPENCV=1
     )
 endif()
 

@@ -52,8 +52,17 @@ if text["preferred_source"] != "pdf_text_layer":
     raise SystemExit(f"unexpected text source: {text['preferred_source']!r}")
 if not text["lines"]:
     raise SystemExit("debug text lines array is empty")
-if not text["lines"][0]["spans"]:
+first_line = text["lines"][0]
+if first_line["text"] != "Table Of Content":
+    raise SystemExit(f"unexpected first debug text line: {first_line['text']!r}")
+if not first_line["spans"]:
     raise SystemExit("first debug text line has no spans")
+span_texts = [span["text"] for span in first_line["spans"]]
+if span_texts != ["Table", "Of", "Content"]:
+    raise SystemExit(f"unexpected first debug text spans: {span_texts!r}")
+debug_images = debug_first_page.get("debug", {}).get("images", [])
+if debug_images and debug_images[0]["image"] != "debug/page_1_preprocessed.png":
+    raise SystemExit(f"unexpected debug image path: {debug_images[0]['image']!r}")
 
 png = Path("/tmp/technical-doc-parser-cli-smoke-output/pages/page_1.png")
 expected = b"\x89PNG\r\n\x1a\n"

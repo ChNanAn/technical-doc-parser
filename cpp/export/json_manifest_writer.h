@@ -1,7 +1,7 @@
 #pragma once
 
+#include "document/page_artifact.h"
 #include "document/text_model.h"
-#include "pdf/render_service.h"
 
 #include <filesystem>
 #include <string>
@@ -14,7 +14,7 @@ struct JsonManifestInput {
     int dpi = 200;
     bool debug = false;
     std::filesystem::path output_path;
-    const std::vector<pdf::RenderedPage>* rendered_pages = nullptr;
+    const std::vector<document::PageArtifact>* rendered_pages = nullptr;
     const std::vector<document::PageText>* page_texts = nullptr;
 };
 

@@ -1,4 +1,5 @@
 add_library(doc_parser_pdf
+    pdf_document.cpp
     pdf_library.cpp
     pdf_page_renderer.cpp
     pdf_reader.cpp

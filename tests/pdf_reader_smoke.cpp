@@ -1,18 +1,16 @@
-#include "pdf/pdf_library.h"
-#include "pdf/pdf_reader.h"
+#include "pdf/pdf_document.h"
 
 #include <iostream>
 
 int main() {
-    doc_parser::pdf::PdfLibrary library;
-    doc_parser::pdf::PdfReader reader;
+    doc_parser::pdf::PdfDocument document;
 
-    if (reader.open("tests/fixtures/does-not-exist.pdf")) {
+    if (document.open("tests/fixtures/does-not-exist.pdf")) {
         std::cerr << "expected missing PDF to fail\n";
         return 1;
     }
 
-    if (reader.pageCount() != 0) {
+    if (document.pageCount() != 0) {
         std::cerr << "expected missing PDF page count to be 0\n";
         return 1;
     }

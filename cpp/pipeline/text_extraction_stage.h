@@ -1,7 +1,7 @@
 #pragma once
 
 #include "document/text_model.h"
-#include "pdf/pdf_reader.h"
+#include "pdf/pdf_document.h"
 #include "pdf/text_service.h"
 
 #include <vector>
@@ -13,7 +13,7 @@ class TextExtractionStage {
 public:
     TextExtractionStage() = default;
 
-    bool extract(const pdf::PdfReader& source, int dpi, std::vector<document::PageText>& page_texts) const;
+    bool extract(const pdf::PdfDocument& source, int dpi, std::vector<document::PageText>& page_texts) const;
 
 private:
     pdf::TextService text_;

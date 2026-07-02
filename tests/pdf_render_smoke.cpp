@@ -1,9 +1,11 @@
-#include "pdf/pdf_library.h"
-#include "pdf/pdf_reader.h"
+#include "document/page_artifact.h"
+#include "pdf/pdf_document.h"
+#include "pdf/render_service.h"
 
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -72,23 +74,25 @@ bool hasPngSignature(const std::string& path) {
 
 int main() {
     const std::string pdf_path = "/tmp/technical-doc-parser-render-smoke.pdf";
-    const std::string png_path = "/tmp/technical-doc-parser-render-smoke.png";
+    const std::string output_root = "/tmp/technical-doc-parser-render-smoke-output";
     writeMinimalPdf(pdf_path);
 
-    doc_parser::pdf::PdfLibrary library;
-    doc_parser::pdf::PdfReader reader;
+    doc_parser::pdf::PdfDocument document;
 
-    if (!reader.open(pdf_path)) {
+    if (!document.open(pdf_path)) {
         std::cerr << "failed to open generated PDF\n";
         return 1;
     }
 
-    if (!reader.renderPageToPng(0, 72, png_path)) {
-        std::cerr << "failed to render page to PNG\n";
+    doc_parser::pdf::RenderService render_service;
+    std::vector<doc_parser::document::PageArtifact> pages;
+    if (!render_service.renderPages(document, {72, output_root, std::filesystem::path(output_root) / "pages"}, pages) ||
+        pages.empty()) {
+        std::cerr << "failed to render pages\n";
         return 1;
     }
 
-    if (!hasPngSignature(png_path)) {
+    if (!hasPngSignature(pages.front().output_path.string())) {
         std::cerr << "rendered file is not a PNG\n";
         return 1;
     }

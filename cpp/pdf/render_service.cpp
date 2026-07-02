@@ -6,9 +6,9 @@
 
 namespace doc_parser::pdf {
 
-bool RenderService::renderPages(const PdfReader& source,
+bool RenderService::renderPages(const PdfDocument& source,
                                 const RenderRequest& request,
-                                std::vector<RenderedPage>& pages) const {
+                                std::vector<document::PageArtifact>& pages) const {
     pages.clear();
 
     if (!source.isOpen()) {
@@ -16,7 +16,7 @@ bool RenderService::renderPages(const PdfReader& source,
     }
 
     PdfPageRenderer page_renderer;
-    if (!page_renderer.renderPages(source, request, pages)) {
+    if (!page_renderer.renderPages(source.reader(), request, pages)) {
         std::cerr << "error: failed to render pages" << '\n';
         return false;
     }

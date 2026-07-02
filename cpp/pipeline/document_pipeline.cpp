@@ -4,8 +4,7 @@
 
 #if DOC_PARSER_ENABLE_PDFIUM
 #include "export/json_manifest_writer.h"
-#include "pdf/pdf_library.h"
-#include "pdf/pdf_reader.h"
+#include "pdf/pdf_document.h"
 #include "pdf/render_service.h"
 #include "pipeline/text_extraction_stage.h"
 #endif
@@ -21,8 +20,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
 #if DOC_PARSER_ENABLE_PDFIUM
     const std::string input_pdf_path = context.input_pdf.string();
 
-    pdf::PdfLibrary library; // PDFium process init
-    pdf::PdfReader source;
+    pdf::PdfDocument source;
     if (!source.open(input_pdf_path)) {
         std::cerr << "error: failed to open PDF: " << context.input_pdf << '\n';
         return false;
@@ -41,7 +39,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
 
     pdf::RenderService render;
-    std::vector<pdf::RenderedPage> rendered_pages;
+    std::vector<document::PageArtifact> rendered_pages;
     if (!render.renderPages(source,
                             {
                                 context.render.dpi,
@@ -71,11 +69,8 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     std::cout << "wrote: " << context.output.manifest_json.string() << '\n';
     return true;
 #else
-    std::cout << "input_pdf: " << context.input_pdf.string() << '\n'
-              << "output_dir: " << context.output.root.string() << '\n'
-              << "dpi: " << context.render.dpi << '\n'
-              << "debug: " << (context.debug ? "true" : "false") << '\n';
-    return true;
+    std::cerr << "error: PDFium integration is disabled; PDF parsing is unavailable\n";
+    return false;
 #endif
 }
 

@@ -6,7 +6,7 @@
 
 namespace doc_parser::pdf {
 
-bool TextService::extractText(const PdfReader& source, int dpi, std::vector<document::PageText>& page_texts) const {
+bool TextService::extractText(const PdfDocument& source, int dpi, std::vector<document::PageText>& page_texts) const {
     page_texts.clear();
 
     if (!source.isOpen() || dpi <= 0) {
@@ -23,7 +23,7 @@ bool TextService::extractText(const PdfReader& source, int dpi, std::vector<docu
 
     for (int page_index = 0; page_index < page_count; ++page_index) {
         document::PageText page_text;
-        if (!pdf_text_extractor.extractPageText(source, {page_index, dpi}, page_text)) {
+        if (!pdf_text_extractor.extractPageText(source.reader(), {page_index, dpi}, page_text)) {
             std::cerr << "error: failed to extract text for page " << (page_index + 1) << '\n';
             return false;
         }

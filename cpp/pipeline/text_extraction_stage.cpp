@@ -2,7 +2,7 @@
 
 namespace doc_parser::pipeline {
 
-bool TextExtractionStage::extract(const pdf::PdfReader& source,
+bool TextExtractionStage::extract(const pdf::PdfDocument& source,
                                   int dpi,
                                   std::vector<document::PageText>& page_texts) const {
     page_texts.clear();

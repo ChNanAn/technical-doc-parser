@@ -5,6 +5,7 @@
 
 namespace doc_parser::pdf {
 
+class PdfPageRenderer;
 class PdfTextExtractor;
 
 // Owns one FPDF_DOCUMENT. PdfReader instances are not thread-safe and must not
@@ -25,9 +26,9 @@ public:
     void close();
     bool isOpen() const;
     int pageCount() const;
-    bool renderPageToPng(int page_index, int dpi, const std::string& output_path) const;
 
 private:
+    friend class PdfPageRenderer;
     friend class PdfTextExtractor;
 
     FPDF_DOCUMENT document_ = nullptr;

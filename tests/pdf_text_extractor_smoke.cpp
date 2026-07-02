@@ -1,10 +1,10 @@
 #include "document/text_model.h"
-#include "pdf/pdf_library.h"
-#include "pdf/pdf_reader.h"
-#include "pdf/pdf_text_extractor.h"
+#include "pdf/pdf_document.h"
+#include "pdf/text_service.h"
 
 #include <iostream>
 #include <string>
+#include <vector>
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -12,20 +12,20 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    doc_parser::pdf::PdfLibrary library;
-    doc_parser::pdf::PdfReader reader;
-    if (!reader.open(argv[1])) {
+    doc_parser::pdf::PdfDocument document;
+    if (!document.open(argv[1])) {
         std::cerr << "failed to open fixture PDF: " << argv[1] << '\n';
         return 1;
     }
 
-    doc_parser::pdf::PdfTextExtractor extractor;
-    doc_parser::document::PageText page_text;
-    if (!extractor.extractPageText(reader, {0, 72}, page_text)) {
-        std::cerr << "failed to extract page text\n";
+    doc_parser::pdf::TextService text_service;
+    std::vector<doc_parser::document::PageText> page_texts;
+    if (!text_service.extractText(document, 72, page_texts) || page_texts.empty()) {
+        std::cerr << "failed to extract document text\n";
         return 1;
     }
 
+    const auto& page_text = page_texts.front();
     if (!page_text.has_text) {
         std::cerr << "expected fixture PDF to contain text\n";
         return 1;

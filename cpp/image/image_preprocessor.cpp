@@ -1,9 +1,8 @@
 #include "image/image_preprocessor.h"
 
+#include <filesystem>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-
-#include <filesystem>
 
 namespace doc_parser::image {
 
@@ -22,11 +21,9 @@ cv::Mat ImagePreprocessor::preprocess(const cv::Mat& input, const PreprocessOpti
     return result;
 }
 
-bool ImagePreprocessor::preprocessFile(
-    const std::filesystem::path& input_path,
-    const std::filesystem::path& output_path,
-    const PreprocessOptions& options
-) const {
+bool ImagePreprocessor::preprocessFile(const std::filesystem::path& input_path,
+                                       const std::filesystem::path& output_path,
+                                       const PreprocessOptions& options) const {
     const cv::Mat input = cv::imread(input_path.string(), cv::IMREAD_COLOR);
     const cv::Mat output = preprocess(input, options);
     if (output.empty()) {
@@ -64,4 +61,4 @@ cv::Mat ImagePreprocessor::binarize(const cv::Mat& grayscale) const {
     return output;
 }
 
-}  // namespace doc_parser::image
+} // namespace doc_parser::image

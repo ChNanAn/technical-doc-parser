@@ -12,11 +12,8 @@ struct TextExtractionRequest {
 
 class PdfTextExtractor {
 public:
-    bool extractPageText(
-        const PdfReader& reader,
-        const TextExtractionRequest& request,
-        document::PageText& page_text
-    ) const;
+    bool
+    extractPageText(const PdfReader& reader, const TextExtractionRequest& request, document::PageText& page_text) const;
 };
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

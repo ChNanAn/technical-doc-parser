@@ -13,12 +13,10 @@ class TextExtractionStage {
 public:
     TextExtractionStage() = default;
 
-    bool extract(const pdf::PdfReader& source,
-                 int dpi,
-                 std::vector<document::PageText>& page_texts) const;
+    bool extract(const pdf::PdfReader& source, int dpi, std::vector<document::PageText>& page_texts) const;
 
 private:
     pdf::TextService text_;
 };
 
-}  // namespace doc_parser::pipeline
+} // namespace doc_parser::pipeline

@@ -11,4 +11,4 @@ struct CliOptions {
     bool debug = false;
 };
 
-}  // namespace doc_parser::app
+} // namespace doc_parser::app

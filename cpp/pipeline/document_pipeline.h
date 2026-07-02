@@ -9,4 +9,4 @@ public:
     bool run(const app::CliOptions& options) const;
 };
 
-}  // namespace doc_parser::pipeline
+} // namespace doc_parser::pipeline

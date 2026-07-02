@@ -1,20 +1,17 @@
 #include "image/image_preprocessor.h"
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-
 #include <filesystem>
 #include <iostream>
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 int main() {
     cv::Mat input(8, 8, CV_8UC3);
     for (int y = 0; y < input.rows; ++y) {
         for (int x = 0; x < input.cols; ++x) {
-            input.at<cv::Vec3b>(y, x) = cv::Vec3b(
-                static_cast<unsigned char>(x * 20),
-                static_cast<unsigned char>(y * 20),
-                static_cast<unsigned char>((x + y) * 10)
-            );
+            input.at<cv::Vec3b>(y, x) = cv::Vec3b(static_cast<unsigned char>(x * 20),
+                                                  static_cast<unsigned char>(y * 20),
+                                                  static_cast<unsigned char>((x + y) * 10));
         }
     }
 

@@ -1,11 +1,10 @@
 #include "pdf/pdf_text_extractor.h"
 
-#include "pdf/pdfium_scoped_handles.h"
 #include "pdf/pdfium_runtime.h"
-
-#include <fpdf_text.h>
+#include "pdf/pdfium_scoped_handles.h"
 
 #include <algorithm>
+#include <fpdf_text.h>
 #include <mutex>
 #include <string>
 
@@ -32,14 +31,7 @@ std::string toUtf8(unsigned int codepoint) {
     return result;
 }
 
-document::BBox toRenderedBBox(
-    double left,
-    double right,
-    double bottom,
-    double top,
-    double page_height,
-    double scale
-) {
+document::BBox toRenderedBBox(double left, double right, double bottom, double top, double page_height, double scale) {
     return {
         left * scale,
         (page_height - top) * scale,
@@ -55,9 +47,7 @@ void expandBBox(document::BBox& target, const document::BBox& value) {
     target.y1 = std::max(target.y1, value.y1);
 }
 
-bool isInlineWhitespace(unsigned int codepoint) {
-    return codepoint == ' ' || codepoint == '\t';
-}
+bool isInlineWhitespace(unsigned int codepoint) { return codepoint == ' ' || codepoint == '\t'; }
 
 void startLine(document::PageText& page_text, const document::TextSpan& span) {
     document::TextLine line;
@@ -120,13 +110,11 @@ private:
     bool has_span_ = false;
 };
 
-}  // namespace
+} // namespace
 
-bool PdfTextExtractor::extractPageText(
-    const PdfReader& reader,
-    const TextExtractionRequest& request,
-    document::PageText& page_text
-) const {
+bool PdfTextExtractor::extractPageText(const PdfReader& reader,
+                                       const TextExtractionRequest& request,
+                                       document::PageText& page_text) const {
     page_text = {};
     page_text.page_index = request.page_index;
     page_text.page_number = request.page_index + 1;
@@ -206,10 +194,10 @@ bool PdfTextExtractor::extractPageText(
     span_accumulator.flush(page_text);
 
     page_text.has_text = !page_text.lines.empty();
-    page_text.preferred_source =
-        page_text.has_text ? document::TextSource::PdfTextLayer : document::TextSource::Unknown;
+    page_text.preferred_source = page_text.has_text ? document::TextSource::PdfTextLayer
+                                                    : document::TextSource::Unknown;
 
     return true;
 }
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

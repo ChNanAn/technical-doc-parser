@@ -21,7 +21,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
 #if DOC_PARSER_ENABLE_PDFIUM
     const std::string input_pdf_path = context.input_pdf.string();
 
-    pdf::PdfLibrary library;  // PDFium process init
+    pdf::PdfLibrary library; // PDFium process init
     pdf::PdfReader source;
     if (!source.open(input_pdf_path)) {
         std::cerr << "error: failed to open PDF: " << context.input_pdf << '\n';
@@ -42,14 +42,13 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
 
     pdf::RenderService render;
     std::vector<pdf::RenderedPage> rendered_pages;
-    if (!render.renderPages(
-            source,
-            {
-                context.render.dpi,
-                context.output.root,
-                context.output.pages_dir,
-            },
-            rendered_pages)) {
+    if (!render.renderPages(source,
+                            {
+                                context.render.dpi,
+                                context.output.root,
+                                context.output.pages_dir,
+                            },
+                            rendered_pages)) {
         return false;
     }
 
@@ -80,4 +79,4 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
 #endif
 }
 
-}  // namespace doc_parser::pipeline
+} // namespace doc_parser::pipeline

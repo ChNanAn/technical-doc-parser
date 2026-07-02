@@ -6,9 +6,7 @@
 
 namespace doc_parser::pdf {
 
-bool TextService::extractText(const PdfReader& source,
-                              int dpi,
-                              std::vector<document::PageText>& page_texts) const {
+bool TextService::extractText(const PdfReader& source, int dpi, std::vector<document::PageText>& page_texts) const {
     page_texts.clear();
 
     if (!source.isOpen() || dpi <= 0) {
@@ -39,4 +37,4 @@ bool TextService::extractText(const PdfReader& source,
     return true;
 }
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

@@ -21,4 +21,4 @@ bool TextExtractionStage::extract(const pdf::PdfReader& source,
     return true;
 }
 
-}  // namespace doc_parser::pipeline
+} // namespace doc_parser::pipeline

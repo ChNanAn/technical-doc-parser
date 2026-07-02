@@ -16,4 +16,4 @@ PipelineContext PipelineContext::fromOptions(const app::CliOptions& options) {
     return context;
 }
 
-}  // namespace doc_parser::pipeline
+} // namespace doc_parser::pipeline

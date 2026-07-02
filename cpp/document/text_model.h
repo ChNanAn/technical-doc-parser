@@ -41,4 +41,4 @@ struct PageText {
     std::vector<TextLine> lines;
 };
 
-}  // namespace doc_parser::document
+} // namespace doc_parser::document

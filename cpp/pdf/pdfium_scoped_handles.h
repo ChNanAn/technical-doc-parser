@@ -2,7 +2,6 @@
 
 #include <fpdf_text.h>
 #include <fpdfview.h>
-
 #include <memory>
 #include <type_traits>
 
@@ -36,4 +35,4 @@ using ScopedPdfPage = std::unique_ptr<std::remove_pointer_t<FPDF_PAGE>, PdfPageD
 using ScopedPdfBitmap = std::unique_ptr<std::remove_pointer_t<FPDF_BITMAP>, PdfBitmapDeleter>;
 using ScopedPdfTextPage = std::unique_ptr<std::remove_pointer_t<FPDF_TEXTPAGE>, PdfTextPageDeleter>;
 
-}  // namespace doc_parser::pdf::detail
+} // namespace doc_parser::pdf::detail

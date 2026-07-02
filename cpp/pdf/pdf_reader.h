@@ -1,7 +1,6 @@
 #pragma once
 
 #include <fpdfview.h>
-
 #include <string>
 
 namespace doc_parser::pdf {
@@ -34,4 +33,4 @@ private:
     FPDF_DOCUMENT document_ = nullptr;
 };
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

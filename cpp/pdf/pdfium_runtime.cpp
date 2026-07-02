@@ -7,4 +7,4 @@ std::mutex& pdfiumMutex() {
     return mutex;
 }
 
-}  // namespace doc_parser::pdf::detail
+} // namespace doc_parser::pdf::detail

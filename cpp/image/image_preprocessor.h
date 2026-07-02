@@ -1,8 +1,7 @@
 #pragma once
 
-#include <opencv2/core.hpp>
-
 #include <filesystem>
+#include <opencv2/core.hpp>
 
 namespace doc_parser::image {
 
@@ -19,11 +18,9 @@ class ImagePreprocessor {
 public:
     cv::Mat preprocess(const cv::Mat& input, const PreprocessOptions& options = {}) const;
 
-    bool preprocessFile(
-        const std::filesystem::path& input_path,
-        const std::filesystem::path& output_path,
-        const PreprocessOptions& options = {}
-    ) const;
+    bool preprocessFile(const std::filesystem::path& input_path,
+                        const std::filesystem::path& output_path,
+                        const PreprocessOptions& options = {}) const;
 
 private:
     cv::Mat toGrayscale(const cv::Mat& input) const;
@@ -31,4 +28,4 @@ private:
     cv::Mat binarize(const cv::Mat& grayscale) const;
 };
 
-}  // namespace doc_parser::image
+} // namespace doc_parser::image

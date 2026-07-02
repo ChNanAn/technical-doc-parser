@@ -9,4 +9,4 @@ namespace doc_parser::pdf::detail {
 // without leaking threading policy to callers.
 std::mutex& pdfiumMutex();
 
-}  // namespace doc_parser::pdf::detail
+} // namespace doc_parser::pdf::detail

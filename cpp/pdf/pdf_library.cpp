@@ -12,7 +12,7 @@ int& pdfLibraryRefCount() {
     return ref_count;
 }
 
-}  // namespace
+} // namespace
 
 PdfLibrary::PdfLibrary() {
     std::lock_guard<std::mutex> lock(detail::pdfiumMutex());
@@ -36,4 +36,4 @@ PdfLibrary::~PdfLibrary() {
     }
 }
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

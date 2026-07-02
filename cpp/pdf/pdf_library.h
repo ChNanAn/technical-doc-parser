@@ -16,4 +16,4 @@ public:
     PdfLibrary& operator=(PdfLibrary&&) = delete;
 };
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

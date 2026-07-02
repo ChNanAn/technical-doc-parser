@@ -2,8 +2,8 @@
 #include "pdf/pdf_reader.h"
 
 #include <array>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -43,7 +43,14 @@ void writeMinimalPdf(const std::string& path) {
 
 bool hasPngSignature(const std::string& path) {
     constexpr std::array<std::uint8_t, 8> expected = {
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        0x89,
+        0x50,
+        0x4E,
+        0x47,
+        0x0D,
+        0x0A,
+        0x1A,
+        0x0A,
     };
 
     std::array<char, expected.size()> actual = {};
@@ -61,7 +68,7 @@ bool hasPngSignature(const std::string& path) {
     return true;
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     const std::string pdf_path = "/tmp/technical-doc-parser-render-smoke.pdf";

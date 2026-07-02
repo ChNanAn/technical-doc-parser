@@ -26,9 +26,7 @@ class RenderService {
 public:
     RenderService() = default;
 
-    bool renderPages(const PdfReader& source,
-                     const RenderRequest& request,
-                     std::vector<RenderedPage>& pages) const;
+    bool renderPages(const PdfReader& source, const RenderRequest& request, std::vector<RenderedPage>& pages) const;
 };
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

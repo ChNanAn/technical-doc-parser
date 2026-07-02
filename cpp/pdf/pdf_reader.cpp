@@ -1,20 +1,17 @@
 #include "pdf/pdf_reader.h"
 
-#include "pdf/pdfium_scoped_handles.h"
 #include "pdf/pdfium_runtime.h"
+#include "pdf/pdfium_scoped_handles.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
-
 #include <cmath>
 #include <cstdint>
+#include <stb_image_write.h>
 #include <vector>
 
 namespace doc_parser::pdf {
 
-PdfReader::~PdfReader() {
-    close();
-}
+PdfReader::~PdfReader() { close(); }
 
 void PdfReader::close() {
     std::lock_guard<std::mutex> lock(detail::pdfiumMutex());
@@ -99,4 +96,4 @@ bool PdfReader::renderPageToPng(int page_index, int dpi, const std::string& outp
     return ok != 0;
 }
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

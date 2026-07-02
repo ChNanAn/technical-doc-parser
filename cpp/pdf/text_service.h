@@ -12,9 +12,7 @@ class TextService {
 public:
     TextService() = default;
 
-    bool extractText(const PdfReader& source,
-                     int dpi,
-                     std::vector<document::PageText>& page_texts) const;
+    bool extractText(const PdfReader& source, int dpi, std::vector<document::PageText>& page_texts) const;
 };
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

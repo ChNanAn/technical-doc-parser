@@ -23,4 +23,4 @@ public:
     bool write(const JsonManifestInput& input) const;
 };
 
-}  // namespace doc_parser::exporter
+} // namespace doc_parser::exporter

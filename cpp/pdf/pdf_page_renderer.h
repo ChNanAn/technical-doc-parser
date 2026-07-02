@@ -13,9 +13,7 @@ struct RenderedPage;
 // Internal — invoked by RenderService.
 class PdfPageRenderer {
 public:
-    bool renderPages(const PdfReader& reader,
-                     const RenderRequest& request,
-                     std::vector<RenderedPage>& pages) const;
+    bool renderPages(const PdfReader& reader, const RenderRequest& request, std::vector<RenderedPage>& pages) const;
 };
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

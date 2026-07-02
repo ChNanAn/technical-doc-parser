@@ -9,11 +9,9 @@
 
 namespace doc_parser::pdf {
 
-bool PdfPageRenderer::renderPages(
-    const PdfReader& reader,
-    const RenderRequest& request,
-    std::vector<RenderedPage>& pages
-) const {
+bool PdfPageRenderer::renderPages(const PdfReader& reader,
+                                  const RenderRequest& request,
+                                  std::vector<RenderedPage>& pages) const {
     pages.clear();
 
     std::error_code ec;
@@ -46,4 +44,4 @@ bool PdfPageRenderer::renderPages(
     return true;
 }
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

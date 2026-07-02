@@ -24,4 +24,4 @@ bool RenderService::renderPages(const PdfReader& source,
     return true;
 }
 
-}  // namespace doc_parser::pdf
+} // namespace doc_parser::pdf

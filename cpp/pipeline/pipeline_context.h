@@ -26,4 +26,4 @@ struct PipelineContext {
     static PipelineContext fromOptions(const app::CliOptions& options);
 };
 
-}  // namespace doc_parser::pipeline
+} // namespace doc_parser::pipeline

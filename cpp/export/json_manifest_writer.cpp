@@ -9,12 +9,12 @@ namespace {
 
 const char* textSourceToString(document::TextSource source) {
     switch (source) {
-        case document::TextSource::PdfTextLayer:
-            return "pdf_text_layer";
-        case document::TextSource::Ocr:
-            return "ocr";
-        case document::TextSource::Unknown:
-            return "unknown";
+    case document::TextSource::PdfTextLayer:
+        return "pdf_text_layer";
+    case document::TextSource::Ocr:
+        return "ocr";
+    case document::TextSource::Unknown:
+        return "unknown";
     }
     return "unknown";
 }
@@ -57,14 +57,13 @@ nlohmann::json pageTextToJson(const document::PageText& page_text) {
     };
 }
 
-}  // namespace
+} // namespace
 
 bool JsonManifestWriter::write(const JsonManifestInput& input) const {
     if (input.rendered_pages == nullptr || input.output_path.empty()) {
         return false;
     }
-    if (input.debug &&
-        (input.page_texts == nullptr || input.page_texts->size() != input.rendered_pages->size())) {
+    if (input.debug && (input.page_texts == nullptr || input.page_texts->size() != input.rendered_pages->size())) {
         std::cerr << "error: debug manifest requires one PageText per rendered page\n";
         return false;
     }
@@ -102,4 +101,4 @@ bool JsonManifestWriter::write(const JsonManifestInput& input) const {
     return true;
 }
 
-}  // namespace doc_parser::exporter
+} // namespace doc_parser::exporter

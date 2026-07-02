@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     name: Build and smoke test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -25,6 +25,9 @@ jobs:
 
       - name: Install PDFium
         run: bash scripts/setup_pdfium.sh
+
+      - name: Install OpenCV
+        run: sudo apt-get update && sudo apt-get install -y libopencv-dev
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium

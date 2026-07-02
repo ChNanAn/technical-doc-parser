@@ -83,7 +83,40 @@ The vendored header lives at:
 third_party/stb/stb_image_write.h
 ```
 
-OpenCV will be introduced later for preprocessing, but the initial PDF-to-PNG path intentionally stays small.
+The initial PDF-to-PNG path intentionally stays small and does not depend on OpenCV.
+
+## OpenCV
+
+Image preprocessing uses OpenCV 4.x with the `core`, `imgproc`, and `imgcodecs` components.
+
+The project supports OpenCV 4.5 and newer. CI uses Ubuntu 24.04 with the distribution-provided
+`libopencv-dev` package as the reference environment.
+
+Install OpenCV through your system package manager:
+
+```bash
+# Ubuntu / Debian
+sudo apt-get install -y libopencv-dev
+
+# macOS
+brew install opencv
+```
+
+CMake detects OpenCV from the `cpp/image` module:
+
+```cmake
+find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs)
+```
+
+If OpenCV is not installed, disable image preprocessing while configuring:
+
+```bash
+cmake -S . -B build -DDOC_PARSER_ENABLE_OPENCV=OFF
+```
+
+OpenCV is treated as a system dependency rather than a vendored dependency. It is large, platform-specific,
+and usually pulls additional image codec libraries from the host package manager. Keeping it external avoids
+long source builds and large committed binaries while still letting CI pin a repeatable reference OS.
 
 ## nlohmann/json
 

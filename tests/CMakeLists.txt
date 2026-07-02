@@ -7,12 +7,24 @@ target_include_directories(text_model_smoke
         ${PROJECT_SOURCE_DIR}/cpp
 )
 
-target_compile_options(text_model_smoke
-    PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-)
+doc_parser_set_common_warnings(text_model_smoke)
 
 add_test(NAME text_model_smoke COMMAND text_model_smoke)
+
+if(DOC_PARSER_ENABLE_OPENCV)
+    add_executable(image_preprocessor_smoke
+        image_preprocessor_smoke.cpp
+    )
+
+    target_link_libraries(image_preprocessor_smoke
+        PRIVATE
+            doc_parser_image
+    )
+
+    doc_parser_set_common_warnings(image_preprocessor_smoke)
+
+    add_test(NAME image_preprocessor_smoke COMMAND image_preprocessor_smoke)
+endif()
 
 if(DOC_PARSER_ENABLE_PDFIUM)
     add_test(
@@ -29,10 +41,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
             doc_parser_pdf
     )
 
-    target_compile_options(pdf_library_smoke
-        PRIVATE
-            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-    )
+    doc_parser_set_common_warnings(pdf_library_smoke)
 
     add_test(NAME pdf_library_smoke COMMAND pdf_library_smoke)
 
@@ -45,10 +54,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
             doc_parser_pdf
     )
 
-    target_compile_options(pdf_reader_smoke
-        PRIVATE
-            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-    )
+    doc_parser_set_common_warnings(pdf_reader_smoke)
 
     add_test(NAME pdf_reader_smoke COMMAND pdf_reader_smoke)
 
@@ -61,10 +67,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
             doc_parser_pdf
     )
 
-    target_compile_options(pdf_text_extractor_smoke
-        PRIVATE
-            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-    )
+    doc_parser_set_common_warnings(pdf_text_extractor_smoke)
 
     add_test(
         NAME pdf_text_extractor_smoke
@@ -80,10 +83,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
             doc_parser_pdf
     )
 
-    target_compile_options(pdf_render_smoke
-        PRIVATE
-            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-    )
+    doc_parser_set_common_warnings(pdf_render_smoke)
 
     add_test(NAME pdf_render_smoke COMMAND pdf_render_smoke)
 endif()

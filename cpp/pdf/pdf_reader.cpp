@@ -1,5 +1,6 @@
 #include "pdf/pdf_reader.h"
 
+#include "pdf/pdfium_scoped_handles.h"
 #include "pdf/pdfium_runtime.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -58,30 +59,28 @@ bool PdfReader::renderPageToPng(int page_index, int dpi, const std::string& outp
         return false;
     }
 
-    FPDF_PAGE page = FPDF_LoadPage(document_, page_index);
+    detail::ScopedPdfPage page(FPDF_LoadPage(document_, page_index));
     if (page == nullptr) {
         return false;
     }
 
     const double scale = static_cast<double>(dpi) / 72.0;
-    const int width = static_cast<int>(std::lround(FPDF_GetPageWidthF(page) * scale));
-    const int height = static_cast<int>(std::lround(FPDF_GetPageHeightF(page) * scale));
+    const int width = static_cast<int>(std::lround(FPDF_GetPageWidthF(page.get()) * scale));
+    const int height = static_cast<int>(std::lround(FPDF_GetPageHeightF(page.get()) * scale));
     if (width <= 0 || height <= 0) {
-        FPDF_ClosePage(page);
         return false;
     }
 
-    FPDF_BITMAP bitmap = FPDFBitmap_Create(width, height, 1);
+    detail::ScopedPdfBitmap bitmap(FPDFBitmap_Create(width, height, 1));
     if (bitmap == nullptr) {
-        FPDF_ClosePage(page);
         return false;
     }
 
-    FPDFBitmap_FillRect(bitmap, 0, 0, width, height, 0xFFFFFFFF);
-    FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, 0);
+    FPDFBitmap_FillRect(bitmap.get(), 0, 0, width, height, 0xFFFFFFFF);
+    FPDF_RenderPageBitmap(bitmap.get(), page.get(), 0, 0, width, height, 0, 0);
 
-    const auto* bgra = static_cast<const std::uint8_t*>(FPDFBitmap_GetBuffer(bitmap));
-    const int stride = FPDFBitmap_GetStride(bitmap);
+    const auto* bgra = static_cast<const std::uint8_t*>(FPDFBitmap_GetBuffer(bitmap.get()));
+    const int stride = FPDFBitmap_GetStride(bitmap.get());
     std::vector<std::uint8_t> rgba(static_cast<std::size_t>(width) * height * 4);
 
     for (int y = 0; y < height; ++y) {
@@ -97,8 +96,6 @@ bool PdfReader::renderPageToPng(int page_index, int dpi, const std::string& outp
 
     const int ok = stbi_write_png(output_path.c_str(), width, height, 4, rgba.data(), width * 4);
 
-    FPDFBitmap_Destroy(bitmap);
-    FPDF_ClosePage(page);
     return ok != 0;
 }
 

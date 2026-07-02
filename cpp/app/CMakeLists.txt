@@ -18,6 +18,7 @@ target_link_libraries(doc_parser
 if(DOC_PARSER_ENABLE_PDFIUM)
     target_sources(doc_parser
         PRIVATE
+            ../export/json_manifest_writer.cpp
             ../pipeline/text_extraction_stage.cpp
     )
 
@@ -32,7 +33,4 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     )
 endif()
 
-target_compile_options(doc_parser
-    PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-)
+doc_parser_set_common_warnings(doc_parser)

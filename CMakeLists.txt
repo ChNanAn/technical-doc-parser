@@ -28,6 +28,13 @@ FetchContent_MakeAvailable(nlohmann_json)
 
 enable_testing()
 
+function(doc_parser_set_common_warnings target_name)
+    target_compile_options(${target_name}
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
+endfunction()
+
 option(DOC_PARSER_ENABLE_PDFIUM "Enable PDFium integration" ON)
 option(DOC_PARSER_AUTO_SETUP_PDFIUM "Download pinned PDFium during CMake configure if it is missing" ON)
 option(DOC_PARSER_ENABLE_OPENCV "Enable OpenCV image preprocessing" ON)

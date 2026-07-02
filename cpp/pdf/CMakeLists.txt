@@ -24,7 +24,4 @@ target_link_libraries(doc_parser_pdf
         pdfium
 )
 
-target_compile_options(doc_parser_pdf
-    PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
-)
+doc_parser_set_common_warnings(doc_parser_pdf)

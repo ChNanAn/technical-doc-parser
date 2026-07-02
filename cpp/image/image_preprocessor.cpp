@@ -3,6 +3,8 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <filesystem>
+
 namespace doc_parser::image {
 
 cv::Mat ImagePreprocessor::preprocess(const cv::Mat& input, const PreprocessOptions& options) const {
@@ -29,6 +31,13 @@ bool ImagePreprocessor::preprocessFile(
     const cv::Mat output = preprocess(input, options);
     if (output.empty()) {
         return false;
+    }
+    if (!output_path.parent_path().empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(output_path.parent_path(), ec);
+        if (ec) {
+            return false;
+        }
     }
     return cv::imwrite(output_path.string(), output);
 }

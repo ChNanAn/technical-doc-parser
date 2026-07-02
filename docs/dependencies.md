@@ -89,7 +89,7 @@ The initial PDF-to-PNG path intentionally stays small and does not depend on Ope
 
 Image preprocessing uses OpenCV 4.x with the `core`, `imgproc`, and `imgcodecs` components.
 
-The project supports OpenCV 4.5 and newer. CI uses Ubuntu 24.04 with the distribution-provided
+The project supports OpenCV 4.2 and newer. CI uses Ubuntu 24.04 with the distribution-provided
 `libopencv-dev` package as the reference environment.
 
 Install OpenCV through your system package manager:
@@ -105,7 +105,7 @@ brew install opencv
 CMake detects OpenCV from the `cpp/image` module:
 
 ```cmake
-find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs)
+find_package(OpenCV 4.2 REQUIRED COMPONENTS core imgproc imgcodecs)
 ```
 
 If OpenCV is not installed, disable image preprocessing while configuring:

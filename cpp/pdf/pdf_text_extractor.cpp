@@ -1,5 +1,6 @@
 #include "pdf/pdf_text_extractor.h"
 
+#include "pdf/pdfium_scoped_handles.h"
 #include "pdf/pdfium_runtime.h"
 
 #include <fpdf_text.h>
@@ -54,6 +55,10 @@ void expandBBox(document::BBox& target, const document::BBox& value) {
     target.y1 = std::max(target.y1, value.y1);
 }
 
+bool isInlineWhitespace(unsigned int codepoint) {
+    return codepoint == ' ' || codepoint == '\t';
+}
+
 void startLine(document::PageText& page_text, const document::TextSpan& span) {
     document::TextLine line;
     line.text = span.text;
@@ -64,6 +69,16 @@ void startLine(document::PageText& page_text, const document::TextSpan& span) {
     page_text.lines.push_back(line);
 }
 
+void appendTextToLine(document::PageText& page_text, const std::string& text, const document::BBox& bbox) {
+    if (page_text.lines.empty()) {
+        return;
+    }
+
+    document::TextLine& line = page_text.lines.back();
+    line.text += text;
+    expandBBox(line.bbox, bbox);
+}
+
 void appendSpan(document::PageText& page_text, const document::TextSpan& span) {
     if (page_text.lines.empty()) {
         startLine(page_text, span);
@@ -71,10 +86,39 @@ void appendSpan(document::PageText& page_text, const document::TextSpan& span) {
     }
 
     document::TextLine& line = page_text.lines.back();
-    line.text += span.text;
     expandBBox(line.bbox, span.bbox);
     line.spans.push_back(span);
 }
+
+class SpanAccumulator {
+public:
+    void add(document::PageText& page_text, const document::TextSpan& span) {
+        appendTextToLine(page_text, span.text, span.bbox);
+
+        if (!has_span_) {
+            current_ = span;
+            has_span_ = true;
+            return;
+        }
+
+        current_.text += span.text;
+        expandBBox(current_.bbox, span.bbox);
+    }
+
+    void flush(document::PageText& page_text) {
+        if (!has_span_) {
+            return;
+        }
+
+        appendSpan(page_text, current_);
+        current_ = {};
+        has_span_ = false;
+    }
+
+private:
+    document::TextSpan current_;
+    bool has_span_ = false;
+};
 
 }  // namespace
 
@@ -97,33 +141,32 @@ bool PdfTextExtractor::extractPageText(
         return false;
     }
 
-    FPDF_PAGE page = FPDF_LoadPage(reader.document_, request.page_index);
+    detail::ScopedPdfPage page(FPDF_LoadPage(reader.document_, request.page_index));
     if (page == nullptr) {
         return false;
     }
 
-    FPDF_TEXTPAGE text_page = FPDFText_LoadPage(page);
+    detail::ScopedPdfTextPage text_page(FPDFText_LoadPage(page.get()));
     if (text_page == nullptr) {
-        FPDF_ClosePage(page);
         return false;
     }
 
-    const double page_height = FPDF_GetPageHeightF(page);
+    const double page_height = FPDF_GetPageHeightF(page.get());
     const double scale = static_cast<double>(request.dpi) / 72.0;
-    const int char_count = FPDFText_CountChars(text_page);
+    const int char_count = FPDFText_CountChars(text_page.get());
     if (char_count <= 0) {
-        FPDFText_ClosePage(text_page);
-        FPDF_ClosePage(page);
         return true;
     }
 
     bool pending_new_line = false;
+    SpanAccumulator span_accumulator;
     for (int index = 0; index < char_count; ++index) {
-        const unsigned int codepoint = FPDFText_GetUnicode(text_page, index);
+        const unsigned int codepoint = FPDFText_GetUnicode(text_page.get(), index);
         if (codepoint == 0) {
             continue;
         }
         if (codepoint == '\r' || codepoint == '\n') {
+            span_accumulator.flush(page_text);
             pending_new_line = true;
             continue;
         }
@@ -132,7 +175,7 @@ bool PdfTextExtractor::extractPageText(
         double right = 0.0;
         double bottom = 0.0;
         double top = 0.0;
-        if (!FPDFText_GetCharBox(text_page, index, &left, &right, &bottom, &top)) {
+        if (!FPDFText_GetCharBox(text_page.get(), index, &left, &right, &bottom, &top)) {
             continue;
         }
         if (right < left || top < bottom) {
@@ -146,19 +189,26 @@ bool PdfTextExtractor::extractPageText(
         span.confidence = 1.0;
 
         if (pending_new_line || page_text.lines.empty()) {
+            span_accumulator.flush(page_text);
             startLine(page_text, span);
+            page_text.lines.back().text.clear();
+            page_text.lines.back().spans.clear();
             pending_new_line = false;
+        }
+
+        if (isInlineWhitespace(codepoint)) {
+            span_accumulator.flush(page_text);
+            appendTextToLine(page_text, span.text, span.bbox);
         } else {
-            appendSpan(page_text, span);
+            span_accumulator.add(page_text, span);
         }
     }
+    span_accumulator.flush(page_text);
 
     page_text.has_text = !page_text.lines.empty();
     page_text.preferred_source =
         page_text.has_text ? document::TextSource::PdfTextLayer : document::TextSource::Unknown;
 
-    FPDFText_ClosePage(text_page);
-    FPDF_ClosePage(page);
     return true;
 }
 

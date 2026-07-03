@@ -26,7 +26,19 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
-enable_testing()
+include(CTest)
+
+if(BUILD_TESTING)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+        GIT_SHALLOW TRUE
+    )
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+endif()
 
 function(doc_parser_set_common_warnings target_name)
     target_compile_options(${target_name}
@@ -40,6 +52,7 @@ option(DOC_PARSER_AUTO_SETUP_PDFIUM "Download pinned PDFium during CMake configu
 option(DOC_PARSER_ENABLE_OPENCV "Enable OpenCV image preprocessing" ON)
 
 add_subdirectory(cpp/document)
+add_subdirectory(cpp/export)
 add_subdirectory(cpp/ocr)
 
 if(DOC_PARSER_ENABLE_PDFIUM)
@@ -53,4 +66,7 @@ if(DOC_PARSER_ENABLE_OPENCV)
 endif()
 
 add_subdirectory(cpp/app)
-add_subdirectory(tests)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

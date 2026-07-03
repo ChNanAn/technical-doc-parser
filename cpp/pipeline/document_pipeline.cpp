@@ -22,6 +22,7 @@ namespace doc_parser::pipeline {
 namespace {
 
 #if DOC_PARSER_ENABLE_PDFIUM
+#if DOC_PARSER_ENABLE_OPENCV
 std::string relativeToOutputRoot(const std::filesystem::path& path, const PipelineContext& context) {
     const std::filesystem::path relative_path = path.lexically_relative(context.output.root);
     if (relative_path.empty()) {
@@ -29,6 +30,7 @@ std::string relativeToOutputRoot(const std::filesystem::path& path, const Pipeli
     }
     return relative_path.generic_string();
 }
+#endif
 
 bool preprocessDebugImages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) {
     if (!context.debug) {
@@ -52,6 +54,8 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
         });
         std::cout << "wrote: " << output_path.string() << '\n';
     }
+#else
+    (void)pages;
 #endif
 
     return true;

@@ -5,7 +5,10 @@
 namespace doc_parser::document {
 namespace {
 
-bool isInlineWhitespace(const TextToken& token) { return token.text == " " || token.text == "\t"; }
+bool isInlineWhitespace(const TextToken& token) {
+    return !token.text.empty() &&
+           std::all_of(token.text.begin(), token.text.end(), [](char value) { return value == ' ' || value == '\t'; });
+}
 
 TextSpan toSpan(const TextToken& token) {
     return {
@@ -41,6 +44,10 @@ void appendTextToLine(PageText& page_text, const std::string& text, const BBox& 
     TextLine& line = page_text.lines.back();
     line.text += text;
     expandBBox(line.bbox, bbox);
+}
+
+std::vector<TextLine>::const_iterator findFirstTextLine(const std::vector<TextLine>& lines) {
+    return std::find_if(lines.begin(), lines.end(), [](const TextLine& line) { return !line.spans.empty(); });
 }
 
 void appendSpan(PageText& page_text, const TextSpan& span) {
@@ -99,6 +106,14 @@ PageText TextNormalizer::normalize(int page_index, const std::vector<TextToken>&
             pending_new_line = true;
             continue;
         }
+        if (token.text.empty()) {
+            continue;
+        }
+
+        const bool whitespace = isInlineWhitespace(token);
+        if (whitespace && (page_text.lines.empty() || pending_new_line)) {
+            continue;
+        }
 
         const TextSpan span = toSpan(token);
         if (pending_new_line || page_text.lines.empty()) {
@@ -109,7 +124,7 @@ PageText TextNormalizer::normalize(int page_index, const std::vector<TextToken>&
             pending_new_line = false;
         }
 
-        if (isInlineWhitespace(token)) {
+        if (whitespace) {
             span_accumulator.flush(page_text);
             appendTextToLine(page_text, span.text, span.bbox);
         } else {
@@ -118,8 +133,9 @@ PageText TextNormalizer::normalize(int page_index, const std::vector<TextToken>&
     }
     span_accumulator.flush(page_text);
 
-    page_text.has_text = !page_text.lines.empty();
-    page_text.preferred_source = page_text.has_text ? page_text.lines.front().source : TextSource::Unknown;
+    const auto first_text_line = findFirstTextLine(page_text.lines);
+    page_text.has_text = first_text_line != page_text.lines.end();
+    page_text.preferred_source = page_text.has_text ? first_text_line->source : TextSource::Unknown;
     return page_text;
 }
 

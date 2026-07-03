@@ -3,18 +3,23 @@
 #include "document/parsed_document.h"
 
 #include <filesystem>
+#include <memory>
 
 namespace doc_parser::exporter {
 
-struct JsonManifestInput {
+struct DocumentExportRequest {
     bool debug = false;
     std::filesystem::path output_path;
     const document::ParsedDocument* document = nullptr;
 };
 
-class JsonManifestWriter {
+class IDocumentExporter {
 public:
-    bool write(const JsonManifestInput& input) const;
+    virtual ~IDocumentExporter() = default;
+
+    virtual bool write(const DocumentExportRequest& request) const = 0;
 };
+
+std::unique_ptr<IDocumentExporter> createDefaultDocumentExporter();
 
 } // namespace doc_parser::exporter

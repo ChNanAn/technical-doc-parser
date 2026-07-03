@@ -1,5 +1,6 @@
 add_library(doc_parser_export
-    json_manifest_writer.cpp
+    document_exporter.cpp
+    json_document_exporter.cpp
 )
 
 target_include_directories(doc_parser_export

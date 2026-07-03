@@ -1,14 +1,10 @@
 #include "pipeline/document_pipeline.h"
 
 #include "document/parsed_document.h"
+#include "export/document_exporter.h"
+#include "pipeline/document_backend_factory.h"
 #include "pipeline/pipeline_context.h"
-
-#if DOC_PARSER_ENABLE_PDFIUM
-#include "export/json_manifest_writer.h"
-#include "pdf/pdf_document.h"
-#include "pdf/render_service.h"
-#include "pipeline/text_extraction_stage.h"
-#endif
+#include "pipeline/stage_interfaces.h"
 
 #if DOC_PARSER_ENABLE_OPENCV
 #include "image/image_preprocessor.h"
@@ -21,7 +17,6 @@
 namespace doc_parser::pipeline {
 namespace {
 
-#if DOC_PARSER_ENABLE_PDFIUM
 #if DOC_PARSER_ENABLE_OPENCV
 std::string relativeToOutputRoot(const std::filesystem::path& path, const PipelineContext& context) {
     const std::filesystem::path relative_path = path.lexically_relative(context.output.root);
@@ -61,8 +56,8 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
     return true;
 }
 
-bool assembleParsedDocument(const std::string& input_pdf_path,
-                            int dpi,
+bool assembleParsedDocument(const IDocumentBackend& backend,
+                            const PipelineContext& context,
                             const std::vector<document::PageArtifact>& pages,
                             const std::vector<document::PageText>& page_texts,
                             document::ParsedDocument& document) {
@@ -72,9 +67,9 @@ bool assembleParsedDocument(const std::string& input_pdf_path,
     }
 
     document = {};
-    document.source.path = input_pdf_path;
-    document.source.type = "pdf";
-    document.dpi = dpi;
+    document.source.path = backend.sourcePath();
+    document.source.type = backend.sourceType();
+    document.dpi = context.render.dpi;
     document.pages.reserve(pages.size());
 
     for (std::size_t index = 0; index < pages.size(); ++index) {
@@ -88,37 +83,31 @@ bool assembleParsedDocument(const std::string& input_pdf_path,
 
     return true;
 }
-#endif
 
 } // namespace
 
 bool DocumentPipeline::run(const app::CliOptions& options) const {
     const PipelineContext context = PipelineContext::fromOptions(options);
 
-#if DOC_PARSER_ENABLE_PDFIUM
-    const std::string input_pdf_path = context.input_pdf.string();
+    const auto backend = createDefaultDocumentBackend();
+    if (backend == nullptr) {
+        std::cerr << "error: no document backend is enabled\n";
+        return false;
+    }
 
-    pdf::PdfDocument source;
-    if (!source.open(input_pdf_path)) {
+    if (!backend->open(context.input_pdf)) {
         std::cerr << "error: failed to open PDF: " << context.input_pdf << '\n';
         return false;
     }
 
-    std::cout << "input_pdf: " << input_pdf_path << '\n'
+    std::cout << "input_pdf: " << backend->sourcePath() << '\n'
               << "output_dir: " << context.output.root.string() << '\n'
               << "dpi: " << context.render.dpi << '\n'
               << "debug: " << (context.debug ? "true" : "false") << '\n'
-              << "pages: " << source.pageCount() << '\n';
+              << "pages: " << backend->pageCount() << '\n';
 
-    pdf::RenderService render;
     std::vector<document::PageArtifact> rendered_pages;
-    if (!render.renderPages(source,
-                            {
-                                context.render.dpi,
-                                context.output.root,
-                                context.output.pages_dir,
-                            },
-                            rendered_pages)) {
+    if (!backend->renderPages(context, rendered_pages)) {
         return false;
     }
 
@@ -130,19 +119,23 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         return false;
     }
 
-    TextExtractionStage text_extraction;
     std::vector<document::PageText> page_texts;
-    if (!text_extraction.extract(source, rendered_pages, context.render.dpi, page_texts)) {
+    if (!backend->extractText(context, rendered_pages, page_texts)) {
         return false;
     }
 
     document::ParsedDocument parsed_document;
-    if (!assembleParsedDocument(input_pdf_path, context.render.dpi, rendered_pages, page_texts, parsed_document)) {
+    if (!assembleParsedDocument(*backend, context, rendered_pages, page_texts, parsed_document)) {
         return false;
     }
 
-    const exporter::JsonManifestWriter manifest_writer;
-    if (!manifest_writer.write({
+    const auto document_exporter = exporter::createDefaultDocumentExporter();
+    if (document_exporter == nullptr) {
+        std::cerr << "error: no document exporter is enabled\n";
+        return false;
+    }
+
+    if (!document_exporter->write({
             context.debug,
             context.output.manifest_json,
             &parsed_document,
@@ -152,10 +145,6 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
 
     std::cout << "wrote: " << context.output.manifest_json.string() << '\n';
     return true;
-#else
-    std::cerr << "error: PDFium integration is disabled; PDF parsing is unavailable\n";
-    return false;
-#endif
 }
 
 } // namespace doc_parser::pipeline

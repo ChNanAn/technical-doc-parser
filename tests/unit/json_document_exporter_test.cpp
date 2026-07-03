@@ -1,4 +1,4 @@
-#include "export/json_manifest_writer.h"
+#include "export/json_document_exporter.h"
 
 #include <gtest/gtest.h>
 
@@ -17,7 +17,7 @@ using doc_parser::document::ParsedPage;
 using doc_parser::document::TextLine;
 using doc_parser::document::TextSource;
 using doc_parser::document::TextSpan;
-using doc_parser::exporter::JsonManifestWriter;
+using doc_parser::exporter::JsonDocumentExporter;
 
 std::filesystem::path tempManifestPath(const std::string& name) {
     return std::filesystem::temp_directory_path() / name;
@@ -75,12 +75,12 @@ nlohmann::json readJson(const std::filesystem::path& path) {
 
 } // namespace
 
-TEST(JsonManifestWriterTest, WritesManifestWithoutDebugFieldsByDefault) {
-    const auto output_path = tempManifestPath("tdp_json_manifest_writer_normal_test.json");
+TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_normal_test.json");
     std::filesystem::remove(output_path);
 
     const ParsedDocument document = makeDocument();
-    ASSERT_TRUE(JsonManifestWriter().write({
+    ASSERT_TRUE(JsonDocumentExporter().write({
         false,
         output_path,
         &document,
@@ -99,12 +99,12 @@ TEST(JsonManifestWriterTest, WritesManifestWithoutDebugFieldsByDefault) {
     std::filesystem::remove(output_path);
 }
 
-TEST(JsonManifestWriterTest, WritesDebugTextAndImagesWhenRequested) {
-    const auto output_path = tempManifestPath("tdp_json_manifest_writer_debug_test.json");
+TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_debug_test.json");
     std::filesystem::remove(output_path);
 
     const ParsedDocument document = makeDocument();
-    ASSERT_TRUE(JsonManifestWriter().write({
+    ASSERT_TRUE(JsonDocumentExporter().write({
         true,
         output_path,
         &document,
@@ -125,10 +125,10 @@ TEST(JsonManifestWriterTest, WritesDebugTextAndImagesWhenRequested) {
     std::filesystem::remove(output_path);
 }
 
-TEST(JsonManifestWriterTest, RejectsMissingDocument) {
-    const auto output_path = tempManifestPath("tdp_json_manifest_writer_missing_document_test.json");
+TEST(JsonDocumentExporterTest, RejectsMissingDocument) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_missing_document_test.json");
 
-    EXPECT_FALSE(JsonManifestWriter().write({
+    EXPECT_FALSE(JsonDocumentExporter().write({
         false,
         output_path,
         nullptr,

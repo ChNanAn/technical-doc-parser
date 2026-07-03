@@ -1,7 +1,7 @@
 include(GoogleTest)
 
 add_executable(domain_unit_tests
-    json_manifest_writer_test.cpp
+    json_document_exporter_test.cpp
     text_normalizer_test.cpp
 )
 

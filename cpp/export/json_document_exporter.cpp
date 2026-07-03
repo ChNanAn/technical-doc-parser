@@ -1,4 +1,4 @@
-#include "export/json_manifest_writer.h"
+#include "export/json_document_exporter.h"
 
 #include <fstream>
 #include <iostream>
@@ -71,12 +71,12 @@ nlohmann::json debugImagesToJson(const std::vector<document::DebugImageArtifact>
 
 } // namespace
 
-bool JsonManifestWriter::write(const JsonManifestInput& input) const {
-    if (input.document == nullptr || input.output_path.empty()) {
+bool JsonDocumentExporter::write(const DocumentExportRequest& request) const {
+    if (request.document == nullptr || request.output_path.empty()) {
         return false;
     }
 
-    const document::ParsedDocument& document = *input.document;
+    const document::ParsedDocument& document = *request.document;
 
     nlohmann::json manifest;
     manifest["source"] = {
@@ -94,7 +94,7 @@ bool JsonManifestWriter::write(const JsonManifestInput& input) const {
             {"page_number", page.page_number},
             {"image", page.image.relative_image},
         };
-        if (input.debug) {
+        if (request.debug) {
             page_json["debug"]["text"] = pageTextToJson(page.text);
             if (!page.image.debug_images.empty()) {
                 page_json["debug"]["images"] = debugImagesToJson(page.image.debug_images);
@@ -103,9 +103,9 @@ bool JsonManifestWriter::write(const JsonManifestInput& input) const {
         manifest["pages"].push_back(page_json);
     }
 
-    std::ofstream manifest_file(input.output_path);
+    std::ofstream manifest_file(request.output_path);
     if (!manifest_file) {
-        std::cerr << "error: failed to write manifest: " << input.output_path << '\n';
+        std::cerr << "error: failed to write manifest: " << request.output_path << '\n';
         return false;
     }
 

@@ -1,10 +1,27 @@
 # Technical Doc Parser
 
-A C++/Python document intelligence engine for parsing technical and table-heavy PDFs into structured JSON and Markdown.
+[中文文档](README.zh-CN.md)
 
-The project focuses on the engineering pipeline behind document AI: PDF rendering, image preprocessing, OCR integration, layout analysis, table structure recovery, structured export, and C++ inference deployment.
+Technical Doc Parser is a C++ native, backend-agnostic document parsing engine.
+
+It is not positioned as another model-centric PDF-to-Markdown application. Its long-term value is the infrastructure around document parsing: a typed document model, stable pipeline boundaries, pluggable backends, traceable intermediate artifacts, reproducible C++ builds, and an SDK-friendly core that can be embedded into production systems.
+
+AI models such as OCR engines, layout detectors, table recognizers, ONNX models, and vision-language models are treated as replaceable capabilities. The engine normalizes their outputs into one internal document model and keeps the rest of the pipeline stable.
+
+Technical and table-heavy PDFs are the first proving ground. They keep the project grounded in real extraction requirements: source coordinates, section hierarchy, table structure, parameter/value/unit relationships, debug artifacts, and RAG-ready structured output.
 
 ## Goal
+
+Build a production-oriented C++ document parsing infrastructure that can:
+
+- Open and render documents through backend adapters.
+- Normalize PDF text layers, OCR results, layout blocks, tables, and model outputs into typed internal models.
+- Compose those models through a staged, inspectable pipeline.
+- Export stable JSON/Markdown outputs for downstream applications.
+- Preserve source traceability through page numbers, bounding boxes, confidence scores, and debug artifacts.
+- Support CLI usage today and a C++ SDK/library boundary over time.
+
+The current CLI shape is:
 
 Input:
 
@@ -53,44 +70,64 @@ Example JSON:
 
 ## Scope
 
-This repository targets technical and table-heavy PDFs, especially documents that contain specifications, parameter tables, reports, standards, and other structured tabular data.
+The project scope is infrastructure-first:
 
-The core layout, table, and OCR stages are intended to be developed and evaluated with public datasets first. Domain-specific technical document behavior is expected to come from schema design, table/parameter post-processing, traceable output, and a small curated demo set rather than from a large proprietary industrial dataset.
+- **Core engine**: C++17/CMake, RAII wrappers for native dependencies, stable typed models, pipeline orchestration, export contracts, tests, and CI.
+- **Backend adapters**: PDFium, OCR engines, layout/table models, ONNX Runtime, vision-language models, and external parsers can be integrated behind narrow interfaces.
+- **First domain focus**: technical and table-heavy PDFs, especially specifications, parameter tables, reports, standards, manuals, and structured tabular documents.
+- **Reproducible evaluation**: public datasets and small curated technical fixtures should drive development before any domain-specific fine-tuning.
 
-The first objective is to build a reliable end-to-end parsing system. Model fine-tuning is part of the long-term plan, but the project prioritizes measurable engineering progress: reproducible pipelines, structured outputs, evaluation scripts, and deployable C++ components.
+Model fine-tuning is a downstream option, not the center of the project. The first objective is to make the parsing pipeline reliable, extensible, testable, and deployable.
 
-## Project Focus
+## Project Value
 
-This project is not intended to be a general-purpose document parsing platform. Its long-term value is in a narrower, engineering-focused direction:
+Many open-source document parsers focus on end-user conversion quality: turning documents into Markdown, HTML, JSON, or model-ready chunks. This project focuses on the lower-level parsing engine that makes those outputs reliable and extensible in C++ applications.
 
-- **Technical and table-heavy PDFs**: optimize for documents with specifications, parameter tables, reports, standards, and dense structured data instead of trying to cover every document category equally.
-- **Structured technical data**: recover sections, parameter names, values, units, conditions, table headers, merged cells, and source page coordinates rather than only producing plain Markdown.
-- **C++ native core**: keep the parsing core suitable for CLI use, library embedding, private deployment, and future ONNX Runtime inference.
-- **Explainable pipeline**: preserve intermediate artifacts such as rendered pages, preprocessing outputs, OCR boxes, layout regions, table cells, reading order, and debug overlays.
-- **RAG-ready output**: generate metadata-rich JSON and Markdown chunks that retain section hierarchy, table structure, page numbers, and bounding boxes for retrieval and question-answering workflows.
+The project should optimize for:
 
-The goal is to build a focused technical PDF structure engine: smaller in scope than broad document parsing platforms, but deeper in table reconstruction, parameter-oriented post-processing, traceability, and native deployment.
+- **Unified document model**: one typed representation for PDF text, OCR text, layout blocks, tables, reading order, source references, and final document structure.
+- **Backend neutrality**: PDFium, OCR, layout detectors, table recognizers, external parsers, and VLMs should be replaceable without rewriting the pipeline.
+- **C++ native deployment**: the core should work as a CLI, library, and future SDK for private/offline deployment.
+- **Traceability**: extracted content must retain page number, bounding box, source backend, confidence, and debug artifacts.
+- **Engineering quality**: reproducible builds, small module boundaries, RAII ownership, unit tests, smoke tests, and stable schemas matter as much as model accuracy.
+- **Technical document depth**: technical/table-heavy PDFs are the first benchmark because they stress the engine with dense tables, coordinates, hierarchy, units, and structured extraction needs.
+
+## Non-Goals
+
+The project should avoid competing head-on as a broad, model-centric document parsing platform.
+
+It does not aim to:
+
+- Replace mature end-user document parsing applications.
+- Own every OCR, layout, table, or VLM model.
+- Become a Python-first training framework.
+- Treat Markdown conversion as the main product.
+- Hide intermediate decisions inside an opaque model-only pipeline.
+
+Instead, it should be able to consume model/application outputs through adapters, normalize them, and provide a stable C++ engine for downstream products.
 
 ## Pipeline Boundaries
 
 The parser is organized as a staged pipeline. Each stage should have a narrow responsibility and pass typed intermediate data to the next stage. Implementation details can evolve, but stage boundaries should stay stable.
 
+The pipeline is intentionally backend-agnostic. PDFium, OCR engines, layout models, table recognizers, external parsers, and VLM services should enter the system through adapters and normalize their outputs into the same document models.
+
 ```text
-PDF input
-  -> PDF ingestion
-  -> page rendering
+document input
+  -> source ingestion
+  -> page rendering / page artifacts
   -> text extraction
   -> layout analysis
   -> table structure recovery
   -> document assembly
-  -> export
+  -> export / SDK result
 ```
 
 ### Stage Responsibilities
 
-**PDF ingestion**
+**Source ingestion**
 
-Owns PDF backend setup and document access. This stage opens the PDF, manages PDFium lifetime, reads page count and page metadata, and hides PDFium-specific resource management from the rest of the pipeline.
+Owns backend setup and document access. The current implementation opens PDF files through PDFium, manages PDFium lifetime, reads page count and page metadata, and hides PDFium-specific resource management from the rest of the pipeline. Future source adapters can target other document backends or external parser outputs.
 
 **Page rendering**
 
@@ -163,7 +200,7 @@ pages
     title/text/table/figure
 ```
 
-**Export**
+**Export / SDK result**
 
 Writes the final consumer-facing outputs:
 

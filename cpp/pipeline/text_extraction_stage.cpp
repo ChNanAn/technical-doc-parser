@@ -2,17 +2,19 @@
 
 namespace doc_parser::pipeline {
 
-bool TextExtractionStage::extract(const pdf::PdfDocument& source,
+TextExtractionStage::TextExtractionStage(const IDocumentBackend& document_backend, const ocr::OcrService& ocr)
+    : document_backend_(document_backend), ocr_(ocr) {}
+
+bool TextExtractionStage::extract(const PipelineContext& context,
                                   const std::vector<document::PageArtifact>& pages,
-                                  int dpi,
                                   std::vector<document::PageText>& page_texts) const {
     page_texts.clear();
 
-    if (!source.isOpen() || dpi <= 0) {
+    if (context.render.dpi <= 0) {
         return false;
     }
 
-    if (!text_.extractText(source, dpi, page_texts)) {
+    if (!document_backend_.extractNativeText(context, page_texts)) {
         return false;
     }
 
@@ -24,7 +26,7 @@ bool TextExtractionStage::extract(const pdf::PdfDocument& source,
         if (page_texts[index].has_text) {
             continue;
         }
-        if (!ocr_.recognize(pages[index], dpi, page_texts[index])) {
+        if (!ocr_.recognize(pages[index], context.render.dpi, page_texts[index])) {
             return false;
         }
     }

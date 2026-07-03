@@ -2,9 +2,11 @@
 
 #include "document/parsed_document.h"
 #include "export/document_exporter.h"
+#include "ocr/ocr_service.h"
 #include "pipeline/document_backend_factory.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/stage_interfaces.h"
+#include "pipeline/text_extraction_stage.h"
 
 #if DOC_PARSER_ENABLE_OPENCV
 #include "image/image_preprocessor.h"
@@ -119,8 +121,10 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         return false;
     }
 
+    const ocr::OcrService ocr;
+    const TextExtractionStage text_extraction(*backend, ocr);
     std::vector<document::PageText> page_texts;
-    if (!backend->extractText(context, rendered_pages, page_texts)) {
+    if (!text_extraction.extract(context, rendered_pages, page_texts)) {
         return false;
     }
 

@@ -3,26 +3,25 @@
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 #include "ocr/ocr_service.h"
-#include "pdf/pdf_document.h"
-#include "pdf/text_service.h"
+#include "pipeline/pipeline_context.h"
+#include "pipeline/stage_interfaces.h"
 
 #include <vector>
 
 namespace doc_parser::pipeline {
 
-// 拥有 PDF / OCR 调度策略。优先 PDF text layer，空页再交给 OCR fallback。
+// 文本提取策略阶段：优先使用文档后端的原生文本，空页再交给 OCR fallback。
 class TextExtractionStage {
 public:
-    TextExtractionStage() = default;
+    TextExtractionStage(const IDocumentBackend& document_backend, const ocr::OcrService& ocr);
 
-    bool extract(const pdf::PdfDocument& source,
+    bool extract(const PipelineContext& context,
                  const std::vector<document::PageArtifact>& pages,
-                 int dpi,
                  std::vector<document::PageText>& page_texts) const;
 
 private:
-    pdf::TextService text_;
-    ocr::OcrService ocr_;
+    const IDocumentBackend& document_backend_;
+    const ocr::OcrService& ocr_;
 };
 
 } // namespace doc_parser::pipeline

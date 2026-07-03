@@ -1,6 +1,7 @@
 #include "pipeline/pdfium_document_backend.h"
 
 #include "pdf/render_service.h"
+#include "pdf/text_service.h"
 
 namespace doc_parser::pipeline {
 
@@ -27,10 +28,10 @@ bool PdfiumDocumentBackend::renderPages(const PipelineContext& context,
                               pages);
 }
 
-bool PdfiumDocumentBackend::extractText(const PipelineContext& context,
-                                        const std::vector<document::PageArtifact>& pages,
-                                        std::vector<document::PageText>& page_texts) const {
-    return text_extraction_.extract(source_, pages, context.render.dpi, page_texts);
+bool PdfiumDocumentBackend::extractNativeText(const PipelineContext& context,
+                                              std::vector<document::PageText>& page_texts) const {
+    const pdf::TextService text;
+    return text.extractText(source_, context.render.dpi, page_texts);
 }
 
 } // namespace doc_parser::pipeline

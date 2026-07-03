@@ -21,9 +21,8 @@ public:
 
     virtual bool renderPages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) const = 0;
 
-    virtual bool extractText(const PipelineContext& context,
-                             const std::vector<document::PageArtifact>& pages,
-                             std::vector<document::PageText>& page_texts) const = 0;
+    virtual bool extractNativeText(const PipelineContext& context,
+                                   std::vector<document::PageText>& page_texts) const = 0;
 };
 
 } // namespace doc_parser::pipeline

@@ -2,7 +2,6 @@
 
 #include "pdf/pdf_document.h"
 #include "pipeline/stage_interfaces.h"
-#include "pipeline/text_extraction_stage.h"
 
 namespace doc_parser::pipeline {
 
@@ -15,14 +14,11 @@ public:
 
     bool renderPages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) const override;
 
-    bool extractText(const PipelineContext& context,
-                     const std::vector<document::PageArtifact>& pages,
-                     std::vector<document::PageText>& page_texts) const override;
+    bool extractNativeText(const PipelineContext& context, std::vector<document::PageText>& page_texts) const override;
 
 private:
     std::string source_path_;
     pdf::PdfDocument source_;
-    TextExtractionStage text_extraction_;
 };
 
 } // namespace doc_parser::pipeline

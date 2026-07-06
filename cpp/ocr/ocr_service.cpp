@@ -1,9 +1,16 @@
 #include "ocr/ocr_service.h"
 
+#include "ocr/tesseract_cli_ocr_backend.h"
+
 namespace doc_parser::ocr {
 namespace {
 
 const IOcrBackend& defaultOcrBackend() {
+    static const TesseractCliOcrBackend tesseract_backend;
+    if (tesseract_backend.isAvailable()) {
+        return tesseract_backend;
+    }
+
     static const NoopOcrBackend backend;
     return backend;
 }

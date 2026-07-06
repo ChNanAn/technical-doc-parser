@@ -1,5 +1,6 @@
 add_library(doc_parser_ocr
     ocr_service.cpp
+    tesseract_cli_ocr_backend.cpp
 )
 
 target_include_directories(doc_parser_ocr

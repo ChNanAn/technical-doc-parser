@@ -305,7 +305,7 @@ Demo 和针对性评估可以使用一小组公开技术 PDF。
 
 ## 当前状态
 
-项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、PDFium 生命周期管理、PDF 打开和页数读取、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、基础 OCR service 边界、JSON manifest 输出，以及主流程冒烟测试。
+项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、PDFium 生命周期管理、PDF 打开和页数读取、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、可选 Tesseract OCR baseline、JSON manifest 输出，以及主流程冒烟测试。
 
 当前 pipeline 仍然很小：
 

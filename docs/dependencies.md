@@ -118,6 +118,31 @@ OpenCV is treated as a system dependency rather than a vendored dependency. It i
 and usually pulls additional image codec libraries from the host package manager. Keeping it external avoids
 long source builds and large committed binaries while still letting CI pin a repeatable reference OS.
 
+## Tesseract OCR
+
+OCR uses an optional Tesseract CLI adapter as the first baseline. The C++ pipeline detects `tesseract` at
+runtime. If it is available, image-only pages can be normalized into `PageText`; if it is missing, the OCR
+service falls back to the no-op backend.
+
+Install Tesseract through your system package manager or a user environment:
+
+```bash
+# Ubuntu / Debian
+sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim
+
+# Conda
+conda install -c conda-forge tesseract
+```
+
+The default OCR language is `eng`. Override the executable or language with environment variables:
+
+```bash
+DOC_PARSER_TESSERACT_CMD=/path/to/tesseract DOC_PARSER_TESSERACT_LANG=eng+chi_sim ./build/doc_parser input.pdf --debug
+```
+
+OCR is only used by the text extraction stage when the PDF text layer for a page is empty. Debug output records
+OCR text under `pages[].debug.text` with `preferred_source` set to `ocr`.
+
 ## nlohmann/json
 
 Structured parser output is written with [`nlohmann/json`](https://github.com/nlohmann/json), pulled by CMake `FetchContent`.
@@ -149,4 +174,4 @@ The first manifest is intentionally small:
 }
 ```
 
-OCR, layout, and table fields will be added by later pipeline stages.
+Layout and table fields will be added by later pipeline stages.

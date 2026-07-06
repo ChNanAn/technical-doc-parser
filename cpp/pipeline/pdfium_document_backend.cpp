@@ -16,6 +16,13 @@ std::string PdfiumDocumentBackend::sourceType() const { return "pdf"; }
 
 int PdfiumDocumentBackend::pageCount() const { return source_.pageCount(); }
 
+DocumentBackendCapabilities PdfiumDocumentBackend::capabilities() const {
+    return {
+        true,
+        true,
+    };
+}
+
 bool PdfiumDocumentBackend::renderPages(const PipelineContext& context,
                                         std::vector<document::PageArtifact>& pages) const {
     const pdf::RenderService render;

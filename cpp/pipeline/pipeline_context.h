@@ -3,6 +3,7 @@
 #include "app/cli_options.h"
 
 #include <filesystem>
+#include <string>
 
 namespace doc_parser::pipeline {
 
@@ -17,10 +18,18 @@ struct OutputPaths {
     std::filesystem::path manifest_json;
 };
 
+struct BackendOptions {
+    std::string document = "auto";
+    std::string ocr = "auto";
+    std::string layout = "auto";
+    std::string table = "auto";
+};
+
 struct PipelineContext {
     std::filesystem::path input_pdf;
     RenderOptions render;
     OutputPaths output;
+    BackendOptions backends;
     bool debug = false;
 
     static PipelineContext fromOptions(const app::CliOptions& options);

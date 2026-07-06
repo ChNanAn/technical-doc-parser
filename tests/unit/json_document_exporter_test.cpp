@@ -10,6 +10,8 @@ namespace {
 
 using doc_parser::document::BBox;
 using doc_parser::document::DebugImageArtifact;
+using doc_parser::document::DocumentBlock;
+using doc_parser::document::DocumentBlockType;
 using doc_parser::document::LayoutBlock;
 using doc_parser::document::LayoutBlockType;
 using doc_parser::document::PageArtifact;
@@ -105,6 +107,30 @@ ParsedDocument makeDocument() {
     document.source.path = "fixture.pdf";
     document.source.type = "pdf";
     document.dpi = 144;
+    DocumentBlock document_block;
+    document_block.id = "doc_page_1_block_1";
+    document_block.type = DocumentBlockType::Paragraph;
+    document_block.page_index = 0;
+    document_block.page_number = 1;
+    document_block.bbox = line.bbox;
+    document_block.confidence = 0.75;
+    document_block.text = "Table";
+    document_block.text_line_indices.push_back(0);
+    document.blocks.push_back(document_block);
+
+    DocumentBlock table_block;
+    table_block.id = "doc_page_1_block_2";
+    table_block.type = DocumentBlockType::Table;
+    table_block.page_index = 0;
+    table_block.page_number = 1;
+    table_block.bbox = table.bbox;
+    table_block.confidence = table.confidence;
+    table_block.text = "Table";
+    table_block.table_id = table.id;
+    table_block.table_rows = table.rows;
+    table_block.text_line_indices.push_back(0);
+    document.blocks.push_back(table_block);
+
     document.pages.push_back(ParsedPage{
         0,
         1,
@@ -138,6 +164,17 @@ TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
     EXPECT_EQ(manifest["source"]["path"], "fixture.pdf");
     EXPECT_EQ(manifest["source"]["type"], "pdf");
     EXPECT_EQ(manifest["render"]["dpi"], 144);
+    ASSERT_EQ(manifest["blocks"].size(), 2U);
+    EXPECT_EQ(manifest["blocks"][0]["id"], "doc_page_1_block_1");
+    EXPECT_EQ(manifest["blocks"][0]["type"], "paragraph");
+    EXPECT_EQ(manifest["blocks"][0]["text"], "Table");
+    EXPECT_FALSE(manifest["blocks"][0].contains("rows"));
+    EXPECT_EQ(manifest["blocks"][1]["id"], "doc_page_1_block_2");
+    EXPECT_EQ(manifest["blocks"][1]["type"], "table");
+    EXPECT_EQ(manifest["blocks"][1]["table_id"], "page_1_table_1");
+    ASSERT_EQ(manifest["blocks"][1]["rows"].size(), 1U);
+    ASSERT_EQ(manifest["blocks"][1]["rows"][0]["cells"].size(), 1U);
+    EXPECT_EQ(manifest["blocks"][1]["rows"][0]["cells"][0]["text"], "Table");
     ASSERT_EQ(manifest["pages"].size(), 1U);
     EXPECT_EQ(manifest["pages"][0]["page_index"], 0);
     EXPECT_EQ(manifest["pages"][0]["page_number"], 1);

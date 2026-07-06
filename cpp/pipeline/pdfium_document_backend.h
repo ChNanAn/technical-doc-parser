@@ -11,6 +11,7 @@ public:
     std::string sourcePath() const override;
     std::string sourceType() const override;
     int pageCount() const override;
+    DocumentBackendCapabilities capabilities() const override;
 
     bool renderPages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) const override;
 

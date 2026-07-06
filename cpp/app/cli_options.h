@@ -9,6 +9,10 @@ struct CliOptions {
     std::string output_dir = "output";
     int dpi = 200;
     bool debug = false;
+    std::string document_backend = "auto";
+    std::string ocr_backend = "auto";
+    std::string layout_backend = "auto";
+    std::string table_backend = "auto";
 };
 
 } // namespace doc_parser::app

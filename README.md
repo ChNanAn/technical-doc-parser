@@ -327,6 +327,16 @@ cmake --build build --config Release --target doc_parser --parallel
 ./build/cpp/app/doc_parser input.pdf --out output/
 ```
 
+Backends can be selected explicitly while keeping the same pipeline contract:
+
+```bash
+./build/cpp/app/doc_parser input.pdf --out output/ \
+  --document-backend pdfium \
+  --ocr-backend auto \
+  --layout-backend text \
+  --table-backend text
+```
+
 PDFium is downloaded automatically during CMake configure when it is missing. The pinned package is installed under `third_party/pdfium`, which is not committed to git.
 
 ## Development

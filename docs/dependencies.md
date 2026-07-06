@@ -143,6 +143,14 @@ DOC_PARSER_TESSERACT_CMD=/path/to/tesseract DOC_PARSER_TESSERACT_LANG=eng+chi_si
 OCR is only used by the text extraction stage when the PDF text layer for a page is empty. Debug output records
 OCR text under `pages[].debug.text` with `preferred_source` set to `ocr`.
 
+Select the OCR backend explicitly with:
+
+```bash
+./build/cpp/app/doc_parser input.pdf --ocr-backend auto
+./build/cpp/app/doc_parser input.pdf --ocr-backend tesseract
+./build/cpp/app/doc_parser input.pdf --ocr-backend noop
+```
+
 ## Layout Analysis
 
 The first layout stage uses a built-in baseline model that consumes normalized `PageText` lines and page image
@@ -173,6 +181,17 @@ Debug output records table results under:
 pages[].debug.tables.tables
 ```
 
+## Pipeline Trace
+
+Debug runs write a stage trace manifest to:
+
+```text
+debug/pipeline_trace.json
+```
+
+The trace records backend selection plus stage success/failure events for open, render, text extraction, layout,
+table recognition, document assembly, and export.
+
 ## nlohmann/json
 
 Structured parser output is written with [`nlohmann/json`](https://github.com/nlohmann/json), pulled by CMake `FetchContent`.
@@ -183,7 +202,7 @@ The current pinned version is:
 v3.11.3
 ```
 
-The first manifest is intentionally small:
+The default manifest contains assembled document blocks:
 
 ```json
 {
@@ -194,14 +213,16 @@ The first manifest is intentionally small:
   "render": {
     "dpi": 72
   },
-  "pages": [
+  "blocks": [
     {
-      "page_index": 0,
+      "id": "doc_page_1_block_1",
+      "type": "paragraph",
       "page_number": 1,
-      "image": "pages/page_1.png"
+      "text": "Example"
     }
   ]
 }
 ```
 
-The debug manifest includes text, layout, and table intermediate data.
+With `--debug`, the manifest also includes raw page text, layout blocks, table intermediate data, debug images,
+and `debug/pipeline_trace.json`.

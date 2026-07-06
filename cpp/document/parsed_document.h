@@ -1,5 +1,6 @@
 #pragma once
 
+#include "document/document_block.h"
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
 #include "document/table_model.h"
@@ -28,6 +29,7 @@ struct ParsedDocument {
     DocumentSource source;
     int dpi = 200;
     std::vector<ParsedPage> pages;
+    std::vector<DocumentBlock> blocks;
 };
 
 } // namespace doc_parser::document

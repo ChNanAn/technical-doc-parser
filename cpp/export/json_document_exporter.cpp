@@ -42,6 +42,28 @@ const char* layoutBlockTypeToString(document::LayoutBlockType type) {
     return "unknown";
 }
 
+const char* documentBlockTypeToString(document::DocumentBlockType type) {
+    switch (type) {
+    case document::DocumentBlockType::Title:
+        return "title";
+    case document::DocumentBlockType::Paragraph:
+        return "paragraph";
+    case document::DocumentBlockType::List:
+        return "list";
+    case document::DocumentBlockType::Table:
+        return "table";
+    case document::DocumentBlockType::Figure:
+        return "figure";
+    case document::DocumentBlockType::Header:
+        return "header";
+    case document::DocumentBlockType::Footer:
+        return "footer";
+    case document::DocumentBlockType::Unknown:
+        return "unknown";
+    }
+    return "unknown";
+}
+
 nlohmann::json bboxToJson(const document::BBox& bbox) {
     return {
         {"x0", bbox.x0},
@@ -49,6 +71,51 @@ nlohmann::json bboxToJson(const document::BBox& bbox) {
         {"x1", bbox.x1},
         {"y1", bbox.y1},
     };
+}
+
+nlohmann::json tableRowsToJson(const std::vector<document::TableRow>& table_rows) {
+    nlohmann::json rows = nlohmann::json::array();
+    for (const auto& row : table_rows) {
+        nlohmann::json cells = nlohmann::json::array();
+        for (const auto& cell : row.cells) {
+            cells.push_back({
+                {"row_index", cell.row_index},
+                {"column_index", cell.column_index},
+                {"row_span", cell.row_span},
+                {"column_span", cell.column_span},
+                {"text", cell.text},
+                {"bbox", bboxToJson(cell.bbox)},
+                {"confidence", cell.confidence},
+            });
+        }
+
+        rows.push_back({
+            {"row_index", row.row_index},
+            {"cells", cells},
+        });
+    }
+    return rows;
+}
+
+nlohmann::json documentBlocksToJson(const std::vector<document::DocumentBlock>& document_blocks) {
+    nlohmann::json blocks = nlohmann::json::array();
+    for (const auto& block : document_blocks) {
+        nlohmann::json block_json = {
+            {"id", block.id},
+            {"type", documentBlockTypeToString(block.type)},
+            {"page_index", block.page_index},
+            {"page_number", block.page_number},
+            {"bbox", bboxToJson(block.bbox)},
+            {"confidence", block.confidence},
+            {"text", block.text},
+        };
+        if (!block.table_id.empty()) {
+            block_json["table_id"] = block.table_id;
+            block_json["rows"] = tableRowsToJson(block.table_rows);
+        }
+        blocks.push_back(block_json);
+    }
+    return blocks;
 }
 
 nlohmann::json pageTextToJson(const document::PageText& page_text) {
@@ -100,33 +167,12 @@ nlohmann::json pageLayoutToJson(const document::PageLayout& page_layout) {
 nlohmann::json pageTablesToJson(const document::PageTables& page_tables) {
     nlohmann::json tables = nlohmann::json::array();
     for (const auto& table : page_tables.tables) {
-        nlohmann::json rows = nlohmann::json::array();
-        for (const auto& row : table.rows) {
-            nlohmann::json cells = nlohmann::json::array();
-            for (const auto& cell : row.cells) {
-                cells.push_back({
-                    {"row_index", cell.row_index},
-                    {"column_index", cell.column_index},
-                    {"row_span", cell.row_span},
-                    {"column_span", cell.column_span},
-                    {"text", cell.text},
-                    {"bbox", bboxToJson(cell.bbox)},
-                    {"confidence", cell.confidence},
-                });
-            }
-
-            rows.push_back({
-                {"row_index", row.row_index},
-                {"cells", cells},
-            });
-        }
-
         tables.push_back({
             {"id", table.id},
             {"layout_block_id", table.layout_block_id},
             {"bbox", bboxToJson(table.bbox)},
             {"confidence", table.confidence},
-            {"rows", rows},
+            {"rows", tableRowsToJson(table.rows)},
         });
     }
 
@@ -163,6 +209,7 @@ bool JsonDocumentExporter::write(const DocumentExportRequest& request) const {
     manifest["render"] = {
         {"dpi", document.dpi},
     };
+    manifest["blocks"] = documentBlocksToJson(document.blocks);
     manifest["pages"] = nlohmann::json::array();
 
     for (const auto& page : document.pages) {

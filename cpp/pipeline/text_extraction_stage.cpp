@@ -14,8 +14,19 @@ bool TextExtractionStage::extract(const PipelineContext& context,
         return false;
     }
 
-    if (!document_backend_.extractNativeText(context, page_texts)) {
-        return false;
+    if (document_backend_.capabilities().can_extract_native_text) {
+        if (!document_backend_.extractNativeText(context, page_texts)) {
+            return false;
+        }
+    } else {
+        page_texts.reserve(pages.size());
+        for (const auto& page : pages) {
+            document::PageText page_text;
+            page_text.page_index = page.page_index;
+            page_text.page_number = page.page_number;
+            page_text.preferred_source = document::TextSource::Unknown;
+            page_texts.push_back(page_text);
+        }
     }
 
     if (page_texts.size() != pages.size()) {

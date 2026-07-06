@@ -6,12 +6,16 @@
 
 namespace doc_parser::pipeline {
 
-std::unique_ptr<IDocumentBackend> createDefaultDocumentBackend() {
+std::unique_ptr<IDocumentBackend> createDocumentBackend(const std::string& backend_name) {
 #if DOC_PARSER_ENABLE_PDFIUM
-    return std::make_unique<PdfiumDocumentBackend>();
-#else
-    return nullptr;
+    if (backend_name == "auto" || backend_name == "pdfium") {
+        return std::make_unique<PdfiumDocumentBackend>();
+    }
 #endif
+
+    return nullptr;
 }
+
+std::unique_ptr<IDocumentBackend> createDefaultDocumentBackend() { return createDocumentBackend("auto"); }
 
 } // namespace doc_parser::pipeline

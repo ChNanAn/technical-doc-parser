@@ -10,6 +10,11 @@
 
 namespace doc_parser::pipeline {
 
+struct DocumentBackendCapabilities {
+    bool can_render_pages = true;
+    bool can_extract_native_text = true;
+};
+
 class IDocumentBackend {
 public:
     virtual ~IDocumentBackend() = default;
@@ -18,6 +23,7 @@ public:
     virtual std::string sourcePath() const = 0;
     virtual std::string sourceType() const = 0;
     virtual int pageCount() const = 0;
+    virtual DocumentBackendCapabilities capabilities() const { return {}; }
 
     virtual bool renderPages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) const = 0;
 

@@ -325,6 +325,16 @@ cmake --build build --config Release --target doc_parser --parallel
 ./build/cpp/app/doc_parser input.pdf --out output/
 ```
 
+可以显式选择各阶段 backend，同时保持统一 pipeline 输出契约：
+
+```bash
+./build/cpp/app/doc_parser input.pdf --out output/ \
+  --document-backend pdfium \
+  --ocr-backend auto \
+  --layout-backend text \
+  --table-backend text
+```
+
 PDFium 缺失时会在 CMake configure 阶段自动下载。固定版本会安装到 `third_party/pdfium`，该目录不会提交到 git。
 
 如果本机没有 OpenCV，可以关闭图像预处理：

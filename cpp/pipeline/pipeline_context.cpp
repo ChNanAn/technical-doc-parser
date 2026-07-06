@@ -7,6 +7,10 @@ PipelineContext PipelineContext::fromOptions(const app::CliOptions& options) {
     context.input_pdf = options.input_pdf;
     context.render.dpi = options.dpi;
     context.debug = options.debug;
+    context.backends.document = options.document_backend;
+    context.backends.ocr = options.ocr_backend;
+    context.backends.layout = options.layout_backend;
+    context.backends.table = options.table_backend;
 
     context.output.root = options.output_dir;
     context.output.pages_dir = context.output.root / "pages";

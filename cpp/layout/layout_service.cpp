@@ -1,5 +1,7 @@
 #include "layout/layout_service.h"
 
+#include <utility>
+
 namespace doc_parser::layout {
 namespace {
 
@@ -13,6 +15,9 @@ const ILayoutBackend& defaultLayoutBackend() {
 LayoutService::LayoutService() : LayoutService(defaultLayoutBackend()) {}
 
 LayoutService::LayoutService(const ILayoutBackend& backend) : backend_(&backend) {}
+
+LayoutService::LayoutService(std::unique_ptr<ILayoutBackend> backend)
+    : owned_backend_(std::move(backend)), backend_(owned_backend_.get()) {}
 
 bool LayoutService::analyze(const document::PageArtifact& page,
                             const document::PageText& text,

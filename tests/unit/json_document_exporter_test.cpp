@@ -19,7 +19,8 @@ using doc_parser::document::PageLayout;
 using doc_parser::document::PageTables;
 using doc_parser::document::PageText;
 using doc_parser::document::ParsedDocument;
-using doc_parser::document::ParsedPage;
+using doc_parser::document::PipelineArtifacts;
+using doc_parser::document::PipelinePageArtifacts;
 using doc_parser::document::Table;
 using doc_parser::document::TableCell;
 using doc_parser::document::TableRow;
@@ -32,7 +33,12 @@ std::filesystem::path tempManifestPath(const std::string& name) {
     return std::filesystem::temp_directory_path() / name;
 }
 
-ParsedDocument makeDocument() {
+struct DocumentFixture {
+    ParsedDocument document;
+    PipelineArtifacts artifacts;
+};
+
+DocumentFixture makeDocumentFixture() {
     TextSpan span;
     span.text = "Table";
     span.bbox = BBox{0.0, 1.0, 2.0, 3.0};
@@ -131,7 +137,8 @@ ParsedDocument makeDocument() {
     table_block.text_line_indices.push_back(0);
     document.blocks.push_back(table_block);
 
-    document.pages.push_back(ParsedPage{
+    PipelineArtifacts artifacts;
+    artifacts.pages.push_back(PipelinePageArtifacts{
         0,
         1,
         image,
@@ -139,7 +146,10 @@ ParsedDocument makeDocument() {
         layout,
         tables,
     });
-    return document;
+    return {
+        document,
+        artifacts,
+    };
 }
 
 nlohmann::json readJson(const std::filesystem::path& path) {
@@ -153,11 +163,12 @@ TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
     const auto output_path = tempManifestPath("tdp_json_document_exporter_normal_test.json");
     std::filesystem::remove(output_path);
 
-    const ParsedDocument document = makeDocument();
+    const DocumentFixture fixture = makeDocumentFixture();
     ASSERT_TRUE(JsonDocumentExporter().write({
         false,
         output_path,
-        &document,
+        &fixture.document,
+        &fixture.artifacts,
     }));
 
     const auto manifest = readJson(output_path);
@@ -188,11 +199,12 @@ TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     const auto output_path = tempManifestPath("tdp_json_document_exporter_debug_test.json");
     std::filesystem::remove(output_path);
 
-    const ParsedDocument document = makeDocument();
+    const DocumentFixture fixture = makeDocumentFixture();
     ASSERT_TRUE(JsonDocumentExporter().write({
         true,
         output_path,
-        &document,
+        &fixture.document,
+        &fixture.artifacts,
     }));
 
     const auto manifest = readJson(output_path);

@@ -1,22 +1,24 @@
 #include "pipeline/text_extraction_stage.h"
 
+#include <string>
+
 namespace doc_parser::pipeline {
 
-TextExtractionStage::TextExtractionStage(const IDocumentBackend& document_backend, const ocr::OcrService& ocr)
-    : document_backend_(document_backend), ocr_(ocr) {}
+TextExtractionStage::TextExtractionStage(const INativeTextExtractor* native_text_extractor, const ocr::OcrService& ocr)
+    : native_text_extractor_(native_text_extractor), ocr_(ocr) {}
 
-bool TextExtractionStage::extract(const PipelineContext& context,
-                                  const std::vector<document::PageArtifact>& pages,
-                                  std::vector<document::PageText>& page_texts) const {
+common::Status TextExtractionStage::extract(const PipelineContext& context,
+                                            const std::vector<document::PageArtifact>& pages,
+                                            std::vector<document::PageText>& page_texts) const {
     page_texts.clear();
 
     if (context.render.dpi <= 0) {
-        return false;
+        return common::Status::error("text.invalid_dpi", "render DPI must be positive");
     }
 
-    if (document_backend_.capabilities().can_extract_native_text) {
-        if (!document_backend_.extractNativeText(context, page_texts)) {
-            return false;
+    if (native_text_extractor_ != nullptr) {
+        if (!native_text_extractor_->extractNativeText(context, page_texts)) {
+            return common::Status::error("text.native_extraction_failed", "native text extraction failed");
         }
     } else {
         page_texts.reserve(pages.size());
@@ -30,7 +32,8 @@ bool TextExtractionStage::extract(const PipelineContext& context,
     }
 
     if (page_texts.size() != pages.size()) {
-        return false;
+        return common::Status::error("text.page_count_mismatch",
+                                     "native text page count does not match page artifacts");
     }
 
     for (std::size_t index = 0; index < page_texts.size(); ++index) {
@@ -38,11 +41,11 @@ bool TextExtractionStage::extract(const PipelineContext& context,
             continue;
         }
         if (!ocr_.recognize(pages[index], context.render.dpi, page_texts[index])) {
-            return false;
+            return common::Status::error("text.ocr_failed", "OCR failed for page " + std::to_string(index + 1));
         }
     }
 
-    return true;
+    return common::Status::ok();
 }
 
 } // namespace doc_parser::pipeline

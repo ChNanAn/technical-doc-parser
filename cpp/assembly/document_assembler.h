@@ -19,7 +19,9 @@ struct DocumentAssembleRequest {
 
 class DocumentAssembler {
 public:
-    bool assemble(const DocumentAssembleRequest& request, document::ParsedDocument& document) const;
+    bool assemble(const DocumentAssembleRequest& request,
+                  document::ParsedDocument& document,
+                  document::PipelineArtifacts& artifacts) const;
 };
 
 } // namespace doc_parser::assembly

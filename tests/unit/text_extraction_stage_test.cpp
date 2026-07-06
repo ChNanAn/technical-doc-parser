@@ -27,8 +27,6 @@ public:
 
     int pageCount() const override { return static_cast<int>(native_texts.size()); }
 
-    doc_parser::pipeline::DocumentBackendCapabilities capabilities() const override { return capabilities_value; }
-
     bool renderPages(const doc_parser::pipeline::PipelineContext& context,
                      std::vector<doc_parser::document::PageArtifact>& pages) const override {
         (void)context;
@@ -47,7 +45,6 @@ public:
     }
 
     std::string source_path = "fake.pdf";
-    doc_parser::pipeline::DocumentBackendCapabilities capabilities_value;
     std::vector<doc_parser::document::PageArtifact> rendered_pages;
     std::vector<doc_parser::document::PageText> native_texts;
     mutable int extract_native_text_calls = 0;
@@ -112,10 +109,10 @@ TEST(TextExtractionStageTest, KeepsNativeTextWhenPresent) {
 
     const RecordingOcrBackend ocr_backend;
     const doc_parser::ocr::OcrService ocr(ocr_backend);
-    const doc_parser::pipeline::TextExtractionStage stage(document_backend, ocr);
+    const doc_parser::pipeline::TextExtractionStage stage(&document_backend, ocr);
 
     std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts));
+    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
 
     EXPECT_EQ(document_backend.extract_native_text_calls, 1);
     EXPECT_EQ(ocr_backend.recognize_calls, 0);
@@ -138,10 +135,10 @@ TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextIsEmpty) {
 
     const RecordingOcrBackend ocr_backend;
     const doc_parser::ocr::OcrService ocr(ocr_backend);
-    const doc_parser::pipeline::TextExtractionStage stage(document_backend, ocr);
+    const doc_parser::pipeline::TextExtractionStage stage(&document_backend, ocr);
 
     std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts));
+    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
 
     EXPECT_EQ(document_backend.extract_native_text_calls, 1);
     EXPECT_EQ(ocr_backend.recognize_calls, 1);
@@ -155,16 +152,15 @@ TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextIsEmpty) {
     EXPECT_EQ(page_texts[0].lines[0].text, "ocr text");
 }
 
-TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextCapabilityIsUnavailable) {
+TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextExtractorIsUnavailable) {
     FakeDocumentBackend document_backend;
-    document_backend.capabilities_value.can_extract_native_text = false;
 
     const RecordingOcrBackend ocr_backend;
     const doc_parser::ocr::OcrService ocr(ocr_backend);
-    const doc_parser::pipeline::TextExtractionStage stage(document_backend, ocr);
+    const doc_parser::pipeline::TextExtractionStage stage(nullptr, ocr);
 
     std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts));
+    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
 
     EXPECT_EQ(document_backend.extract_native_text_calls, 0);
     EXPECT_EQ(ocr_backend.recognize_calls, 1);

@@ -15,20 +15,34 @@ struct DocumentBackendCapabilities {
     bool can_extract_native_text = true;
 };
 
-class IDocumentBackend {
+class IDocumentSource {
 public:
-    virtual ~IDocumentBackend() = default;
+    virtual ~IDocumentSource() = default;
 
     virtual bool open(const std::filesystem::path& input_path) = 0;
     virtual std::string sourcePath() const = 0;
     virtual std::string sourceType() const = 0;
     virtual int pageCount() const = 0;
-    virtual DocumentBackendCapabilities capabilities() const { return {}; }
+};
 
+class IPageRenderer {
+public:
+    virtual ~IPageRenderer() = default;
     virtual bool renderPages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) const = 0;
+};
 
+class INativeTextExtractor {
+public:
+    virtual ~INativeTextExtractor() = default;
     virtual bool extractNativeText(const PipelineContext& context,
                                    std::vector<document::PageText>& page_texts) const = 0;
+};
+
+class IDocumentBackend : public IDocumentSource, public IPageRenderer, public INativeTextExtractor {
+public:
+    ~IDocumentBackend() override = default;
+
+    virtual DocumentBackendCapabilities capabilities() const { return {}; }
 };
 
 } // namespace doc_parser::pipeline

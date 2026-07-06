@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/result.h"
+
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
 #include "document/table_model.h"
@@ -15,11 +17,11 @@ class TableRecognitionStage {
 public:
     explicit TableRecognitionStage(const table::TableService& table);
 
-    bool recognize(const PipelineContext& context,
-                   const std::vector<document::PageArtifact>& pages,
-                   const std::vector<document::PageText>& page_texts,
-                   const std::vector<document::PageLayout>& page_layouts,
-                   std::vector<document::PageTables>& page_tables) const;
+    common::Status recognize(const PipelineContext& context,
+                             const std::vector<document::PageArtifact>& pages,
+                             const std::vector<document::PageText>& page_texts,
+                             const std::vector<document::PageLayout>& page_layouts,
+                             std::vector<document::PageTables>& page_tables) const;
 
 private:
     const table::TableService& table_;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/result.h"
+
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
 #include "document/text_model.h"
@@ -14,10 +16,10 @@ class LayoutAnalysisStage {
 public:
     explicit LayoutAnalysisStage(const layout::LayoutService& layout);
 
-    bool analyze(const PipelineContext& context,
-                 const std::vector<document::PageArtifact>& pages,
-                 const std::vector<document::PageText>& page_texts,
-                 std::vector<document::PageLayout>& page_layouts) const;
+    common::Status analyze(const PipelineContext& context,
+                           const std::vector<document::PageArtifact>& pages,
+                           const std::vector<document::PageText>& page_texts,
+                           std::vector<document::PageLayout>& page_layouts) const;
 
 private:
     const layout::LayoutService& layout_;

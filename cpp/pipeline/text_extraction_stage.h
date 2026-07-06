@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/result.h"
+
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 #include "ocr/ocr_service.h"
@@ -13,14 +15,14 @@ namespace doc_parser::pipeline {
 // 文本提取策略阶段：优先使用文档后端的原生文本，空页再交给 OCR fallback。
 class TextExtractionStage {
 public:
-    TextExtractionStage(const IDocumentBackend& document_backend, const ocr::OcrService& ocr);
+    TextExtractionStage(const INativeTextExtractor* native_text_extractor, const ocr::OcrService& ocr);
 
-    bool extract(const PipelineContext& context,
-                 const std::vector<document::PageArtifact>& pages,
-                 std::vector<document::PageText>& page_texts) const;
+    common::Status extract(const PipelineContext& context,
+                           const std::vector<document::PageArtifact>& pages,
+                           std::vector<document::PageText>& page_texts) const;
 
 private:
-    const IDocumentBackend& document_backend_;
+    const INativeTextExtractor* native_text_extractor_ = nullptr;
     const ocr::OcrService& ocr_;
 };
 

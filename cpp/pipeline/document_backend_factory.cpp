@@ -4,18 +4,25 @@
 #include "pipeline/pdfium_document_backend.h"
 #endif
 
+#include <utility>
+
 namespace doc_parser::pipeline {
 
-std::unique_ptr<IDocumentBackend> createDocumentBackend(const std::string& backend_name) {
+DocumentBackendBundle createDocumentBackend(const std::string& backend_name) {
 #if DOC_PARSER_ENABLE_PDFIUM
     if (backend_name == "auto" || backend_name == "pdfium") {
-        return std::make_unique<PdfiumDocumentBackend>();
+        auto backend = std::make_unique<PdfiumDocumentBackend>();
+        DocumentBackendBundle bundle;
+        bundle.renderer = backend.get();
+        bundle.native_text_extractor = backend.get();
+        bundle.source = std::move(backend);
+        return bundle;
     }
 #endif
 
-    return nullptr;
+    return {};
 }
 
-std::unique_ptr<IDocumentBackend> createDefaultDocumentBackend() { return createDocumentBackend("auto"); }
+DocumentBackendBundle createDefaultDocumentBackend() { return createDocumentBackend("auto"); }
 
 } // namespace doc_parser::pipeline

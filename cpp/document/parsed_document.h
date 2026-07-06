@@ -16,7 +16,7 @@ struct DocumentSource {
     std::string type = "pdf";
 };
 
-struct ParsedPage {
+struct PipelinePageArtifacts {
     int page_index = 0;
     int page_number = 0;
     PageArtifact image;
@@ -25,10 +25,13 @@ struct ParsedPage {
     PageTables tables;
 };
 
+struct PipelineArtifacts {
+    std::vector<PipelinePageArtifacts> pages;
+};
+
 struct ParsedDocument {
     DocumentSource source;
     int dpi = 200;
-    std::vector<ParsedPage> pages;
     std::vector<DocumentBlock> blocks;
 };
 

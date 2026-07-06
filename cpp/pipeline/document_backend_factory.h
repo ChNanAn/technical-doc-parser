@@ -7,7 +7,13 @@
 
 namespace doc_parser::pipeline {
 
-std::unique_ptr<IDocumentBackend> createDocumentBackend(const std::string& backend_name);
-std::unique_ptr<IDocumentBackend> createDefaultDocumentBackend();
+struct DocumentBackendBundle {
+    std::unique_ptr<IDocumentSource> source;
+    IPageRenderer* renderer = nullptr;
+    INativeTextExtractor* native_text_extractor = nullptr;
+};
+
+DocumentBackendBundle createDocumentBackend(const std::string& backend_name);
+DocumentBackendBundle createDefaultDocumentBackend();
 
 } // namespace doc_parser::pipeline

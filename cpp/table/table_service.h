@@ -6,12 +6,15 @@
 #include "document/text_model.h"
 #include "table/table_backend.h"
 
+#include <memory>
+
 namespace doc_parser::table {
 
 class TableService {
 public:
     TableService();
     explicit TableService(const ITableBackend& backend);
+    explicit TableService(std::unique_ptr<ITableBackend> backend);
 
     bool recognize(const document::PageArtifact& page,
                    const document::PageText& text,
@@ -19,6 +22,7 @@ public:
                    document::PageTables& tables) const;
 
 private:
+    std::unique_ptr<ITableBackend> owned_backend_;
     const ITableBackend* backend_ = nullptr;
 };
 

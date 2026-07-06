@@ -3,11 +3,9 @@
 #include "assembly/document_assembler.h"
 #include "document/parsed_document.h"
 #include "export/document_exporter.h"
-#include "layout/layout_backend.h"
 #include "layout/layout_service.h"
-#include "ocr/ocr_backend.h"
 #include "ocr/ocr_service.h"
-#include "ocr/tesseract_cli_ocr_backend.h"
+#include "pipeline/backend_registry.h"
 #include "pipeline/document_backend_factory.h"
 #include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
@@ -15,7 +13,6 @@
 #include "pipeline/stage_interfaces.h"
 #include "pipeline/table_recognition_stage.h"
 #include "pipeline/text_extraction_stage.h"
-#include "table/table_backend.h"
 #include "table/table_service.h"
 
 #if DOC_PARSER_ENABLE_OPENCV
@@ -94,31 +91,31 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         return false;
     };
 
-    const auto backend = createDocumentBackend(context.backends.document);
-    if (backend == nullptr) {
+    auto backend = createDocumentBackend(context.backends.document);
+    if (backend.source == nullptr) {
         std::cerr << "error: no document backend is enabled\n";
         return fail("backend", "no matching document backend is enabled");
     }
 
-    if (!backend->open(context.input_pdf)) {
+    if (!backend.source->open(context.input_pdf)) {
         std::cerr << "error: failed to open PDF: " << context.input_pdf << '\n';
         return fail("open_document", "failed to open input document");
     }
-    trace.record("open_document", "succeeded", backend->sourcePath());
+    trace.record("open_document", "succeeded", backend.source->sourcePath());
 
-    std::cout << "input_pdf: " << backend->sourcePath() << '\n'
+    std::cout << "input_pdf: " << backend.source->sourcePath() << '\n'
               << "output_dir: " << context.output.root.string() << '\n'
               << "dpi: " << context.render.dpi << '\n'
               << "debug: " << (context.debug ? "true" : "false") << '\n'
-              << "pages: " << backend->pageCount() << '\n';
+              << "pages: " << backend.source->pageCount() << '\n';
 
-    if (!backend->capabilities().can_render_pages) {
+    if (backend.renderer == nullptr) {
         std::cerr << "error: document backend cannot render pages\n";
         return fail("render_pages", "document backend cannot render pages");
     }
 
     std::vector<document::PageArtifact> rendered_pages;
-    if (!backend->renderPages(context, rendered_pages)) {
+    if (!backend.renderer->renderPages(context, rendered_pages)) {
         return fail("render_pages", "failed to render page artifacts");
     }
     trace.record("render_pages", "succeeded", std::to_string(rendered_pages.size()) + " pages");
@@ -132,82 +129,51 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
     trace.record("preprocess_debug_images", "succeeded");
 
-    const ocr::NoopOcrBackend noop_ocr_backend;
-    const ocr::TesseractCliOcrBackend tesseract_ocr_backend;
-    const ocr::IOcrBackend* selected_ocr_backend = nullptr;
-    if (context.backends.ocr == "noop") {
-        selected_ocr_backend = &noop_ocr_backend;
-    } else if (context.backends.ocr == "tesseract") {
-        if (!tesseract_ocr_backend.isAvailable()) {
-            return fail("configure_ocr_backend", "tesseract OCR backend is not available");
-        }
-        selected_ocr_backend = &tesseract_ocr_backend;
-    } else if (context.backends.ocr == "auto") {
-        selected_ocr_backend = tesseract_ocr_backend.isAvailable()
-                                   ? static_cast<const ocr::IOcrBackend*>(&tesseract_ocr_backend)
-                                   : static_cast<const ocr::IOcrBackend*>(&noop_ocr_backend);
-    } else {
-        return fail("configure_ocr_backend", "unknown OCR backend: " + context.backends.ocr);
+    BackendSelectionResult backend_selection = createPipelineServices(context.backends);
+    if (!backend_selection.ok) {
+        return fail(backend_selection.error_stage, backend_selection.error_message);
     }
+    trace.record("configure_backends", "succeeded", backend_selection.trace_message);
 
-    const layout::TextLayoutModelBackend text_layout_backend;
-    const layout::ILayoutBackend* selected_layout_backend = nullptr;
-    if (context.backends.layout == "auto" || context.backends.layout == "text") {
-        selected_layout_backend = &text_layout_backend;
-    } else {
-        return fail("configure_layout_backend", "unknown layout backend: " + context.backends.layout);
-    }
-
-    const table::TextTableStructureBackend text_table_backend;
-    const table::ITableBackend* selected_table_backend = nullptr;
-    if (context.backends.table == "auto" || context.backends.table == "text") {
-        selected_table_backend = &text_table_backend;
-    } else {
-        return fail("configure_table_backend", "unknown table backend: " + context.backends.table);
-    }
-
-    trace.record("configure_backends",
-                 "succeeded",
-                 "document=" + context.backends.document + ", ocr=" + context.backends.ocr +
-                     ", layout=" + context.backends.layout + ", table=" + context.backends.table);
-
-    const ocr::OcrService ocr(*selected_ocr_backend);
-    const TextExtractionStage text_extraction(*backend, ocr);
+    const TextExtractionStage text_extraction(backend.native_text_extractor, *backend_selection.services.ocr);
     std::vector<document::PageText> page_texts;
-    if (!text_extraction.extract(context, rendered_pages, page_texts)) {
-        return fail("text_extraction", "failed to extract text");
+    common::Status stage_status = text_extraction.extract(context, rendered_pages, page_texts);
+    if (!stage_status.okStatus()) {
+        return fail("text_extraction", stage_status.message());
     }
     trace.record("text_extraction", "succeeded", std::to_string(page_texts.size()) + " pages");
 
-    const layout::LayoutService layout(*selected_layout_backend);
-    const LayoutAnalysisStage layout_analysis(layout);
+    const LayoutAnalysisStage layout_analysis(*backend_selection.services.layout);
     std::vector<document::PageLayout> page_layouts;
-    if (!layout_analysis.analyze(context, rendered_pages, page_texts, page_layouts)) {
-        return fail("layout_analysis", "failed to analyze layout");
+    stage_status = layout_analysis.analyze(context, rendered_pages, page_texts, page_layouts);
+    if (!stage_status.okStatus()) {
+        return fail("layout_analysis", stage_status.message());
     }
     trace.record("layout_analysis", "succeeded", std::to_string(page_layouts.size()) + " pages");
 
-    const table::TableService table(*selected_table_backend);
-    const TableRecognitionStage table_recognition(table);
+    const TableRecognitionStage table_recognition(*backend_selection.services.table);
     std::vector<document::PageTables> page_tables;
-    if (!table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables)) {
-        return fail("table_recognition", "failed to recognize tables");
+    stage_status = table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables);
+    if (!stage_status.okStatus()) {
+        return fail("table_recognition", stage_status.message());
     }
     trace.record("table_recognition", "succeeded", std::to_string(page_tables.size()) + " pages");
 
     document::ParsedDocument parsed_document;
+    document::PipelineArtifacts artifacts;
     const assembly::DocumentAssembler document_assembler;
     if (!document_assembler.assemble(
             {
-                backend->sourcePath(),
-                backend->sourceType(),
+                backend.source->sourcePath(),
+                backend.source->sourceType(),
                 context.render.dpi,
                 rendered_pages,
                 page_texts,
                 page_layouts,
                 page_tables,
             },
-            parsed_document)) {
+            parsed_document,
+            artifacts)) {
         std::cerr << "error: failed to assemble document\n";
         return fail("document_assembly", "failed to assemble document");
     }
@@ -223,6 +189,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
             context.debug,
             context.output.manifest_json,
             &parsed_document,
+            &artifacts,
         })) {
         return fail("export", "failed to write document manifest");
     }

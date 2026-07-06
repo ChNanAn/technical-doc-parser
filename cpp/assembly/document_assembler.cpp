@@ -80,7 +80,7 @@ std::string tableText(const document::Table& table) {
     return text;
 }
 
-document::DocumentBlock makeDocumentBlock(const document::ParsedPage& page,
+document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts& page,
                                           const document::LayoutBlock& layout_block,
                                           std::size_t block_index) {
     document::DocumentBlock block;
@@ -113,19 +113,22 @@ bool hasMatchingPageCounts(const DocumentAssembleRequest& request) {
 
 } // namespace
 
-bool DocumentAssembler::assemble(const DocumentAssembleRequest& request, document::ParsedDocument& document) const {
+bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
+                                 document::ParsedDocument& document,
+                                 document::PipelineArtifacts& artifacts) const {
     if (!hasMatchingPageCounts(request)) {
         return false;
     }
 
     document = {};
+    artifacts = {};
     document.source.path = request.source_path;
     document.source.type = request.source_type;
     document.dpi = request.dpi;
-    document.pages.reserve(request.pages.size());
+    artifacts.pages.reserve(request.pages.size());
 
     for (std::size_t index = 0; index < request.pages.size(); ++index) {
-        document.pages.push_back({
+        artifacts.pages.push_back({
             request.pages[index].page_index,
             request.pages[index].page_number,
             request.pages[index],
@@ -134,7 +137,7 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request, documen
             request.page_tables[index],
         });
 
-        const document::ParsedPage& parsed_page = document.pages.back();
+        const document::PipelinePageArtifacts& parsed_page = artifacts.pages.back();
         for (const auto& layout_block : parsed_page.layout.blocks) {
             document.blocks.push_back(makeDocumentBlock(parsed_page, layout_block, document.blocks.size()));
         }

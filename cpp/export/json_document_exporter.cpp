@@ -212,21 +212,24 @@ bool JsonDocumentExporter::write(const DocumentExportRequest& request) const {
     manifest["blocks"] = documentBlocksToJson(document.blocks);
     manifest["pages"] = nlohmann::json::array();
 
-    for (const auto& page : document.pages) {
-        nlohmann::json page_json = {
-            {"page_index", page.page_index},
-            {"page_number", page.page_number},
-            {"image", page.image.relative_image},
-        };
-        if (request.debug) {
-            page_json["debug"]["text"] = pageTextToJson(page.text);
-            page_json["debug"]["layout"] = pageLayoutToJson(page.layout);
-            page_json["debug"]["tables"] = pageTablesToJson(page.tables);
-            if (!page.image.debug_images.empty()) {
-                page_json["debug"]["images"] = debugImagesToJson(page.image.debug_images);
+    const document::PipelineArtifacts* artifacts = request.artifacts;
+    if (artifacts != nullptr) {
+        for (const auto& page : artifacts->pages) {
+            nlohmann::json page_json = {
+                {"page_index", page.page_index},
+                {"page_number", page.page_number},
+                {"image", page.image.relative_image},
+            };
+            if (request.debug) {
+                page_json["debug"]["text"] = pageTextToJson(page.text);
+                page_json["debug"]["layout"] = pageLayoutToJson(page.layout);
+                page_json["debug"]["tables"] = pageTablesToJson(page.tables);
+                if (!page.image.debug_images.empty()) {
+                    page_json["debug"]["images"] = debugImagesToJson(page.image.debug_images);
+                }
             }
+            manifest["pages"].push_back(page_json);
         }
-        manifest["pages"].push_back(page_json);
     }
 
     std::ofstream manifest_file(request.output_path);

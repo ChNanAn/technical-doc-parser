@@ -1,5 +1,7 @@
 #include "table/table_service.h"
 
+#include <utility>
+
 namespace doc_parser::table {
 namespace {
 
@@ -13,6 +15,9 @@ const ITableBackend& defaultTableBackend() {
 TableService::TableService() : TableService(defaultTableBackend()) {}
 
 TableService::TableService(const ITableBackend& backend) : backend_(&backend) {}
+
+TableService::TableService(std::unique_ptr<ITableBackend> backend)
+    : owned_backend_(std::move(backend)), backend_(owned_backend_.get()) {}
 
 bool TableService::recognize(const document::PageArtifact& page,
                              const document::PageText& text,

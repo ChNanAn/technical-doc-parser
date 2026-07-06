@@ -1,4 +1,5 @@
 add_library(doc_parser_pipeline
+    backend_registry.cpp
     document_backend_factory.cpp
     document_pipeline.cpp
     layout_analysis_stage.cpp

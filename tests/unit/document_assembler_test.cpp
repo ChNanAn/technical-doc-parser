@@ -106,6 +106,7 @@ doc_parser::document::PageTables makePageTables() {
 TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
     const doc_parser::assembly::DocumentAssembler assembler;
     doc_parser::document::ParsedDocument document;
+    doc_parser::document::PipelineArtifacts artifacts;
 
     ASSERT_TRUE(assembler.assemble(
         {
@@ -117,11 +118,12 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
             {makePageLayout()},
             {makePageTables()},
         },
-        document));
+        document,
+        artifacts));
 
     EXPECT_EQ(document.source.path, "fixture.pdf");
     EXPECT_EQ(document.dpi, 144);
-    ASSERT_EQ(document.pages.size(), 1U);
+    ASSERT_EQ(artifacts.pages.size(), 1U);
     ASSERT_EQ(document.blocks.size(), 2U);
 
     EXPECT_EQ(document.blocks[0].type, doc_parser::document::DocumentBlockType::Title);
@@ -139,6 +141,7 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
 TEST(DocumentAssemblerTest, RejectsMismatchedPageCounts) {
     const doc_parser::assembly::DocumentAssembler assembler;
     doc_parser::document::ParsedDocument document;
+    doc_parser::document::PipelineArtifacts artifacts;
 
     EXPECT_FALSE(assembler.assemble(
         {
@@ -150,5 +153,6 @@ TEST(DocumentAssemblerTest, RejectsMismatchedPageCounts) {
             {makePageLayout()},
             {makePageTables()},
         },
-        document));
+        document,
+        artifacts));
 }

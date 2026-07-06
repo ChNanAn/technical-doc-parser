@@ -11,6 +11,7 @@ struct DocumentExportRequest {
     bool debug = false;
     std::filesystem::path output_path;
     const document::ParsedDocument* document = nullptr;
+    const document::PipelineArtifacts* artifacts = nullptr;
 };
 
 class IDocumentExporter {

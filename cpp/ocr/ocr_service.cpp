@@ -2,6 +2,8 @@
 
 #include "ocr/tesseract_cli_ocr_backend.h"
 
+#include <utility>
+
 namespace doc_parser::ocr {
 namespace {
 
@@ -29,6 +31,9 @@ bool NoopOcrBackend::recognize(const OcrRequest& request, OcrResult& result) con
 OcrService::OcrService() : OcrService(defaultOcrBackend()) {}
 
 OcrService::OcrService(const IOcrBackend& backend) : backend_(&backend) {}
+
+OcrService::OcrService(std::unique_ptr<IOcrBackend> backend)
+    : owned_backend_(std::move(backend)), backend_(owned_backend_.get()) {}
 
 bool OcrService::recognize(const document::PageArtifact& page, int dpi, document::PageText& page_text) const {
     page_text = {};

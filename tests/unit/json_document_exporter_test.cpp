@@ -10,7 +10,10 @@ namespace {
 
 using doc_parser::document::BBox;
 using doc_parser::document::DebugImageArtifact;
+using doc_parser::document::LayoutBlock;
+using doc_parser::document::LayoutBlockType;
 using doc_parser::document::PageArtifact;
+using doc_parser::document::PageLayout;
 using doc_parser::document::PageText;
 using doc_parser::document::ParsedDocument;
 using doc_parser::document::ParsedPage;
@@ -49,11 +52,25 @@ ParsedDocument makeDocument() {
     image.page_number = 1;
     image.relative_image = "pages/page_1.png";
     image.output_path = "/tmp/pages/page_1.png";
+    image.width = 100;
+    image.height = 200;
     image.debug_images.push_back(DebugImageArtifact{
         "preprocessed",
         "debug/page_1_preprocessed.png",
         "/tmp/debug/page_1_preprocessed.png",
     });
+
+    LayoutBlock block;
+    block.id = "page_1_block_1";
+    block.type = LayoutBlockType::Text;
+    block.bbox = line.bbox;
+    block.confidence = 0.75;
+    block.text_line_indices.push_back(0);
+
+    PageLayout layout;
+    layout.page_index = 0;
+    layout.page_number = 1;
+    layout.blocks.push_back(block);
 
     ParsedDocument document;
     document.source.path = "fixture.pdf";
@@ -64,6 +81,7 @@ ParsedDocument makeDocument() {
         1,
         image,
         text,
+        layout,
     });
     return document;
 }
@@ -118,6 +136,11 @@ TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     EXPECT_EQ(debug["text"]["lines"][0]["text"], "Table");
     ASSERT_EQ(debug["text"]["lines"][0]["spans"].size(), 1U);
     EXPECT_EQ(debug["text"]["lines"][0]["spans"][0]["text"], "Table");
+    ASSERT_EQ(debug["layout"]["blocks"].size(), 1U);
+    EXPECT_EQ(debug["layout"]["blocks"][0]["id"], "page_1_block_1");
+    EXPECT_EQ(debug["layout"]["blocks"][0]["type"], "text");
+    ASSERT_EQ(debug["layout"]["blocks"][0]["text_line_indices"].size(), 1U);
+    EXPECT_EQ(debug["layout"]["blocks"][0]["text_line_indices"][0], 0);
     ASSERT_EQ(debug["images"].size(), 1U);
     EXPECT_EQ(debug["images"][0]["name"], "preprocessed");
     EXPECT_EQ(debug["images"][0]["image"], "debug/page_1_preprocessed.png");

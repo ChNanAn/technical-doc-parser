@@ -20,6 +20,28 @@ const char* textSourceToString(document::TextSource source) {
     return "unknown";
 }
 
+const char* layoutBlockTypeToString(document::LayoutBlockType type) {
+    switch (type) {
+    case document::LayoutBlockType::Title:
+        return "title";
+    case document::LayoutBlockType::Text:
+        return "text";
+    case document::LayoutBlockType::List:
+        return "list";
+    case document::LayoutBlockType::Table:
+        return "table";
+    case document::LayoutBlockType::Figure:
+        return "figure";
+    case document::LayoutBlockType::Header:
+        return "header";
+    case document::LayoutBlockType::Footer:
+        return "footer";
+    case document::LayoutBlockType::Unknown:
+        return "unknown";
+    }
+    return "unknown";
+}
+
 nlohmann::json bboxToJson(const document::BBox& bbox) {
     return {
         {"x0", bbox.x0},
@@ -55,6 +77,23 @@ nlohmann::json pageTextToJson(const document::PageText& page_text) {
         {"has_text", page_text.has_text},
         {"preferred_source", textSourceToString(page_text.preferred_source)},
         {"lines", lines},
+    };
+}
+
+nlohmann::json pageLayoutToJson(const document::PageLayout& page_layout) {
+    nlohmann::json blocks = nlohmann::json::array();
+    for (const auto& block : page_layout.blocks) {
+        blocks.push_back({
+            {"id", block.id},
+            {"type", layoutBlockTypeToString(block.type)},
+            {"bbox", bboxToJson(block.bbox)},
+            {"confidence", block.confidence},
+            {"text_line_indices", block.text_line_indices},
+        });
+    }
+
+    return {
+        {"blocks", blocks},
     };
 }
 
@@ -96,6 +135,7 @@ bool JsonDocumentExporter::write(const DocumentExportRequest& request) const {
         };
         if (request.debug) {
             page_json["debug"]["text"] = pageTextToJson(page.text);
+            page_json["debug"]["layout"] = pageLayoutToJson(page.layout);
             if (!page.image.debug_images.empty()) {
                 page_json["debug"]["images"] = debugImagesToJson(page.image.debug_images);
             }

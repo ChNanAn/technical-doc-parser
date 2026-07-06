@@ -62,6 +62,8 @@ bool PdfPageRenderer::renderPages(const PdfReader& reader,
             page_index + 1,
             relative_image,
             output_path,
+            bitmap.width,
+            bitmap.height,
             {},
         });
     }

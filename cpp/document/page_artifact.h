@@ -26,6 +26,8 @@ struct PageArtifact {
     int page_number = 0;
     std::string relative_image;
     std::filesystem::path output_path;
+    int width = 0;
+    int height = 0;
     std::vector<DebugImageArtifact> debug_images;
 };
 

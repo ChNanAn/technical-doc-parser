@@ -1,5 +1,6 @@
 #pragma once
 
+#include "document/layout_model.h"
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 
@@ -18,6 +19,7 @@ struct ParsedPage {
     int page_number = 0;
     PageArtifact image;
     PageText text;
+    PageLayout layout;
 };
 
 struct ParsedDocument {

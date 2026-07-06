@@ -14,6 +14,7 @@ target_link_libraries(doc_parser
     PRIVATE
         CLI11::CLI11
         doc_parser_export
+        doc_parser_layout
         nlohmann_json::nlohmann_json
 )
 
@@ -21,6 +22,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     target_sources(doc_parser
         PRIVATE
             ../pipeline/pdfium_document_backend.cpp
+            ../pipeline/layout_analysis_stage.cpp
             ../pipeline/text_extraction_stage.cpp
     )
 

@@ -2,8 +2,10 @@
 
 #include "document/parsed_document.h"
 #include "export/document_exporter.h"
+#include "layout/layout_service.h"
 #include "ocr/ocr_service.h"
 #include "pipeline/document_backend_factory.h"
+#include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/stage_interfaces.h"
 #include "pipeline/text_extraction_stage.h"
@@ -62,9 +64,10 @@ bool assembleParsedDocument(const IDocumentBackend& backend,
                             const PipelineContext& context,
                             const std::vector<document::PageArtifact>& pages,
                             const std::vector<document::PageText>& page_texts,
+                            const std::vector<document::PageLayout>& page_layouts,
                             document::ParsedDocument& document) {
-    if (pages.size() != page_texts.size()) {
-        std::cerr << "error: page artifact count does not match text page count\n";
+    if (pages.size() != page_texts.size() || pages.size() != page_layouts.size()) {
+        std::cerr << "error: page artifact, text, and layout counts do not match\n";
         return false;
     }
 
@@ -80,6 +83,7 @@ bool assembleParsedDocument(const IDocumentBackend& backend,
             pages[index].page_number,
             pages[index],
             page_texts[index],
+            page_layouts[index],
         });
     }
 
@@ -128,8 +132,15 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         return false;
     }
 
+    const layout::LayoutService layout;
+    const LayoutAnalysisStage layout_analysis(layout);
+    std::vector<document::PageLayout> page_layouts;
+    if (!layout_analysis.analyze(context, rendered_pages, page_texts, page_layouts)) {
+        return false;
+    }
+
     document::ParsedDocument parsed_document;
-    if (!assembleParsedDocument(*backend, context, rendered_pages, page_texts, parsed_document)) {
+    if (!assembleParsedDocument(*backend, context, rendered_pages, page_texts, page_layouts, parsed_document)) {
         return false;
     }
 

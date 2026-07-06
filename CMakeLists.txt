@@ -53,6 +53,7 @@ option(DOC_PARSER_ENABLE_OPENCV "Enable OpenCV image preprocessing" ON)
 
 add_subdirectory(cpp/document)
 add_subdirectory(cpp/export)
+add_subdirectory(cpp/layout)
 add_subdirectory(cpp/ocr)
 
 if(DOC_PARSER_ENABLE_PDFIUM)

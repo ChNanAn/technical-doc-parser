@@ -307,15 +307,15 @@ For demos and targeted evaluation, the project can also use a small curated set 
 
 ## Current Status
 
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, PDFium lifetime management, PDF open/page-count support, page rendering, an internal text model, PDF text layer extraction, an optional Tesseract OCR baseline, and smoke tests for the main pipeline pieces.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, PDFium lifetime management, PDF open/page-count support, page rendering, an internal text model, PDF text layer extraction, an optional Tesseract OCR baseline, a baseline layout analysis model, and smoke tests for the main pipeline pieces.
 
 The current pipeline is intentionally small:
 
 ```text
-PDF -> rendered pages -> PageText -> minimal manifest
+PDF -> rendered pages -> PageText -> PageLayout -> minimal manifest
 ```
 
-Next implementation work should keep the same stage boundaries while adding layout blocks, table structure recovery, and a dedicated export layer.
+Next implementation work should keep the same stage boundaries while improving layout detection quality, adding table structure recovery, and building a dedicated export layer.
 
 ## Build
 

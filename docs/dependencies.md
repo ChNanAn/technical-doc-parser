@@ -143,6 +143,21 @@ DOC_PARSER_TESSERACT_CMD=/path/to/tesseract DOC_PARSER_TESSERACT_LANG=eng+chi_si
 OCR is only used by the text extraction stage when the PDF text layer for a page is empty. Debug output records
 OCR text under `pages[].debug.text` with `preferred_source` set to `ocr`.
 
+## Layout Analysis
+
+The first layout stage uses a built-in baseline model that consumes normalized `PageText` lines and page image
+metadata. It groups text lines into `PageLayout` blocks and labels them as `title`, `text`, `list`, `table`,
+`figure`, `header`, or `footer`.
+
+This baseline has no external runtime dependency. It is intentionally shaped like a model adapter so a DocLayNet,
+ONNX, or external detector backend can replace it without changing the rest of the pipeline.
+
+Debug output records layout results under:
+
+```text
+pages[].debug.layout.blocks
+```
+
 ## nlohmann/json
 
 Structured parser output is written with [`nlohmann/json`](https://github.com/nlohmann/json), pulled by CMake `FetchContent`.
@@ -174,4 +189,4 @@ The first manifest is intentionally small:
 }
 ```
 
-Layout and table fields will be added by later pipeline stages.
+Table fields will be added by later pipeline stages.

@@ -97,6 +97,44 @@ nlohmann::json pageLayoutToJson(const document::PageLayout& page_layout) {
     };
 }
 
+nlohmann::json pageTablesToJson(const document::PageTables& page_tables) {
+    nlohmann::json tables = nlohmann::json::array();
+    for (const auto& table : page_tables.tables) {
+        nlohmann::json rows = nlohmann::json::array();
+        for (const auto& row : table.rows) {
+            nlohmann::json cells = nlohmann::json::array();
+            for (const auto& cell : row.cells) {
+                cells.push_back({
+                    {"row_index", cell.row_index},
+                    {"column_index", cell.column_index},
+                    {"row_span", cell.row_span},
+                    {"column_span", cell.column_span},
+                    {"text", cell.text},
+                    {"bbox", bboxToJson(cell.bbox)},
+                    {"confidence", cell.confidence},
+                });
+            }
+
+            rows.push_back({
+                {"row_index", row.row_index},
+                {"cells", cells},
+            });
+        }
+
+        tables.push_back({
+            {"id", table.id},
+            {"layout_block_id", table.layout_block_id},
+            {"bbox", bboxToJson(table.bbox)},
+            {"confidence", table.confidence},
+            {"rows", rows},
+        });
+    }
+
+    return {
+        {"tables", tables},
+    };
+}
+
 nlohmann::json debugImagesToJson(const std::vector<document::DebugImageArtifact>& images) {
     nlohmann::json image_json = nlohmann::json::array();
     for (const auto& image : images) {
@@ -136,6 +174,7 @@ bool JsonDocumentExporter::write(const DocumentExportRequest& request) const {
         if (request.debug) {
             page_json["debug"]["text"] = pageTextToJson(page.text);
             page_json["debug"]["layout"] = pageLayoutToJson(page.layout);
+            page_json["debug"]["tables"] = pageTablesToJson(page.tables);
             if (!page.image.debug_images.empty()) {
                 page_json["debug"]["images"] = debugImagesToJson(page.image.debug_images);
             }

@@ -55,6 +55,7 @@ add_subdirectory(cpp/document)
 add_subdirectory(cpp/export)
 add_subdirectory(cpp/layout)
 add_subdirectory(cpp/ocr)
+add_subdirectory(cpp/table)
 
 if(DOC_PARSER_ENABLE_PDFIUM)
     include(PDFium)

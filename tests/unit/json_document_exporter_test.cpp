@@ -14,9 +14,13 @@ using doc_parser::document::LayoutBlock;
 using doc_parser::document::LayoutBlockType;
 using doc_parser::document::PageArtifact;
 using doc_parser::document::PageLayout;
+using doc_parser::document::PageTables;
 using doc_parser::document::PageText;
 using doc_parser::document::ParsedDocument;
 using doc_parser::document::ParsedPage;
+using doc_parser::document::Table;
+using doc_parser::document::TableCell;
+using doc_parser::document::TableRow;
 using doc_parser::document::TextLine;
 using doc_parser::document::TextSource;
 using doc_parser::document::TextSpan;
@@ -72,6 +76,31 @@ ParsedDocument makeDocument() {
     layout.page_number = 1;
     layout.blocks.push_back(block);
 
+    TableCell cell;
+    cell.row_index = 0;
+    cell.column_index = 0;
+    cell.text = "Table";
+    cell.bbox = line.bbox;
+    cell.confidence = 0.9;
+
+    TableRow row;
+    row.row_index = 0;
+    row.cells.push_back(cell);
+
+    Table table;
+    table.id = "page_1_table_1";
+    table.layout_block_id = block.id;
+    table.page_index = 0;
+    table.page_number = 1;
+    table.bbox = line.bbox;
+    table.confidence = 0.8;
+    table.rows.push_back(row);
+
+    PageTables tables;
+    tables.page_index = 0;
+    tables.page_number = 1;
+    tables.tables.push_back(table);
+
     ParsedDocument document;
     document.source.path = "fixture.pdf";
     document.source.type = "pdf";
@@ -82,6 +111,7 @@ ParsedDocument makeDocument() {
         image,
         text,
         layout,
+        tables,
     });
     return document;
 }
@@ -141,6 +171,12 @@ TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     EXPECT_EQ(debug["layout"]["blocks"][0]["type"], "text");
     ASSERT_EQ(debug["layout"]["blocks"][0]["text_line_indices"].size(), 1U);
     EXPECT_EQ(debug["layout"]["blocks"][0]["text_line_indices"][0], 0);
+    ASSERT_EQ(debug["tables"]["tables"].size(), 1U);
+    EXPECT_EQ(debug["tables"]["tables"][0]["id"], "page_1_table_1");
+    EXPECT_EQ(debug["tables"]["tables"][0]["layout_block_id"], "page_1_block_1");
+    ASSERT_EQ(debug["tables"]["tables"][0]["rows"].size(), 1U);
+    ASSERT_EQ(debug["tables"]["tables"][0]["rows"][0]["cells"].size(), 1U);
+    EXPECT_EQ(debug["tables"]["tables"][0]["rows"][0]["cells"][0]["text"], "Table");
     ASSERT_EQ(debug["images"].size(), 1U);
     EXPECT_EQ(debug["images"][0]["name"], "preprocessed");
     EXPECT_EQ(debug["images"][0]["image"], "debug/page_1_preprocessed.png");

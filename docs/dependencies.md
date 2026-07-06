@@ -158,6 +158,21 @@ Debug output records layout results under:
 pages[].debug.layout.blocks
 ```
 
+## Table Recognition
+
+The first table stage uses a built-in baseline recognizer. It consumes `PageText` plus table layout blocks from
+`PageLayout`, then recovers simple rows and cells by grouping text spans and splitting large horizontal gaps.
+
+This baseline has no external runtime dependency. It is intentionally shaped like a backend adapter so a
+Table Transformer, PubTables-style model, ONNX backend, or external table service can replace it while preserving
+the same `PageTables` output model.
+
+Debug output records table results under:
+
+```text
+pages[].debug.tables.tables
+```
+
 ## nlohmann/json
 
 Structured parser output is written with [`nlohmann/json`](https://github.com/nlohmann/json), pulled by CMake `FetchContent`.
@@ -189,4 +204,4 @@ The first manifest is intentionally small:
 }
 ```
 
-Table fields will be added by later pipeline stages.
+The debug manifest includes text, layout, and table intermediate data.

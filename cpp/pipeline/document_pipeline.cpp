@@ -8,7 +8,9 @@
 #include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/stage_interfaces.h"
+#include "pipeline/table_recognition_stage.h"
 #include "pipeline/text_extraction_stage.h"
+#include "table/table_service.h"
 
 #if DOC_PARSER_ENABLE_OPENCV
 #include "image/image_preprocessor.h"
@@ -65,9 +67,11 @@ bool assembleParsedDocument(const IDocumentBackend& backend,
                             const std::vector<document::PageArtifact>& pages,
                             const std::vector<document::PageText>& page_texts,
                             const std::vector<document::PageLayout>& page_layouts,
+                            const std::vector<document::PageTables>& page_tables,
                             document::ParsedDocument& document) {
-    if (pages.size() != page_texts.size() || pages.size() != page_layouts.size()) {
-        std::cerr << "error: page artifact, text, and layout counts do not match\n";
+    if (pages.size() != page_texts.size() || pages.size() != page_layouts.size() ||
+        pages.size() != page_tables.size()) {
+        std::cerr << "error: page artifact, text, layout, and table counts do not match\n";
         return false;
     }
 
@@ -84,6 +88,7 @@ bool assembleParsedDocument(const IDocumentBackend& backend,
             pages[index],
             page_texts[index],
             page_layouts[index],
+            page_tables[index],
         });
     }
 
@@ -139,8 +144,16 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         return false;
     }
 
+    const table::TableService table;
+    const TableRecognitionStage table_recognition(table);
+    std::vector<document::PageTables> page_tables;
+    if (!table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables)) {
+        return false;
+    }
+
     document::ParsedDocument parsed_document;
-    if (!assembleParsedDocument(*backend, context, rendered_pages, page_texts, page_layouts, parsed_document)) {
+    if (!assembleParsedDocument(
+            *backend, context, rendered_pages, page_texts, page_layouts, page_tables, parsed_document)) {
         return false;
     }
 

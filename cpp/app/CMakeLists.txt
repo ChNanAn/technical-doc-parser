@@ -15,6 +15,7 @@ target_link_libraries(doc_parser
         CLI11::CLI11
         doc_parser_export
         doc_parser_layout
+        doc_parser_table
         nlohmann_json::nlohmann_json
 )
 
@@ -23,6 +24,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
         PRIVATE
             ../pipeline/pdfium_document_backend.cpp
             ../pipeline/layout_analysis_stage.cpp
+            ../pipeline/table_recognition_stage.cpp
             ../pipeline/text_extraction_stage.cpp
     )
 

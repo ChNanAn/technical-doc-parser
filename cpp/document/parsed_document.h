@@ -2,6 +2,7 @@
 
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
+#include "document/table_model.h"
 #include "document/text_model.h"
 
 #include <string>
@@ -20,6 +21,7 @@ struct ParsedPage {
     PageArtifact image;
     PageText text;
     PageLayout layout;
+    PageTables tables;
 };
 
 struct ParsedDocument {

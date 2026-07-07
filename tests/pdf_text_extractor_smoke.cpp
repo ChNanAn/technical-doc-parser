@@ -1,6 +1,6 @@
-#include "document/text_model.h"
 #include "backend/pdf/pdf_document.h"
 #include "backend/pdf/text_service.h"
+#include "document/text_model.h"
 
 #include <iostream>
 #include <string>

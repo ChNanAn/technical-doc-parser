@@ -17,9 +17,8 @@ doc_parser::document::PageArtifact makePage() {
     return page;
 }
 
-doc_parser::document::LayoutBlock makeBlock(const std::string& id,
-                                            doc_parser::document::LayoutBlockType type,
-                                            doc_parser::document::BBox bbox) {
+doc_parser::document::LayoutBlock
+makeBlock(const std::string& id, doc_parser::document::LayoutBlockType type, doc_parser::document::BBox bbox) {
     doc_parser::document::LayoutBlock block;
     block.id = id;
     block.type = type;

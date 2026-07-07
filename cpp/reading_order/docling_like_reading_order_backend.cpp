@@ -66,13 +66,9 @@ double horizontalOverlap(const BBox& lhs, const BBox& rhs) {
     return std::max(0.0, std::min(lhs.x1, rhs.x1) - std::max(lhs.x0, rhs.x0));
 }
 
-bool overlapsHorizontally(const BBox& lhs, const BBox& rhs) {
-    return horizontalOverlap(lhs, rhs) > kEpsilon;
-}
+bool overlapsHorizontally(const BBox& lhs, const BBox& rhs) { return horizontalOverlap(lhs, rhs) > kEpsilon; }
 
-bool isStrictlyAbove(const BBox& lhs, const BBox& rhs) {
-    return lhs.y1 <= rhs.y0 + kEpsilon;
-}
+bool isStrictlyAbove(const BBox& lhs, const BBox& rhs) { return lhs.y1 <= rhs.y0 + kEpsilon; }
 
 bool comesBeforeForHeadSort(const PageElement& lhs, const PageElement& rhs) {
     if (overlapsHorizontally(lhs.bbox, rhs.bbox)) {
@@ -157,8 +153,8 @@ bool wouldOverlapAny(const std::vector<PageElement>& original, std::size_t curre
         if (index == current_index) {
             continue;
         }
-        if (bbox.x0 < original[index].bbox.x1 && bbox.x1 > original[index].bbox.x0 && bbox.y0 < original[index].bbox.y1 &&
-            bbox.y1 > original[index].bbox.y0) {
+        if (bbox.x0 < original[index].bbox.x1 && bbox.x1 > original[index].bbox.x0 &&
+            bbox.y0 < original[index].bbox.y1 && bbox.y1 > original[index].bbox.y0) {
             return true;
         }
     }
@@ -230,8 +226,7 @@ void sortGraph(const std::vector<PageElement>& elements, ReadingGraph& graph) {
     }
 
     std::sort(graph.heads.begin(), graph.heads.end(), [&](int lhs, int rhs) {
-        return comesBeforeForHeadSort(elements[static_cast<std::size_t>(lhs)],
-                                      elements[static_cast<std::size_t>(rhs)]);
+        return comesBeforeForHeadSort(elements[static_cast<std::size_t>(lhs)], elements[static_cast<std::size_t>(rhs)]);
     });
 }
 
@@ -299,8 +294,7 @@ std::vector<int> findOrder(const std::vector<PageElement>& elements, const Readi
         }
     }
     std::sort(remaining.begin(), remaining.end(), [&](int lhs, int rhs) {
-        return comesBeforeForHeadSort(elements[static_cast<std::size_t>(lhs)],
-                                      elements[static_cast<std::size_t>(rhs)]);
+        return comesBeforeForHeadSort(elements[static_cast<std::size_t>(lhs)], elements[static_cast<std::size_t>(rhs)]);
     });
     order.insert(order.end(), remaining.begin(), remaining.end());
 

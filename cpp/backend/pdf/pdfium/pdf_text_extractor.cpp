@@ -1,8 +1,8 @@
 #include "backend/pdf/pdfium/pdf_text_extractor.h"
 
-#include "document/text_normalizer.h"
 #include "backend/pdf/pdfium/pdfium_runtime.h"
 #include "backend/pdf/pdfium/pdfium_scoped_handles.h"
+#include "document/text_normalizer.h"
 
 #include <fpdf_text.h>
 #include <mutex>

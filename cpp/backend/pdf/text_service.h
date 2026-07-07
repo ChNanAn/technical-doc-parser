@@ -1,7 +1,7 @@
 #pragma once
 
-#include "document/text_model.h"
 #include "backend/pdf/pdf_document.h"
+#include "document/text_model.h"
 
 #include <vector>
 

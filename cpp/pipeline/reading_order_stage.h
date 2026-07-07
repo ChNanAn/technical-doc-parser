@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/result.h"
+
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
 #include "document/reading_order_model.h"

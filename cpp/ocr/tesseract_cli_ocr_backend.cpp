@@ -250,8 +250,8 @@ bool TesseractCliOcrBackend::recognize(const OcrRequest& request, OcrResult& res
     appendWordsAsLines(words, result.page_text);
 
     result.page_text.has_text = !result.page_text.lines.empty();
-    result.page_text.preferred_source =
-        result.page_text.has_text ? document::TextSource::Ocr : document::TextSource::Unknown;
+    result.page_text.preferred_source = result.page_text.has_text ? document::TextSource::Ocr
+                                                                  : document::TextSource::Unknown;
     return true;
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "document/page_artifact.h"
 #include "backend/pdf/pdf_document.h"
+#include "document/page_artifact.h"
 
 #include <filesystem>
 #include <vector>

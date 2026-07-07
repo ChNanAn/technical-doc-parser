@@ -110,7 +110,8 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
 
 bool hasMatchingPageCounts(const DocumentAssembleRequest& request) {
     return request.pages.size() == request.page_texts.size() && request.pages.size() == request.page_layouts.size() &&
-           request.pages.size() == request.page_reading_orders.size() && request.pages.size() == request.page_tables.size();
+           request.pages.size() == request.page_reading_orders.size() &&
+           request.pages.size() == request.page_tables.size();
 }
 
 std::vector<int> orderedLayoutBlockIndices(const document::PipelinePageArtifacts& page) {

@@ -22,7 +22,7 @@ third_party/pdfium
 Automatic setup can be disabled:
 
 ```bash
-cmake -S . -B build -DDOC_PARSER_AUTO_SETUP_PDFIUM=OFF
+cmake -S . -B build -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PDFIUM=OFF
 ```
 
 The setup script can still be run manually when refreshing the local copy or debugging dependency setup:
@@ -111,12 +111,15 @@ find_package(OpenCV 4.2 REQUIRED COMPONENTS core imgproc imgcodecs)
 If OpenCV is not installed, disable image preprocessing while configuring:
 
 ```bash
-cmake -S . -B build -DDOC_PARSER_ENABLE_OPENCV=OFF
+cmake -S . -B build -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_OPENCV=OFF
 ```
 
 OpenCV is treated as a system dependency rather than a vendored dependency. It is large, platform-specific,
 and usually pulls additional image codec libraries from the host package manager. Keeping it external avoids
 long source builds and large committed binaries while still letting CI pin a repeatable reference OS.
+
+Legacy `DOC_PARSER_AUTO_SETUP_PDFIUM`, `DOC_PARSER_ENABLE_PDFIUM`, and `DOC_PARSER_ENABLE_OPENCV` CMake options
+are still accepted for compatibility.
 
 ## Tesseract OCR
 
@@ -137,8 +140,10 @@ conda install -c conda-forge tesseract
 The default OCR language is `eng`. Override the executable or language with environment variables:
 
 ```bash
-DOC_PARSER_TESSERACT_CMD=/path/to/tesseract DOC_PARSER_TESSERACT_LANG=eng+chi_sim ./build/doc_parser input.pdf --debug
+DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_CMD=/path/to/tesseract DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG=eng+chi_sim ./build/cpp/app/document_intelligence_engine input.pdf --debug
 ```
+
+The legacy `DOC_PARSER_TESSERACT_CMD` and `DOC_PARSER_TESSERACT_LANG` variables are still accepted for now.
 
 OCR is only used by the text extraction stage when the PDF text layer for a page is empty. Debug output records
 OCR text under `pages[].debug.text` with `preferred_source` set to `ocr`.
@@ -146,9 +151,9 @@ OCR text under `pages[].debug.text` with `preferred_source` set to `ocr`.
 Select the OCR backend explicitly with:
 
 ```bash
-./build/cpp/app/doc_parser input.pdf --ocr-backend auto
-./build/cpp/app/doc_parser input.pdf --ocr-backend tesseract
-./build/cpp/app/doc_parser input.pdf --ocr-backend noop
+./build/cpp/app/document_intelligence_engine input.pdf --ocr-backend auto
+./build/cpp/app/document_intelligence_engine input.pdf --ocr-backend tesseract
+./build/cpp/app/document_intelligence_engine input.pdf --ocr-backend noop
 ```
 
 ## Layout Analysis

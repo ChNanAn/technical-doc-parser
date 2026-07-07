@@ -31,7 +31,7 @@ endif()
 if(DOC_PARSER_ENABLE_PDFIUM)
     add_test(
         NAME cli_render_smoke
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cli_render_smoke.sh $<TARGET_FILE:doc_parser>
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cli_render_smoke.sh $<TARGET_FILE:document_intelligence_engine>
     )
 
     add_executable(pdf_library_smoke

@@ -30,8 +30,8 @@ int main() {
         return 1;
     }
 
-    const std::filesystem::path input_path = "/tmp/technical-doc-parser-image-smoke/input.png";
-    const std::filesystem::path output_path = "/tmp/technical-doc-parser-image-smoke/nested/output.png";
+    const std::filesystem::path input_path = "/tmp/document-intelligence-engine-image-smoke/input.png";
+    const std::filesystem::path output_path = "/tmp/document-intelligence-engine-image-smoke/nested/output.png";
     std::filesystem::create_directories(input_path.parent_path());
     if (!cv::imwrite(input_path.string(), input)) {
         std::cerr << "failed to write input fixture image\n";

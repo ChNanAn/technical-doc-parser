@@ -1,8 +1,8 @@
-# Technical Doc Parser
+# Document Intelligence Engine
 
 [中文文档](README.zh-CN.md)
 
-Technical Doc Parser is a C++ native, backend-agnostic document parsing engine.
+Document Intelligence Engine is a C++ native, backend-agnostic engine for document intelligence pipelines.
 
 It is not positioned as another model-centric PDF-to-Markdown application. Its long-term value is the infrastructure around document parsing: a typed document model, stable pipeline boundaries, pluggable backends, traceable intermediate artifacts, reproducible C++ builds, and an SDK-friendly core that can be embedded into production systems.
 
@@ -26,7 +26,7 @@ The current CLI shape is:
 Input:
 
 ```bash
-doc_parser input.pdf --out output/
+document_intelligence_engine input.pdf --out output/
 ```
 
 Output:
@@ -323,14 +323,14 @@ Configure and build:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release --target doc_parser --parallel
-./build/cpp/app/doc_parser input.pdf --out output/
+cmake --build build --config Release --target document_intelligence_engine --parallel
+./build/cpp/app/document_intelligence_engine input.pdf --out output/
 ```
 
 Backends can be selected explicitly while keeping the same pipeline contract:
 
 ```bash
-./build/cpp/app/doc_parser input.pdf --out output/ \
+./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
   --document-backend pdfium \
   --ocr-backend auto \
   --layout-backend text \

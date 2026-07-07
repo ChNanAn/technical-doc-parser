@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOC_PARSER="${1:?usage: cli_render_smoke.sh /path/to/doc_parser}"
+DOCUMENT_INTELLIGENCE_ENGINE="${1:?usage: cli_render_smoke.sh /path/to/document_intelligence_engine}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PDF_PATH="$ROOT_DIR/tests/fixtures/pdfs/pdfjs-basicapi.pdf"
-OUT_DIR="/tmp/technical-doc-parser-cli-smoke-output"
-DEBUG_OUT_DIR="/tmp/technical-doc-parser-cli-smoke-debug-output"
+OUT_DIR="/tmp/document-intelligence-engine-cli-smoke-output"
+DEBUG_OUT_DIR="/tmp/document-intelligence-engine-cli-smoke-debug-output"
 PNG_PATH="$OUT_DIR/pages/page_1.png"
 JSON_PATH="$OUT_DIR/document.json"
 DEBUG_JSON_PATH="$DEBUG_OUT_DIR/document.json"
 
 rm -rf "$OUT_DIR"
 rm -rf "$DEBUG_OUT_DIR"
-"$DOC_PARSER" "$PDF_PATH" --out "$OUT_DIR" --dpi 72
-"$DOC_PARSER" "$PDF_PATH" --out "$DEBUG_OUT_DIR" --dpi 72 --debug
+"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$OUT_DIR" --dpi 72
+"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$DEBUG_OUT_DIR" --dpi 72 --debug
 
 test -f "$PNG_PATH"
 test -f "$JSON_PATH"
@@ -23,8 +23,8 @@ python3 - <<'PY'
 import json
 from pathlib import Path
 
-manifest = json.loads(Path("/tmp/technical-doc-parser-cli-smoke-output/document.json").read_text())
-debug_manifest = json.loads(Path("/tmp/technical-doc-parser-cli-smoke-debug-output/document.json").read_text())
+manifest = json.loads(Path("/tmp/document-intelligence-engine-cli-smoke-output/document.json").read_text())
+debug_manifest = json.loads(Path("/tmp/document-intelligence-engine-cli-smoke-debug-output/document.json").read_text())
 if manifest["source"]["path"] == "":
     raise SystemExit("source path is empty")
 if manifest["source"]["type"] != "pdf":
@@ -64,7 +64,7 @@ debug_images = debug_first_page.get("debug", {}).get("images", [])
 if debug_images and debug_images[0]["image"] != "debug/page_1_preprocessed.png":
     raise SystemExit(f"unexpected debug image path: {debug_images[0]['image']!r}")
 
-png = Path("/tmp/technical-doc-parser-cli-smoke-output/pages/page_1.png")
+png = Path("/tmp/document-intelligence-engine-cli-smoke-output/pages/page_1.png")
 expected = b"\x89PNG\r\n\x1a\n"
 actual = png.read_bytes()[:8]
 if actual != expected:

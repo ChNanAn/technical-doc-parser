@@ -73,8 +73,8 @@ bool hasPngSignature(const std::string& path) {
 } // namespace
 
 int main() {
-    const std::string pdf_path = "/tmp/technical-doc-parser-render-smoke.pdf";
-    const std::string output_root = "/tmp/technical-doc-parser-render-smoke-output";
+    const std::string pdf_path = "/tmp/document-intelligence-engine-render-smoke.pdf";
+    const std::string output_root = "/tmp/document-intelligence-engine-render-smoke-output";
     writeMinimalPdf(pdf_path);
 
     doc_parser::pdf::PdfDocument document;

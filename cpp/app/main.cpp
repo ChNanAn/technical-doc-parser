@@ -7,7 +7,7 @@
 int main(int argc, char** argv) {
     doc_parser::app::CliOptions options;
 
-    CLI::App app{"Technical Doc Parser"};
+    CLI::App app{"Document Intelligence Engine"};
     app.add_option("input_pdf", options.input_pdf, "Input PDF file")->required()->check(CLI::ExistingFile);
     app.add_option("-o,--out", options.output_dir, "Output directory");
     app.add_option("--dpi", options.dpi, "Render DPI")->check(CLI::PositiveNumber);

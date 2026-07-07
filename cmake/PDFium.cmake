@@ -21,12 +21,12 @@ function(doc_parser_setup_pdfium)
         )
 
         if(NOT DOC_PARSER_PDFIUM_SETUP_RESULT EQUAL 0)
-            message(FATAL_ERROR "Failed to download PDFium. Run bash scripts/setup_pdfium.sh manually for details, or configure with -DDOC_PARSER_ENABLE_PDFIUM=OFF.")
+            message(FATAL_ERROR "Failed to download PDFium. Run bash scripts/setup_pdfium.sh manually for details, or configure with -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PDFIUM=OFF.")
         endif()
     endif()
 
     if(NOT EXISTS "${DOC_PARSER_PDFIUM_CONFIG}")
-        message(FATAL_ERROR "PDFium package config not found at ${DOC_PARSER_PDFIUM_CONFIG}. Run bash scripts/setup_pdfium.sh, pass -DPDFium_DIR=/path/to/pdfium, or enable -DDOC_PARSER_AUTO_SETUP_PDFIUM=ON.")
+        message(FATAL_ERROR "PDFium package config not found at ${DOC_PARSER_PDFIUM_CONFIG}. Run bash scripts/setup_pdfium.sh, pass -DPDFium_DIR=/path/to/pdfium, or enable -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PDFIUM=ON.")
     endif()
 
     find_package(PDFium CONFIG REQUIRED)

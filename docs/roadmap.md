@@ -4,7 +4,7 @@ This document turns the project goal into an execution plan. The main rule is to
 
 ## Long-Term Goal
 
-Build a technical and table-heavy document parsing engine:
+Build a technical and table-heavy document intelligence engine:
 
 ```text
 PDF
@@ -20,7 +20,7 @@ PDF
 Target command:
 
 ```bash
-doc_parser input.pdf --out output/ --dpi 200 --debug
+document_intelligence_engine input.pdf --out output/ --dpi 200 --debug
 ```
 
 Target output:
@@ -52,7 +52,7 @@ Core work:
 Month-end demo:
 
 ```bash
-./build/doc_parser sample.pdf --out output --dpi 200 --debug
+./build/cpp/app/document_intelligence_engine sample.pdf --out output --dpi 200 --debug
 ```
 
 Expected output:
@@ -348,7 +348,7 @@ Tasks:
 Check:
 
 ```bash
-./build/doc_parser sample.pdf --out output
+./build/cpp/app/document_intelligence_engine sample.pdf --out output
 ls output/pages/
 ```
 
@@ -428,13 +428,13 @@ Tasks:
 Tasks:
 
 - Add a tiny PDF fixture or generate one in a script.
-- Run `doc_parser` in CI.
+- Run `document_intelligence_engine` in CI.
 - Assert `output/pages/page_1.png` exists.
 
 Example check:
 
 ```bash
-./build/doc_parser tests/fixtures/minimal.pdf --out output
+./build/cpp/app/document_intelligence_engine tests/fixtures/minimal.pdf --out output
 test -f output/pages/page_1.png
 ```
 
@@ -582,7 +582,7 @@ Final command:
 bash scripts/setup_pdfium.sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium
 cmake --build build --config Release --parallel
-./build/doc_parser sample.pdf --out output --dpi 200 --debug
+./build/cpp/app/document_intelligence_engine sample.pdf --out output --dpi 200 --debug
 ```
 
 Final output:

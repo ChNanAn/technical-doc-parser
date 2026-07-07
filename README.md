@@ -272,15 +272,15 @@ The current implementation has an end-to-end engine skeleton, not finished OCR/L
 
 ## Current Status
 
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, an optional Tesseract OCR baseline, baseline layout analysis, baseline table recognition, document assembly, JSON output, and smoke tests for the main pipeline pieces.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, an optional Tesseract OCR baseline, baseline layout analysis, Docling-like reading order, baseline table recognition, document assembly, JSON output, and smoke tests for the main pipeline pieces.
 
 The current pipeline skeleton is running:
 
 ```text
-PDF -> Render -> Text/OCR -> Layout -> Table -> Assembly -> JSON
+PDF -> Render -> Text/OCR -> Layout -> Reading Order -> Table -> Assembly -> JSON
 ```
 
-OCR, layout analysis, and table recognition are still baseline implementations. The next work is to make each intelligent stage pluggable, debuggable, and measurable.
+OCR, layout analysis, reading order, and table recognition are still baseline implementations. The next work is to make each intelligent stage pluggable, debuggable, and measurable.
 
 ## Build
 

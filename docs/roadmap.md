@@ -9,6 +9,7 @@ PDF
   -> page rendering
   -> native text extraction / OCR fallback
   -> layout analysis
+  -> reading order
   -> table recognition
   -> document assembly
   -> JSON manifest
@@ -27,6 +28,7 @@ Working today:
 - Optional Tesseract CLI OCR baseline.
 - OpenCV preprocessing baseline for debug images.
 - Rule-based layout baseline.
+- Docling-like reading-order baseline.
 - Rule-based table baseline.
 - Document assembly into `DocumentBlock`.
 - JSON exporter with debug/raw artifacts.
@@ -37,8 +39,8 @@ Important caveats:
 
 - OCR is only a baseline adapter, not a robust OCR subsystem.
 - Layout analysis is heuristic, not a production layout detector.
+- Reading order is a heuristic baseline, not a measured reading-order model.
 - Table recognition is a minimal text-gap baseline, not full table understanding.
-- Reading order is not yet modeled as a first-class stage.
 - Markdown/HTML/RAG outputs are not yet mature.
 - Evaluation datasets and metrics are still missing.
 
@@ -219,11 +221,11 @@ Goal: make the engine usable in batch and production-like environments.
 
 ### Milestone 3: Reading Order and Assembly
 
-- Add reading-order data models.
-- Add a heuristic reading-order backend.
-- Integrate reading order before document assembly.
-- Make `DocumentAssembler` consume ordered elements.
-- Add multi-column fixtures.
+- Improve the Docling-like heuristic reading-order backend.
+- Replace the linear spatial index with an R-tree implementation if profiling shows it matters.
+- Add more multi-column and mixed figure/table fixtures.
+- Add reading-order metrics.
+- Use ordered elements to improve section hierarchy and Markdown AST output.
 
 ### Milestone 4: Table Understanding
 

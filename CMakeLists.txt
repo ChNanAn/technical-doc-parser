@@ -90,6 +90,7 @@ add_subdirectory(cpp/assembly)
 add_subdirectory(cpp/export)
 add_subdirectory(cpp/layout)
 add_subdirectory(cpp/ocr)
+add_subdirectory(cpp/reading_order)
 add_subdirectory(cpp/table)
 
 if(DOC_PARSER_ENABLE_PDFIUM)

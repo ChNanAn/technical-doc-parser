@@ -3,6 +3,7 @@
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "ocr/tesseract_cli_ocr_backend.h"
+#include "reading_order/reading_order_backend.h"
 #include "table/table_backend.h"
 
 #include <memory>
@@ -59,6 +60,8 @@ BackendSelectionResult createPipelineServices(const BackendOptions& options) {
 
     result.services.ocr = std::make_unique<ocr::OcrService>(std::move(ocr_backend));
     result.services.layout = std::make_unique<layout::LayoutService>(std::move(layout_backend));
+    result.services.reading_order = std::make_unique<reading_order::ReadingOrderService>(
+        std::make_unique<reading_order::DoclingLikeReadingOrderBackend>());
     result.services.table = std::make_unique<table::TableService>(std::move(table_backend));
     result.trace_message = "document=" + options.document + ", ocr=" + options.ocr + ", layout=" + options.layout +
                            ", table=" + options.table;

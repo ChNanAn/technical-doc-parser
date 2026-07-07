@@ -10,6 +10,7 @@
 #include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/pipeline_trace.h"
+#include "pipeline/reading_order_stage.h"
 #include "pipeline/stage_interfaces.h"
 #include "pipeline/table_recognition_stage.h"
 #include "pipeline/text_extraction_stage.h"
@@ -151,6 +152,14 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
     trace.record("layout_analysis", "succeeded", std::to_string(page_layouts.size()) + " pages");
 
+    const ReadingOrderStage reading_order(*backend_selection.services.reading_order);
+    std::vector<document::PageReadingOrder> page_reading_orders;
+    stage_status = reading_order.order(context, rendered_pages, page_layouts, page_reading_orders);
+    if (!stage_status.okStatus()) {
+        return fail("reading_order", stage_status.message());
+    }
+    trace.record("reading_order", "succeeded", std::to_string(page_reading_orders.size()) + " pages");
+
     const TableRecognitionStage table_recognition(*backend_selection.services.table);
     std::vector<document::PageTables> page_tables;
     stage_status = table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables);
@@ -170,6 +179,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
                 rendered_pages,
                 page_texts,
                 page_layouts,
+                page_reading_orders,
                 page_tables,
             },
             parsed_document,

@@ -3,6 +3,7 @@
 #include "layout/layout_service.h"
 #include "ocr/ocr_service.h"
 #include "pipeline/pipeline_context.h"
+#include "reading_order/reading_order_service.h"
 #include "table/table_service.h"
 
 #include <memory>
@@ -13,6 +14,7 @@ namespace doc_parser::pipeline {
 struct PipelineServices {
     std::unique_ptr<ocr::OcrService> ocr;
     std::unique_ptr<layout::LayoutService> layout;
+    std::unique_ptr<reading_order::ReadingOrderService> reading_order;
     std::unique_ptr<table::TableService> table;
 };
 

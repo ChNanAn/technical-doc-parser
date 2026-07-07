@@ -66,6 +66,15 @@ doc_parser::document::PageLayout makePageLayout() {
     return layout;
 }
 
+doc_parser::document::PageReadingOrder makePageReadingOrder() {
+    doc_parser::document::PageReadingOrder reading_order;
+    reading_order.page_index = 0;
+    reading_order.page_number = 1;
+    reading_order.items.push_back({"page_1_block_1", 0, 0});
+    reading_order.items.push_back({"page_1_block_2", 1, 1});
+    return reading_order;
+}
+
 doc_parser::document::PageTables makePageTables() {
     doc_parser::document::TableCell left;
     left.row_index = 0;
@@ -116,6 +125,7 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
             {makePage()},
             {makePageText()},
             {makePageLayout()},
+            {makePageReadingOrder()},
             {makePageTables()},
         },
         document,
@@ -151,8 +161,64 @@ TEST(DocumentAssemblerTest, RejectsMismatchedPageCounts) {
             {makePage()},
             {},
             {makePageLayout()},
+            {makePageReadingOrder()},
             {makePageTables()},
         },
         document,
         artifacts));
+}
+
+TEST(DocumentAssemblerTest, BuildsDocumentBlocksInReadingOrder) {
+    auto page_text = makePageText();
+    page_text.lines.push_back(makeLine("Right column", {600.0, 100.0, 900.0, 130.0}));
+    page_text.lines.push_back(makeLine("Left column", {100.0, 300.0, 400.0, 330.0}));
+
+    doc_parser::document::LayoutBlock right;
+    right.id = "page_1_block_1";
+    right.type = doc_parser::document::LayoutBlockType::Text;
+    right.bbox = {600.0, 100.0, 900.0, 130.0};
+    right.text_line_indices.push_back(2);
+
+    doc_parser::document::LayoutBlock left;
+    left.id = "page_1_block_2";
+    left.type = doc_parser::document::LayoutBlockType::Text;
+    left.bbox = {100.0, 300.0, 400.0, 330.0};
+    left.text_line_indices.push_back(3);
+
+    doc_parser::document::PageLayout layout;
+    layout.page_index = 0;
+    layout.page_number = 1;
+    layout.blocks = {right, left};
+
+    doc_parser::document::PageReadingOrder reading_order;
+    reading_order.page_index = 0;
+    reading_order.page_number = 1;
+    reading_order.items.push_back({"page_1_block_2", 1, 0});
+    reading_order.items.push_back({"page_1_block_1", 0, 1});
+
+    doc_parser::document::PageTables tables;
+    tables.page_index = 0;
+    tables.page_number = 1;
+
+    const doc_parser::assembly::DocumentAssembler assembler;
+    doc_parser::document::ParsedDocument document;
+    doc_parser::document::PipelineArtifacts artifacts;
+
+    ASSERT_TRUE(assembler.assemble(
+        {
+            "fixture.pdf",
+            "pdf",
+            144,
+            {makePage()},
+            {page_text},
+            {layout},
+            {reading_order},
+            {tables},
+        },
+        document,
+        artifacts));
+
+    ASSERT_EQ(document.blocks.size(), 2U);
+    EXPECT_EQ(document.blocks[0].text, "Left column");
+    EXPECT_EQ(document.blocks[1].text, "Right column");
 }

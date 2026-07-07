@@ -4,6 +4,7 @@ add_library(doc_parser_pipeline
     layout_analysis_stage.cpp
     pipeline_context.cpp
     pipeline_trace.cpp
+    reading_order_stage.cpp
     table_recognition_stage.cpp
     text_extraction_stage.cpp
 )
@@ -21,6 +22,7 @@ target_link_libraries(doc_parser_pipeline
         doc_parser_export
         doc_parser_layout
         doc_parser_ocr
+        doc_parser_reading_order
         doc_parser_table
         nlohmann_json::nlohmann_json
 )

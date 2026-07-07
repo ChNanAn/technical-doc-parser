@@ -4,6 +4,7 @@ add_executable(domain_unit_tests
     document_assembler_test.cpp
     json_document_exporter_test.cpp
     layout_service_test.cpp
+    reading_order_service_test.cpp
     table_service_test.cpp
     text_normalizer_test.cpp
     text_extraction_stage_test.cpp
@@ -17,6 +18,7 @@ target_link_libraries(domain_unit_tests
         doc_parser_layout
         doc_parser_ocr
         doc_parser_pipeline
+        doc_parser_reading_order
         doc_parser_table
         GTest::gtest_main
         nlohmann_json::nlohmann_json

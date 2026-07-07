@@ -14,6 +14,7 @@ struct DocumentAssembleRequest {
     std::vector<document::PageArtifact> pages;
     std::vector<document::PageText> page_texts;
     std::vector<document::PageLayout> page_layouts;
+    std::vector<document::PageReadingOrder> page_reading_orders;
     std::vector<document::PageTables> page_tables;
 };
 

@@ -16,6 +16,7 @@ using doc_parser::document::LayoutBlock;
 using doc_parser::document::LayoutBlockType;
 using doc_parser::document::PageArtifact;
 using doc_parser::document::PageLayout;
+using doc_parser::document::PageReadingOrder;
 using doc_parser::document::PageTables;
 using doc_parser::document::PageText;
 using doc_parser::document::ParsedDocument;
@@ -84,6 +85,11 @@ DocumentFixture makeDocumentFixture() {
     layout.page_number = 1;
     layout.blocks.push_back(block);
 
+    PageReadingOrder reading_order;
+    reading_order.page_index = 0;
+    reading_order.page_number = 1;
+    reading_order.items.push_back({block.id, 0, 0});
+
     TableCell cell;
     cell.row_index = 0;
     cell.column_index = 0;
@@ -144,6 +150,7 @@ DocumentFixture makeDocumentFixture() {
         image,
         text,
         layout,
+        reading_order,
         tables,
     });
     return {
@@ -220,6 +227,10 @@ TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     EXPECT_EQ(debug["layout"]["blocks"][0]["type"], "text");
     ASSERT_EQ(debug["layout"]["blocks"][0]["text_line_indices"].size(), 1U);
     EXPECT_EQ(debug["layout"]["blocks"][0]["text_line_indices"][0], 0);
+    ASSERT_EQ(debug["reading_order"]["items"].size(), 1U);
+    EXPECT_EQ(debug["reading_order"]["items"][0]["layout_block_id"], "page_1_block_1");
+    EXPECT_EQ(debug["reading_order"]["items"][0]["layout_block_index"], 0);
+    EXPECT_EQ(debug["reading_order"]["items"][0]["sequence_index"], 0);
     ASSERT_EQ(debug["tables"]["tables"].size(), 1U);
     EXPECT_EQ(debug["tables"]["tables"][0]["id"], "page_1_table_1");
     EXPECT_EQ(debug["tables"]["tables"][0]["layout_block_id"], "page_1_block_1");

@@ -1,8 +1,10 @@
 #include "assembly/document_assembler.h"
 
 #include <algorithm>
+#include <set>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace doc_parser::assembly {
 namespace {
@@ -108,7 +110,35 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
 
 bool hasMatchingPageCounts(const DocumentAssembleRequest& request) {
     return request.pages.size() == request.page_texts.size() && request.pages.size() == request.page_layouts.size() &&
-           request.pages.size() == request.page_tables.size();
+           request.pages.size() == request.page_reading_orders.size() && request.pages.size() == request.page_tables.size();
+}
+
+std::vector<int> orderedLayoutBlockIndices(const document::PipelinePageArtifacts& page) {
+    std::vector<int> indices;
+    std::set<int> seen;
+
+    for (const auto& item : page.reading_order.items) {
+        if (item.layout_block_index < 0 ||
+            static_cast<std::size_t>(item.layout_block_index) >= page.layout.blocks.size()) {
+            continue;
+        }
+        if (!item.layout_block_id.empty() &&
+            page.layout.blocks[static_cast<std::size_t>(item.layout_block_index)].id != item.layout_block_id) {
+            continue;
+        }
+        if (seen.insert(item.layout_block_index).second) {
+            indices.push_back(item.layout_block_index);
+        }
+    }
+
+    for (std::size_t index = 0; index < page.layout.blocks.size(); ++index) {
+        const int block_index = static_cast<int>(index);
+        if (seen.insert(block_index).second) {
+            indices.push_back(block_index);
+        }
+    }
+
+    return indices;
 }
 
 } // namespace
@@ -134,11 +164,13 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
             request.pages[index],
             request.page_texts[index],
             request.page_layouts[index],
+            request.page_reading_orders[index],
             request.page_tables[index],
         });
 
         const document::PipelinePageArtifacts& parsed_page = artifacts.pages.back();
-        for (const auto& layout_block : parsed_page.layout.blocks) {
+        for (const int layout_block_index : orderedLayoutBlockIndices(parsed_page)) {
+            const auto& layout_block = parsed_page.layout.blocks[static_cast<std::size_t>(layout_block_index)];
             document.blocks.push_back(makeDocumentBlock(parsed_page, layout_block, document.blocks.size()));
         }
     }

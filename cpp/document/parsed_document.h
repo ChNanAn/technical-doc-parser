@@ -3,6 +3,7 @@
 #include "document/document_block.h"
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
+#include "document/reading_order_model.h"
 #include "document/table_model.h"
 #include "document/text_model.h"
 
@@ -22,6 +23,7 @@ struct PipelinePageArtifacts {
     PageArtifact image;
     PageText text;
     PageLayout layout;
+    PageReadingOrder reading_order;
     PageTables tables;
 };
 

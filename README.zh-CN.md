@@ -270,15 +270,15 @@ Demo 和针对性评估可以使用一小组公开技术 PDF。
 
 ## 当前状态
 
-项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、可选 Tesseract OCR baseline、基础 layout analysis、基础 table recognition、document assembly、JSON 输出，以及主流程冒烟测试。
+项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、可选 Tesseract OCR baseline、基础 layout analysis、Docling-like reading order、基础 table recognition、document assembly、JSON 输出，以及主流程冒烟测试。
 
 当前 pipeline 骨架已经跑通：
 
 ```text
-PDF -> Render -> Text/OCR -> Layout -> Table -> Assembly -> JSON
+PDF -> Render -> Text/OCR -> Layout -> Reading Order -> Table -> Assembly -> JSON
 ```
 
-OCR、layout analysis、table recognition 仍然是 baseline 实现。后续重点是把每个智能阶段做成可插拔、可调试、可评测的模块。
+OCR、layout analysis、reading order、table recognition 仍然是 baseline 实现。后续重点是把每个智能阶段做成可插拔、可调试、可评测的模块。
 
 ## 构建
 

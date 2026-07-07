@@ -164,6 +164,21 @@ nlohmann::json pageLayoutToJson(const document::PageLayout& page_layout) {
     };
 }
 
+nlohmann::json pageReadingOrderToJson(const document::PageReadingOrder& page_reading_order) {
+    nlohmann::json items = nlohmann::json::array();
+    for (const auto& item : page_reading_order.items) {
+        items.push_back({
+            {"layout_block_id", item.layout_block_id},
+            {"layout_block_index", item.layout_block_index},
+            {"sequence_index", item.sequence_index},
+        });
+    }
+
+    return {
+        {"items", items},
+    };
+}
+
 nlohmann::json pageTablesToJson(const document::PageTables& page_tables) {
     nlohmann::json tables = nlohmann::json::array();
     for (const auto& table : page_tables.tables) {
@@ -223,6 +238,7 @@ bool JsonDocumentExporter::write(const DocumentExportRequest& request) const {
             if (request.debug) {
                 page_json["debug"]["text"] = pageTextToJson(page.text);
                 page_json["debug"]["layout"] = pageLayoutToJson(page.layout);
+                page_json["debug"]["reading_order"] = pageReadingOrderToJson(page.reading_order);
                 page_json["debug"]["tables"] = pageTablesToJson(page.tables);
                 if (!page.image.debug_images.empty()) {
                     page_json["debug"]["images"] = debugImagesToJson(page.image.debug_images);

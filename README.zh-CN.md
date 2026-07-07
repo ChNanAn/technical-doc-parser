@@ -331,7 +331,7 @@ cmake --build build --config Release --target document_intelligence_engine --par
 
 ```bash
 ./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
-  --document-backend pdfium \
+  --document-backend pdf \
   --ocr-backend auto \
   --layout-backend text \
   --table-backend text

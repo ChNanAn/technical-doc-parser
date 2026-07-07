@@ -95,7 +95,6 @@ add_subdirectory(cpp/table)
 if(DOC_PARSER_ENABLE_PDFIUM)
     include(PDFium)
     doc_parser_setup_pdfium()
-    add_subdirectory(cpp/backend/pdf)
 endif()
 
 if(DOC_PARSER_ENABLE_OPENCV)
@@ -103,6 +102,7 @@ if(DOC_PARSER_ENABLE_OPENCV)
 endif()
 
 add_subdirectory(cpp/pipeline)
+add_subdirectory(cpp/backend)
 add_subdirectory(cpp/app)
 
 if(BUILD_TESTING)

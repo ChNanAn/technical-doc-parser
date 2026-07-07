@@ -1,6 +1,5 @@
 add_library(doc_parser_pipeline
     backend_registry.cpp
-    document_backend_factory.cpp
     document_pipeline.cpp
     layout_analysis_stage.cpp
     pipeline_context.cpp
@@ -25,18 +24,6 @@ target_link_libraries(doc_parser_pipeline
         doc_parser_table
         nlohmann_json::nlohmann_json
 )
-
-if(DOC_PARSER_ENABLE_PDFIUM)
-    target_link_libraries(doc_parser_pipeline
-        PUBLIC
-            doc_parser_backend_pdf_pdfium
-    )
-
-    target_compile_definitions(doc_parser_pipeline
-        PRIVATE
-            DOC_PARSER_ENABLE_PDFIUM=1
-    )
-endif()
 
 if(DOC_PARSER_ENABLE_OPENCV)
     target_link_libraries(doc_parser_pipeline

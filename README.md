@@ -333,7 +333,7 @@ Backends can be selected explicitly while keeping the same pipeline contract:
 
 ```bash
 ./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
-  --document-backend pdfium \
+  --document-backend pdf \
   --ocr-backend auto \
   --layout-backend text \
   --table-backend text

@@ -11,6 +11,7 @@ target_link_libraries(document_intelligence_engine
     PRIVATE
         CLI11::CLI11
         doc_parser_pipeline
+        doc_parser_backend_document
         nlohmann_json::nlohmann_json
 )
 

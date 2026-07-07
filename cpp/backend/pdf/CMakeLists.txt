@@ -1,10 +1,10 @@
 add_library(doc_parser_backend_pdf_pdfium
+    pdf_document_backend.cpp
     pdf_document.cpp
     pdfium/pdf_library.cpp
     pdfium/pdf_page_renderer.cpp
     pdfium/pdf_reader.cpp
     pdfium/pdf_text_extractor.cpp
-    pdfium/pdfium_document_backend.cpp
     pdfium/pdfium_runtime.cpp
     render_service.cpp
     text_service.cpp
@@ -24,6 +24,7 @@ target_include_directories(doc_parser_backend_pdf_pdfium
 target_link_libraries(doc_parser_backend_pdf_pdfium
     PUBLIC
         doc_parser_document
+        doc_parser_pipeline
         pdfium
 )
 

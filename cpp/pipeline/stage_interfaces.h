@@ -10,11 +10,6 @@
 
 namespace doc_parser::pipeline {
 
-struct DocumentBackendCapabilities {
-    bool can_render_pages = true;
-    bool can_extract_native_text = true;
-};
-
 class IDocumentSource {
 public:
     virtual ~IDocumentSource() = default;
@@ -36,13 +31,6 @@ public:
     virtual ~INativeTextExtractor() = default;
     virtual bool extractNativeText(const PipelineContext& context,
                                    std::vector<document::PageText>& page_texts) const = 0;
-};
-
-class IDocumentBackend : public IDocumentSource, public IPageRenderer, public INativeTextExtractor {
-public:
-    ~IDocumentBackend() override = default;
-
-    virtual DocumentBackendCapabilities capabilities() const { return {}; }
 };
 
 } // namespace doc_parser::pipeline

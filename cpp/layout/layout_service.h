@@ -11,7 +11,6 @@ namespace doc_parser::layout {
 
 class LayoutService {
 public:
-    LayoutService();
     explicit LayoutService(const ILayoutBackend& backend);
     explicit LayoutService(std::unique_ptr<ILayoutBackend> backend);
 

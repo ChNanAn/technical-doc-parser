@@ -40,7 +40,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 
     target_link_libraries(pdf_library_smoke
         PRIVATE
-            doc_parser_pdf
+            doc_parser_backend_pdf_pdfium
     )
 
     doc_parser_set_common_warnings(pdf_library_smoke)
@@ -53,7 +53,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 
     target_link_libraries(pdf_reader_smoke
         PRIVATE
-            doc_parser_pdf
+            doc_parser_backend_pdf_pdfium
     )
 
     doc_parser_set_common_warnings(pdf_reader_smoke)
@@ -66,7 +66,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 
     target_link_libraries(pdf_text_extractor_smoke
         PRIVATE
-            doc_parser_pdf
+            doc_parser_backend_pdf_pdfium
     )
 
     doc_parser_set_common_warnings(pdf_text_extractor_smoke)
@@ -82,7 +82,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 
     target_link_libraries(pdf_render_smoke
         PRIVATE
-            doc_parser_pdf
+            doc_parser_backend_pdf_pdfium
     )
 
     doc_parser_set_common_warnings(pdf_render_smoke)

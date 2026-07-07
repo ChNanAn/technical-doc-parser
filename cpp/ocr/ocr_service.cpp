@@ -1,23 +1,8 @@
 #include "ocr/ocr_service.h"
 
-#include "ocr/tesseract_cli_ocr_backend.h"
-
 #include <utility>
 
 namespace doc_parser::ocr {
-namespace {
-
-const IOcrBackend& defaultOcrBackend() {
-    static const TesseractCliOcrBackend tesseract_backend;
-    if (tesseract_backend.isAvailable()) {
-        return tesseract_backend;
-    }
-
-    static const NoopOcrBackend backend;
-    return backend;
-}
-
-} // namespace
 
 bool NoopOcrBackend::recognize(const OcrRequest& request, OcrResult& result) const {
     result.page_text = {};
@@ -27,8 +12,6 @@ bool NoopOcrBackend::recognize(const OcrRequest& request, OcrResult& result) con
     result.page_text.preferred_source = document::TextSource::Unknown;
     return true;
 }
-
-OcrService::OcrService() : OcrService(defaultOcrBackend()) {}
 
 OcrService::OcrService(const IOcrBackend& backend) : backend_(&backend) {}
 

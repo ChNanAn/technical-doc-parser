@@ -69,7 +69,7 @@ Current policy:
 - Create one `PdfLibrary` near application startup.
 - Keep `PdfLibrary` alive longer than all `PdfReader` objects.
 - Do not share one `PdfReader` instance across threads.
-- Direct PDFium calls are serialized inside the PDF module.
+- Direct PDFium calls are serialized inside the PDFium backend module.
 
 This keeps the public API simple while leaving room for future batch processing or worker-process parallelism.
 

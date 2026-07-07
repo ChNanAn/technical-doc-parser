@@ -1,7 +1,7 @@
-#include "pipeline/pdfium_document_backend.h"
+#include "backend/pdf/pdfium/pdfium_document_backend.h"
 
-#include "pdf/render_service.h"
-#include "pdf/text_service.h"
+#include "backend/pdf/pdfium/render_service.h"
+#include "backend/pdf/pdfium/text_service.h"
 
 namespace doc_parser::pipeline {
 
@@ -15,13 +15,6 @@ std::string PdfiumDocumentBackend::sourcePath() const { return source_path_; }
 std::string PdfiumDocumentBackend::sourceType() const { return "pdf"; }
 
 int PdfiumDocumentBackend::pageCount() const { return source_.pageCount(); }
-
-DocumentBackendCapabilities PdfiumDocumentBackend::capabilities() const {
-    return {
-        true,
-        true,
-    };
-}
 
 bool PdfiumDocumentBackend::renderPages(const PipelineContext& context,
                                         std::vector<document::PageArtifact>& pages) const {

@@ -3,16 +3,6 @@
 #include <utility>
 
 namespace doc_parser::layout {
-namespace {
-
-const ILayoutBackend& defaultLayoutBackend() {
-    static const TextLayoutModelBackend backend;
-    return backend;
-}
-
-} // namespace
-
-LayoutService::LayoutService() : LayoutService(defaultLayoutBackend()) {}
 
 LayoutService::LayoutService(const ILayoutBackend& backend) : backend_(&backend) {}
 

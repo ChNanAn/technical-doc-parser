@@ -219,8 +219,8 @@ cmake --build build --config Release --parallel
 
 Tasks:
 
-- Add `cpp/pdf/pdf_reader.h`.
-- Add `cpp/pdf/pdf_reader.cpp`.
+- Add `cpp/backend/pdf/pdfium/pdf_reader.h`.
+- Add `cpp/backend/pdf/pdfium/pdf_reader.cpp`.
 - Define the first `PdfReader` API.
 
 Initial API:
@@ -247,7 +247,7 @@ Tasks:
 Suggested files:
 
 ```text
-cpp/pdf/
+cpp/backend/pdf/pdfium/
   pdf_library.h
   pdf_library.cpp
   pdf_reader.h

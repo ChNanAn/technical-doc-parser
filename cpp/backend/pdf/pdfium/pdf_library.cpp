@@ -1,6 +1,6 @@
-#include "pdf/pdf_library.h"
+#include "backend/pdf/pdfium/pdf_library.h"
 
-#include "pdf/pdfium_runtime.h"
+#include "backend/pdf/pdfium/pdfium_runtime.h"
 
 #include <fpdfview.h>
 

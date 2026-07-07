@@ -234,7 +234,9 @@ cpp/
   app/          CLI entrypoint
   pipeline/     pipeline orchestration and stage interfaces
   document/     shared internal document models
-  pdf/          PDFium-based PDF access, rendering, and PDF text extraction
+  backend/
+    pdf/
+      pdfium/   PDFium-based PDF access, rendering, and native text extraction
   image/        OpenCV preprocessing
   ocr/          OCR adapters and text normalization
   layout/       layout block detection

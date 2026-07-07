@@ -12,7 +12,6 @@ namespace doc_parser::table {
 
 class TableService {
 public:
-    TableService();
     explicit TableService(const ITableBackend& backend);
     explicit TableService(std::unique_ptr<ITableBackend> backend);
 

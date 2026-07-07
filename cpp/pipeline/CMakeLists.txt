@@ -27,14 +27,9 @@ target_link_libraries(doc_parser_pipeline
 )
 
 if(DOC_PARSER_ENABLE_PDFIUM)
-    target_sources(doc_parser_pipeline
-        PRIVATE
-            pdfium_document_backend.cpp
-    )
-
     target_link_libraries(doc_parser_pipeline
         PUBLIC
-            doc_parser_pdf
+            doc_parser_backend_pdf_pdfium
     )
 
     target_compile_definitions(doc_parser_pipeline

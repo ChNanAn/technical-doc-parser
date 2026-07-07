@@ -14,6 +14,5 @@ struct DocumentBackendBundle {
 };
 
 DocumentBackendBundle createDocumentBackend(const std::string& backend_name);
-DocumentBackendBundle createDefaultDocumentBackend();
 
 } // namespace doc_parser::pipeline

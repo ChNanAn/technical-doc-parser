@@ -44,7 +44,8 @@ TEST(LayoutServiceTest, BuildsTitleAndTextBlocksFromPageText) {
     text.lines.push_back(makeLine("This product supports OCR layout analysis.", {120.0, 240.0, 760.0, 270.0}));
     text.lines.push_back(makeLine("It normalizes blocks for downstream stages.", {120.0, 280.0, 730.0, 310.0}));
 
-    const doc_parser::layout::LayoutService service;
+    const doc_parser::layout::TextLayoutModelBackend backend;
+    const doc_parser::layout::LayoutService service(backend);
     doc_parser::document::PageLayout layout;
     ASSERT_TRUE(service.analyze(makePage(), text, layout));
 
@@ -58,7 +59,8 @@ TEST(LayoutServiceTest, BuildsTitleAndTextBlocksFromPageText) {
 }
 
 TEST(LayoutServiceTest, EmitsFigureBlockWhenPageHasNoText) {
-    const doc_parser::layout::LayoutService service;
+    const doc_parser::layout::TextLayoutModelBackend backend;
+    const doc_parser::layout::LayoutService service(backend);
     doc_parser::document::PageText text;
     text.page_index = 0;
     text.page_number = 1;

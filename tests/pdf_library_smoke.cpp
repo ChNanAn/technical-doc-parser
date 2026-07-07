@@ -1,4 +1,4 @@
-#include "pdf/pdf_library.h"
+#include "backend/pdf/pdfium/pdf_library.h"
 
 int main() {
     doc_parser::pdf::PdfLibrary library;

@@ -1,7 +1,7 @@
 #include "pipeline/document_backend_factory.h"
 
 #if DOC_PARSER_ENABLE_PDFIUM
-#include "pipeline/pdfium_document_backend.h"
+#include "backend/pdf/pdfium/pdfium_document_backend.h"
 #endif
 
 #include <utility>
@@ -22,7 +22,5 @@ DocumentBackendBundle createDocumentBackend(const std::string& backend_name) {
 
     return {};
 }
-
-DocumentBackendBundle createDefaultDocumentBackend() { return createDocumentBackend("auto"); }
 
 } // namespace doc_parser::pipeline

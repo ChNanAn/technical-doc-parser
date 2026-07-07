@@ -3,16 +3,6 @@
 #include <utility>
 
 namespace doc_parser::table {
-namespace {
-
-const ITableBackend& defaultTableBackend() {
-    static const TextTableStructureBackend backend;
-    return backend;
-}
-
-} // namespace
-
-TableService::TableService() : TableService(defaultTableBackend()) {}
 
 TableService::TableService(const ITableBackend& backend) : backend_(&backend) {}
 

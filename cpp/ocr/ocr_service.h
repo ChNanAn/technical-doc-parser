@@ -10,7 +10,6 @@ namespace doc_parser::ocr {
 
 class OcrService {
 public:
-    OcrService();
     explicit OcrService(const IOcrBackend& backend);
     explicit OcrService(std::unique_ptr<IOcrBackend> backend);
 

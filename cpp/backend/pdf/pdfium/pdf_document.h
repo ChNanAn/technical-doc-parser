@@ -1,7 +1,7 @@
 #pragma once
 
-#include "pdf/pdf_library.h"
-#include "pdf/pdf_reader.h"
+#include "backend/pdf/pdfium/pdf_library.h"
+#include "backend/pdf/pdfium/pdf_reader.h"
 
 #include <string>
 

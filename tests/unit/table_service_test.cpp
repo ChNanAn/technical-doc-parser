@@ -63,7 +63,8 @@ TEST(TableServiceTest, BuildsRowsAndCellsFromTableLayoutBlock) {
     text.preferred_source = doc_parser::document::TextSource::PdfTextLayer;
     text.lines.push_back(makeTocLine());
 
-    const doc_parser::table::TableService service;
+    const doc_parser::table::TextTableStructureBackend backend;
+    const doc_parser::table::TableService service(backend);
     doc_parser::document::PageTables tables;
     ASSERT_TRUE(service.recognize(makePage(), text, makeLayout(), tables));
 
@@ -84,7 +85,8 @@ TEST(TableServiceTest, IgnoresPagesWithoutTableBlocks) {
     layout.page_index = 0;
     layout.page_number = 1;
 
-    const doc_parser::table::TableService service;
+    const doc_parser::table::TextTableStructureBackend backend;
+    const doc_parser::table::TableService service(backend);
     doc_parser::document::PageTables tables;
     ASSERT_TRUE(service.recognize(makePage(), text, layout, tables));
     EXPECT_TRUE(tables.tables.empty());

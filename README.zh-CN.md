@@ -264,58 +264,21 @@ tests/         Unit and integration tests
 
 Demo 和针对性评估可以使用一小组公开技术 PDF。
 
-## 实现里程碑
+## 路线图
 
-### Phase 1: PDF Ingestion
-
-- 维护可复现的 C++17/CMake 构建。
-- 通过 pinned setup script 集成 PDFium。
-- 打开 PDF，读取页级元数据。
-- 渲染页面图像。
-- 生成最小 JSON/Markdown 输出。
-
-### Phase 2: Image Preprocessing
-
-- 引入 OpenCV preprocessing。
-- 实现灰度、二值化、去噪和 deskew。
-- 保留中间 debug artifacts，支持检查和回归测试。
-
-### Phase 3: OCR and Text Reconstruction
-
-- 接入 OCR baseline。
-- 归一化 words、lines、confidence 和 bounding boxes。
-- 重建 reading order，并合并 OCR 文本到 page-level structures。
-
-### Phase 4: Layout Analysis
-
-- 基于 DocLayNet 做 layout detection 实验。
-- 将 layout regions 归一化为 title、text、table、figure、list、header、footer 等 block。
-- 结合 layout regions 和 OCR/PDF text。
-
-### Phase 5: Table Structure Recovery
-
-- 使用 PubTables-1M 或 Table Transformer 作为 table baseline。
-- 实现 rule-based `TableStructureBuilder`，支持线框表格和对齐文本表格。
-- 将表格导出为 JSON 和 Markdown。
-
-### Phase 6: Deployment and Evaluation
-
-- 按需导出模型到 ONNX。
-- 增加 C++ ONNX Runtime wrappers。
-- 增加 benchmark scripts 和 performance reports。
-- 增加 Docker packaging，以及可选 HTTP/gRPC service。
+当前实现已经跑通端到端引擎骨架，但 OCR/Layout/Table 还不是完成态智能能力。最新路线图见 [docs/roadmap.md](docs/roadmap.md)，覆盖 OCR、layout analysis、table understanding、reading order、document assembly、RAG output、model backends、evaluation 和 performance。
 
 ## 当前状态
 
-项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、PDFium 生命周期管理、PDF 打开和页数读取、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、可选 Tesseract OCR baseline、基础 layout analysis、基础 table recognition、JSON manifest 输出，以及主流程冒烟测试。
+项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、可选 Tesseract OCR baseline、基础 layout analysis、基础 table recognition、document assembly、JSON 输出，以及主流程冒烟测试。
 
-当前 pipeline 仍然很小：
+当前 pipeline 骨架已经跑通：
 
 ```text
-PDF -> rendered pages -> PageText -> PageLayout -> PageTables -> minimal manifest
+PDF -> Render -> Text/OCR -> Layout -> Table -> Assembly -> JSON
 ```
 
-后续实现应继续保持清晰 stage 边界，继续提升 layout/table recognition 质量，再逐步加入更稳定的 export/SDK layer。
+OCR、layout analysis、table recognition 仍然是 baseline 实现。后续重点是把每个智能阶段做成可插拔、可调试、可评测的模块。
 
 ## 构建
 

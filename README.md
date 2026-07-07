@@ -266,58 +266,21 @@ The project is designed around public datasets so the work can be reproduced:
 
 For demos and targeted evaluation, the project can also use a small curated set of public technical PDFs.
 
-## Implementation Milestones
+## Roadmap
 
-### Phase 1: PDF Ingestion
-
-- Maintain a reproducible C++17/CMake build.
-- Integrate PDFium through a pinned setup script.
-- Open PDF documents and inspect page metadata.
-- Render pages to image files.
-- Produce a minimal JSON/Markdown export.
-
-### Phase 2: Image Preprocessing
-
-- Add OpenCV preprocessing.
-- Implement grayscale conversion, binarization, denoising, and deskewing.
-- Preserve intermediate debug artifacts for inspection and regression tests.
-
-### Phase 3: OCR and Text Reconstruction
-
-- Integrate an OCR baseline.
-- Normalize words, lines, confidence scores, and bounding boxes.
-- Reconstruct reading order and merge OCR text into page-level structures.
-
-### Phase 4: Layout Analysis
-
-- Use DocLayNet for layout detection experiments.
-- Normalize layout regions into title, text, table, figure, list, header, and footer blocks.
-- Combine layout regions with OCR text.
-
-### Phase 5: Table Structure Recovery
-
-- Use PubTables-1M or Table Transformer as a table baseline.
-- Implement a rule-based `TableStructureBuilder` for line-based and aligned-text tables.
-- Export tables as JSON and Markdown.
-
-### Phase 6: Deployment and Evaluation
-
-- Export models to ONNX where applicable.
-- Add C++ ONNX Runtime wrappers.
-- Add benchmark scripts and performance reports.
-- Add Docker packaging and optional HTTP/gRPC service.
+The current implementation has an end-to-end engine skeleton, not finished OCR/Layout/Table intelligence. See [docs/roadmap.md](docs/roadmap.md) for the active roadmap covering OCR, layout analysis, table understanding, reading order, document assembly, RAG output, model backends, evaluation, and performance.
 
 ## Current Status
 
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, PDFium lifetime management, PDF open/page-count support, page rendering, an internal text model, PDF text layer extraction, an optional Tesseract OCR baseline, baseline layout analysis, baseline table recognition, and smoke tests for the main pipeline pieces.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, an optional Tesseract OCR baseline, baseline layout analysis, baseline table recognition, document assembly, JSON output, and smoke tests for the main pipeline pieces.
 
-The current pipeline is intentionally small:
+The current pipeline skeleton is running:
 
 ```text
-PDF -> rendered pages -> PageText -> PageLayout -> PageTables -> minimal manifest
+PDF -> Render -> Text/OCR -> Layout -> Table -> Assembly -> JSON
 ```
 
-Next implementation work should keep the same stage boundaries while improving layout and table recognition quality, then building a dedicated export layer.
+OCR, layout analysis, and table recognition are still baseline implementations. The next work is to make each intelligent stage pluggable, debuggable, and measurable.
 
 ## Build
 

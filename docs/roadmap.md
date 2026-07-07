@@ -1,625 +1,273 @@
-# Development Plan
+# Roadmap
 
-This document turns the project goal into an execution plan. The main rule is to keep a working, reviewable milestone at the end of every phase instead of waiting for a large final integration.
+This roadmap describes the project as a Document Intelligence Engine, not as a finished OCR/Layout/Table product.
 
-## Long-Term Goal
-
-Build a technical and table-heavy document intelligence engine:
+The current implementation has an end-to-end skeleton:
 
 ```text
 PDF
-  -> page images
-  -> preprocessing
-  -> OCR
-  -> layout detection
-  -> table extraction
-  -> document tree
-  -> JSON / Markdown
+  -> page rendering
+  -> native text extraction / OCR fallback
+  -> layout analysis
+  -> table recognition
+  -> document assembly
+  -> JSON manifest
 ```
 
-Target command:
+That is an important milestone because the core data flow is now runnable and testable. It does not mean the intelligent stages are production-ready. OCR, layout analysis, table recognition, reading order, document assembly, and RAG output still need to become real, measurable modules.
 
-```bash
-document_intelligence_engine input.pdf --out output/ --dpi 200 --debug
-```
+## Current Status
 
-Target output:
+Working today:
 
-```text
-output/
-  document.json
-  document.md
-  pages/
-    page_1.png
-    page_2.png
-  debug/
-```
+- C++17/CMake CLI.
+- PDF backend using PDFium through a backend adapter.
+- Page rendering to PNG artifacts.
+- PDF text-layer extraction.
+- Optional Tesseract CLI OCR baseline.
+- OpenCV preprocessing baseline for debug images.
+- Rule-based layout baseline.
+- Rule-based table baseline.
+- Document assembly into `DocumentBlock`.
+- JSON exporter with debug/raw artifacts.
+- Unit and smoke tests for the main pipeline.
+- Backend boundaries split from pipeline orchestration.
 
-## Milestone Plan
+Important caveats:
 
-### Month 1: PDF Pipeline Foundation
+- OCR is only a baseline adapter, not a robust OCR subsystem.
+- Layout analysis is heuristic, not a production layout detector.
+- Table recognition is a minimal text-gap baseline, not full table understanding.
+- Reading order is not yet modeled as a first-class stage.
+- Markdown/HTML/RAG outputs are not yet mature.
+- Evaluation datasets and metrics are still missing.
 
-Goal: build the C++ foundation and render PDF pages into images.
+## Design Principles
 
-Core work:
+- Keep the pipeline backend-agnostic.
+- Treat OCR, layout, table, VLM, and external parsers as replaceable capabilities.
+- Normalize all provider outputs into stable typed document models.
+- Preserve page numbers, bounding boxes, confidence, source backend, and debug artifacts.
+- Prefer small stage contracts over large god interfaces.
+- Make every stage independently testable and measurable.
+- Keep the C++ core embeddable as a future SDK, not just a CLI demo.
 
-- Keep the CMake, CLI11, PDFium, and CI setup reproducible.
-- Open PDF documents with PDFium.
-- Count pages.
-- Render pages to PNG.
-- Export a minimal `document.json` and `document.md`.
+## Major Workstreams
 
-Month-end demo:
+### Core Engine
 
-```bash
-./build/cpp/app/document_intelligence_engine sample.pdf --out output --dpi 200 --debug
-```
+Goal: keep the foundation clean as more providers are added.
 
-Expected output:
+- Pipeline orchestration.
+- Backend registry and factory boundaries.
+- Backend capability negotiation.
+- Stage configuration from config files.
+- `Status` / `Result<T>` error propagation.
+- Trace and debug manifest.
+- Stable artifact schemas.
+- Batch processing primitives.
 
-```text
-output/
-  document.json
-  document.md
-  pages/
-    page_1.png
-    page_2.png
-  debug/
-```
+### Input Backends
 
-### Month 2: Image Preprocessing
+Goal: support more document sources without changing the pipeline.
 
-Goal: improve page images before OCR and layout analysis.
+- PDF backend.
+- Image backend for scanned pages.
+- Office/Word backend.
+- HTML or structured document backend.
+- External parser output backend.
+- VLM structured-output backend.
 
-Core work:
+### Image Preprocessing
 
-- Add OpenCV.
-- Convert pages to grayscale.
-- Add binarization.
-- Add denoising.
-- Add deskewing.
-- Save debug images for each preprocessing stage.
+Goal: make OCR and layout inputs more reliable.
 
-Expected debug output:
+- Grayscale, binarization, denoising baseline.
+- Deskew.
+- Orientation detection.
+- Border and noise cleanup.
+- Page crop and content-region detection.
+- Debug image artifacts for every preprocessing step.
 
-```text
-output/debug/
-  page_1_gray.png
-  page_1_binary.png
-  page_1_denoised.png
-  page_1_deskewed.png
-```
+### OCR
 
-### Month 3: OCR Integration and Text Reconstruction
+Goal: move from fallback demo to real OCR subsystem.
 
-Goal: connect OCR output to the document pipeline.
+- Improve Tesseract baseline.
+- Add PaddleOCR / RapidOCR / docTR adapters.
+- Support language configuration.
+- Track confidence and source per token/span/line.
+- Normalize OCR word boxes into lines and spans.
+- Merge OCR with PDF native text when useful.
+- Add OCR fixtures and accuracy metrics.
 
-Core work:
+### Layout Analysis
 
-- Start with PaddleOCR or Tesseract as a baseline.
-- Normalize OCR output into a stable internal schema.
-- Merge words into lines and text blocks.
-- Implement reading-order reconstruction.
-- Export OCR results into JSON.
+Goal: identify document regions robustly.
 
-Example output:
+- Improve rule-based baseline.
+- Add ONNX layout detector backend.
+- Support DocLayNet / PubLayNet-style labels.
+- Detect titles, paragraphs, lists, tables, figures, captions, headers, footers, sidebars, footnotes.
+- Detect multi-column layouts.
+- Link layout blocks to text lines and visual regions.
+- Add layout evaluation metrics.
 
-```json
-{
-  "words": [
-    {
-      "text": "Pressure",
-      "bbox": [100, 120, 180, 145],
-      "score": 0.98
-    }
-  ]
-}
-```
+### Reading Order
 
-### Month 4: Layout Analysis
+Goal: model reading sequence as a first-class stage.
 
-Goal: identify document structure such as titles, text blocks, tables, figures, headers, and footers.
+- Add `PageReadingOrder` / ordered element models.
+- Detect columns and full-width blocks.
+- Order blocks inside and across columns.
+- Handle cross-page section continuity.
+- Merge title, paragraph, list, figure caption, and table caption relationships.
+- Identify repeated headers and footers.
+- Add reading-order fixtures and metrics.
 
-Core work:
+### Table Understanding
 
-- Use DocLayNet as the primary layout dataset.
-- Train or evaluate a layout baseline.
-- Normalize layout results into block objects.
-- Merge OCR text into layout blocks.
+Goal: replace the current table demo with real table structure recovery.
 
-Example block:
+- Table region detection.
+- Table structure recognition.
+- Borderless table support.
+- Row, column, and cell recovery.
+- Rowspan and colspan support.
+- Table caption linking.
+- Table-to-Markdown and table-to-HTML export.
+- Table structure metrics.
 
-```json
-{
-  "type": "title",
-  "bbox": [80, 40, 700, 90],
-  "text": "Technical Specification"
-}
-```
+### Document Assembly
 
-### Month 5: Table Structure Recovery
+Goal: produce a clean product-facing document model.
 
-Goal: convert detected table regions into structured data.
+- Use reading order instead of raw layout order.
+- Build section hierarchy.
+- Represent paragraphs, lists, tables, figures, captions, headers, footers, and footnotes.
+- Split public `ParsedDocument` from debug `PipelineArtifacts`.
+- Preserve source references for every block.
+- Prepare a Markdown AST / HTML AST layer.
 
-Core work:
+### RAG Output
 
-- Use PubTables-1M or Table Transformer as the table baseline.
-- Implement an OpenCV-based table line detector.
-- Implement a rule-based `TableStructureBuilder`.
-- Recover rows, columns, cells, and cell text.
-- Export tables as JSON and Markdown.
+Goal: produce retrieval-friendly output, not just text dumps.
 
-Example table:
+- Heading-aware chunks.
+- Layout-aware chunks.
+- Table-aware chunks.
+- Figure/caption-aware chunks.
+- Source citation metadata.
+- Page and bbox references.
+- Embedding-ready JSONL.
+- Chunk quality evaluation.
 
-```json
-{
-  "type": "table",
-  "data": [
-    ["Parameter", "Value"],
-    ["Pressure", "1.6 MPa"]
-  ]
-}
-```
+### Model Backends
 
-### Month 6: Deployment and Performance
+Goal: make model integration pluggable.
 
-Goal: make the system deployable and measurable.
+- ONNX Runtime backend.
+- OpenVINO / TensorRT adapters where useful.
+- Remote model service backend.
+- VLM backend for structured extraction.
+- Backend capability declaration.
+- Model version and provider metadata in debug output.
 
-Core work:
+### Evaluation
 
-- Export models to ONNX.
-- Add C++ ONNX Runtime inference wrappers.
+Goal: make progress measurable.
+
+- Golden PDF/image fixtures.
+- Snapshot tests for JSON/Markdown outputs.
+- OCR accuracy metrics.
+- Layout block matching metrics.
+- Table structure metrics.
+- Reading order metrics.
+- End-to-end regression suite.
+- Benchmark scripts and reports.
+
+### Performance and Deployment
+
+Goal: make the engine usable in batch and production-like environments.
+
+- Page-level parallelism.
+- Batch processing CLI mode.
+- Memory profiling.
+- CPU throughput benchmarks.
+- Optional process isolation for native dependencies.
+- Docker image.
+- C++ SDK boundary.
+- Python bindings as a downstream integration option.
+
+## Near-Term Milestones
+
+### Milestone 1: Harden the Current Skeleton
+
+- Keep the current end-to-end flow passing.
+- Make pipeline errors more structured.
+- Keep provider-specific code outside the pipeline module.
+- Improve debug manifest and trace output.
+- Add small fixtures for scanned/image-only documents.
+
+### Milestone 2: Real OCR and Layout Baselines
+
+- Improve image preprocessing.
+- Add one stronger OCR adapter beyond the current baseline.
+- Add layout fixtures.
+- Improve layout classes and block linking.
+- Add basic OCR/layout metrics.
+
+### Milestone 3: Reading Order and Assembly
+
+- Add reading-order data models.
+- Add a heuristic reading-order backend.
+- Integrate reading order before document assembly.
+- Make `DocumentAssembler` consume ordered elements.
+- Add multi-column fixtures.
+
+### Milestone 4: Table Understanding
+
+- Improve table detection and structure recovery.
+- Add borderless table cases.
+- Preserve row/column/cell source references.
+- Add table snapshot and structure tests.
+
+### Milestone 5: Markdown, HTML, and RAG Outputs
+
+- Add Markdown AST.
+- Add Markdown exporter.
+- Add RAG chunking output.
+- Preserve source citations in chunks.
+- Add snapshot tests for generated outputs.
+
+### Milestone 6: Model Backends and Evaluation
+
+- Add ONNX Runtime wrapper.
+- Add a layout/table model backend.
+- Add optional VLM backend.
+- Build a small public benchmark suite.
+- Track regression metrics in CI or release notes.
+
+## Good First Contribution Areas
+
+- Add fixtures and expected JSON snapshots.
+- Improve Tesseract OCR normalization.
+- Add image preprocessing steps.
+- Improve rule-based layout heuristics.
+- Implement reading-order data models.
+- Add Markdown exporter scaffolding.
+- Add table fixtures and structure tests.
+- Improve docs for backend boundaries.
 - Add benchmark scripts.
-- Compare Python and C++ pipeline speed.
-- Add Docker packaging.
-- Optionally add an HTTP or gRPC service.
 
-Example benchmark:
+## Project Positioning
 
-```text
-Python pipeline: 100 pages / xx s
-C++ ONNX:       100 pages / xx s
-```
-
-## Month 1 Daily Plan
-
-### Day 1: Repository Baseline
-
-Tasks:
-
-- Confirm `main` is clean.
-- Confirm GitHub Actions runs.
-- Confirm local git identity is correct.
-- Commit and push the PDFium dependency setup.
-
-Checks:
-
-```bash
-git status
-git log --oneline -5
-```
-
-### Day 2: PDFium Dependency Verification
-
-Tasks:
-
-- Run the PDFium setup script.
-- Confirm `third_party/pdfium/` contains headers, library, and `PDFiumConfig.cmake`.
-- Confirm CMake can find PDFium.
-
-Checks:
-
-```bash
-bash scripts/setup_pdfium.sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium
-cmake --build build --config Release --parallel
-```
-
-### Day 3: PdfReader Interface
-
-Tasks:
-
-- Add `cpp/backend/pdf/pdfium/pdf_reader.h`.
-- Add `cpp/backend/pdf/pdfium/pdf_reader.cpp`.
-- Define the first `PdfReader` API.
-
-Initial API:
-
-```cpp
-class PdfReader {
-public:
-    PdfReader();
-    ~PdfReader();
-
-    bool open(const std::string& path);
-    int pageCount() const;
-};
-```
-
-### Day 4: PDFium Library Lifetime
-
-Tasks:
-
-- Wrap `FPDF_InitLibrary()`.
-- Wrap `FPDF_DestroyLibrary()`.
-- Prefer RAII so initialization and cleanup are deterministic.
-
-Suggested files:
+The project should be described honestly:
 
 ```text
-cpp/backend/pdf/pdfium/
-  pdf_library.h
-  pdf_library.cpp
-  pdf_reader.h
-  pdf_reader.cpp
+The end-to-end engine skeleton is running.
+The intelligent stages are still baseline implementations.
+The goal is to make OCR, layout, table, reading order, assembly, and RAG output pluggable, debuggable, and measurable.
 ```
 
-### Day 5: Open PDF Documents
-
-Tasks:
-
-- Implement `PdfReader::open(path)`.
-- Use `FPDF_LoadDocument`.
-- Store `FPDF_DOCUMENT`.
-- Close it in the destructor with `FPDF_CloseDocument`.
-
-Expected behavior:
-
-```text
-error: failed to open PDF: sample.pdf
-```
-
-### Day 6: Page Count
-
-Tasks:
-
-- Implement `PdfReader::pageCount()`.
-- Print page count from the CLI path.
-- Keep error handling clear.
-
-Expected output:
-
-```text
-input: sample.pdf
-pages: 3
-```
-
-### Day 7: Week 1 Review
-
-Tasks:
-
-- Ensure CI is green.
-- Commit the PDF open/page count work.
-- Update notes if the implementation differs from the plan.
-
-Week 1 target:
-
-```text
-The CLI can open a PDF and print its page count.
-```
-
-### Day 8: Render API Design
-
-Tasks:
-
-- Add a render method to `PdfReader`.
-- Use zero-based page indexes internally.
-- Use one-based filenames in output.
-
-Proposed API:
-
-```cpp
-bool renderPageToPng(int page_index, int dpi, const std::string& output_path);
-```
-
-### Day 9: Render PDFium Bitmap
-
-Tasks:
-
-- Use `FPDF_LoadPage`.
-- Compute pixel width and height from DPI.
-- Use `FPDFBitmap_Create`.
-- Use `FPDF_RenderPageBitmap`.
-- Confirm bitmap dimensions are valid.
-
-### Day 10: PNG Writer Choice
-
-Tasks:
-
-- Use a small PNG writer before introducing OpenCV.
-- Prefer `stb_image_write.h` for the first renderer.
-- Record dependency source and license.
-
-Decision:
-
-```text
-Use PDFium + stb_image_write for the first PDF-to-PNG demo.
-Add OpenCV in Month 2.
-```
-
-### Day 11: Write Page PNG
-
-Tasks:
-
-- Convert PDFium bitmap data to a PNG-compatible format.
-- Handle BGRA/RGBA channel order.
-- Write `page_1.png`.
-
-Check:
-
-```bash
-./build/cpp/app/document_intelligence_engine sample.pdf --out output
-ls output/pages/
-```
-
-### Day 12: Render All Pages
-
-Tasks:
-
-- Create `output/pages/`.
-- Loop through all pages.
-- Write `page_1.png`, `page_2.png`, etc.
-
-Expected output:
-
-```text
-output/pages/page_1.png
-output/pages/page_2.png
-```
-
-### Day 13: Connect CLI Options
-
-Tasks:
-
-- Make `--dpi` affect render scale.
-- Make `--out` affect output directory.
-- Print useful progress logs.
-
-Expected output:
-
-```text
-input: sample.pdf
-pages: 2
-dpi: 200
-wrote output/pages/page_1.png
-```
-
-### Day 14: Week 2 Demo
-
-Tasks:
-
-- Run the renderer on a small public PDF.
-- Do not commit large PDF samples.
-- Add sample instructions instead of large binary files.
-
-Week 2 target:
-
-```text
-The CLI can render every page of a PDF to PNG.
-```
-
-### Day 15: Error Handling
-
-Tasks:
-
-- Handle PDF page load failures.
-- Handle output directory failures.
-- Handle PNG write failures.
-- Keep CLI errors readable.
-
-### Day 16: Path Utilities
-
-Tasks:
-
-- Centralize output path creation.
-- Generate page image filenames consistently.
-- Avoid path string duplication in `main.cpp`.
-
-### Day 17: Smoke Tests
-
-Tasks:
-
-- Add a CLI smoke test script.
-- Keep `tests/check_pdfium_setup_script.sh`.
-- Add render smoke tests once a minimal PDF fixture exists.
-
-### Day 18: CI Render Test
-
-Tasks:
-
-- Add a tiny PDF fixture or generate one in a script.
-- Run `document_intelligence_engine` in CI.
-- Assert `output/pages/page_1.png` exists.
-
-Example check:
-
-```bash
-./build/cpp/app/document_intelligence_engine tests/fixtures/minimal.pdf --out output
-test -f output/pages/page_1.png
-```
-
-### Day 19: README Build Instructions
-
-Tasks:
-
-- Replace planned build instructions with real commands.
-- Include PDFium setup.
-- Include a minimal run example.
-
-### Day 20: Commit Cleanup
-
-Suggested commits:
-
-```text
-build(pdfium): add pinned dependency setup
-feat(pdf): open PDF documents
-feat(pdf): render pages to PNG
-test(pdf): add render smoke test
-docs: update build instructions
-```
-
-### Day 21: Week 3 Review
-
-Tasks:
-
-- Confirm GitHub Actions is green.
-- Confirm the demo works from a clean checkout.
-- Avoid adding new features before the render path is stable.
-
-Week 3 target:
-
-```text
-PDF rendering is stable and covered by CI.
-```
-
-### Day 22: Main Cleanup
-
-Tasks:
-
-- Keep `main.cpp` small.
-- Move CLI config into dedicated files if needed.
-
-Suggested files:
-
-```text
-cpp/app/
-  cli_options.h
-  cli_options.cpp
-  main.cpp
-```
-
-### Day 23: Pipeline Skeleton
-
-Tasks:
-
-- Add a first pipeline object.
-- Move document processing out of `main.cpp`.
-
-Suggested API:
-
-```cpp
-class DocumentPipeline {
-public:
-    bool run(const CliOptions& options);
-};
-```
-
-### Day 24: Minimal JSON Output
-
-Tasks:
-
-- Write `output/document.json`.
-- Include input path, page count, DPI, and page image paths.
-
-First schema:
-
-```json
-{
-  "input": "sample.pdf",
-  "page_count": 2,
-  "pages": [
-    {
-      "page": 1,
-      "image": "pages/page_1.png"
-    }
-  ]
-}
-```
-
-### Day 25: JSON Dependency
-
-Tasks:
-
-- Use `nlohmann/json` instead of hand-writing JSON.
-- Add it through CMake `FetchContent`.
-- Keep dependency version pinned.
-
-### Day 26: Minimal Markdown Output
-
-Tasks:
-
-- Write `output/document.md`.
-- Include page references.
-
-First markdown:
-
-```md
-# Parsed Document
-
-- Page 1: pages/page_1.png
-- Page 2: pages/page_2.png
-```
-
-### Day 27: Debug Directory Contract
-
-Tasks:
-
-- If `--debug` is set, create `output/debug/`.
-- Do not add preprocessing yet.
-- Reserve the directory for Month 2 intermediate images.
-
-### Day 28: Integration Test
-
-Tasks:
-
-- Run the full command.
-- Verify PNG, JSON, and Markdown outputs.
-- Make the check script repeatable.
-
-### Day 29: Documentation Cleanup
-
-Tasks:
-
-- Update README current status.
-- Update dependency docs if needed.
-- Add a short Month 1 demo note.
-
-### Day 30: Month 1 Demo
-
-Final command:
-
-```bash
-bash scripts/setup_pdfium.sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium
-cmake --build build --config Release --parallel
-./build/cpp/app/document_intelligence_engine sample.pdf --out output --dpi 200 --debug
-```
-
-Final output:
-
-```text
-output/
-  document.json
-  document.md
-  pages/
-    page_1.png
-    page_2.png
-  debug/
-```
-
-## Month 1 Completion Criteria
-
-The month is complete when all of these are true:
-
-- GitHub Actions is green.
-- PDFium setup is reproducible from scripts.
-- PDFium binaries are not committed.
-- The CLI can open PDF files.
-- The CLI can render every page to PNG.
-- The CLI writes a minimal `document.json`.
-- The CLI writes a minimal `document.md`.
-- README has real build and run instructions.
-
-## Month 1 Non-Goals
-
-Do not work on these in Month 1:
-
-- OpenCV preprocessing
-- deskewing
-- OCR
-- LayoutLMv3
-- table recognition
-- ONNX Runtime
-- Docker deployment
-
-Those topics are intentionally deferred so the PDF foundation stays clean and demonstrable.
+This keeps expectations clear while making the project attractive to contributors who want to build the real modules.

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "backend/pdf/pdfium/pdf_document.h"
+#include "backend/pdf/pdf_document.h"
 #include "pipeline/stage_interfaces.h"
 
 namespace doc_parser::pipeline {

@@ -1,4 +1,4 @@
-#include "backend/pdf/pdfium/text_service.h"
+#include "backend/pdf/text_service.h"
 
 #include "backend/pdf/pdfium/pdf_text_extractor.h"
 

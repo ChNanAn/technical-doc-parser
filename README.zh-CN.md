@@ -233,8 +233,8 @@ cpp/
   pipeline/     Pipeline 编排和 stage interfaces
   document/     共享内部文档模型
   backend/
-    pdf/
-      pdfium/   PDFium-based PDF access, rendering, native text extraction
+    pdf/        PDF backend facade，负责文档访问、渲染、文本提取
+      pdfium/   PDFium-specific adapter 和 native 资源管理
   image/        OpenCV preprocessing
   ocr/          OCR adapters and text normalization
   layout/       Layout block detection

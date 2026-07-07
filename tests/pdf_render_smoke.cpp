@@ -1,6 +1,6 @@
 #include "document/page_artifact.h"
-#include "backend/pdf/pdfium/pdf_document.h"
-#include "backend/pdf/pdfium/render_service.h"
+#include "backend/pdf/pdf_document.h"
+#include "backend/pdf/render_service.h"
 
 #include <array>
 #include <cstdint>

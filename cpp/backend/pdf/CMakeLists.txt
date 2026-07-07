@@ -1,11 +1,11 @@
 add_library(doc_parser_backend_pdf_pdfium
     pdf_document.cpp
-    pdf_library.cpp
-    pdf_page_renderer.cpp
-    pdf_reader.cpp
-    pdf_text_extractor.cpp
-    pdfium_document_backend.cpp
-    pdfium_runtime.cpp
+    pdfium/pdf_library.cpp
+    pdfium/pdf_page_renderer.cpp
+    pdfium/pdf_reader.cpp
+    pdfium/pdf_text_extractor.cpp
+    pdfium/pdfium_document_backend.cpp
+    pdfium/pdfium_runtime.cpp
     render_service.cpp
     text_service.cpp
 )

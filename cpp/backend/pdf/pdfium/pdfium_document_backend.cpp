@@ -1,7 +1,7 @@
 #include "backend/pdf/pdfium/pdfium_document_backend.h"
 
-#include "backend/pdf/pdfium/render_service.h"
-#include "backend/pdf/pdfium/text_service.h"
+#include "backend/pdf/render_service.h"
+#include "backend/pdf/text_service.h"
 
 namespace doc_parser::pipeline {
 

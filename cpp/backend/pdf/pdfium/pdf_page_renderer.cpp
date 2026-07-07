@@ -3,7 +3,7 @@
 #include "backend/pdf/pdfium/pdf_reader.h"
 #include "backend/pdf/pdfium/pdfium_runtime.h"
 #include "backend/pdf/pdfium/pdfium_scoped_handles.h"
-#include "backend/pdf/pdfium/render_service.h"
+#include "backend/pdf/render_service.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <cmath>

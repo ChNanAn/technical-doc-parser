@@ -3,6 +3,16 @@
 
 #include <CLI/CLI.hpp>
 #include <cstdlib>
+#include <spdlog/spdlog.h>
+
+namespace {
+
+void configureLogging(const doc_parser::app::CliOptions& options) {
+    spdlog::set_pattern("[%l] %v");
+    spdlog::set_level(options.debug ? spdlog::level::debug : spdlog::level::warn);
+}
+
+} // namespace
 
 int main(int argc, char** argv) {
     doc_parser::app::CliOptions options;
@@ -22,6 +32,8 @@ int main(int argc, char** argv) {
     } catch (const CLI::ParseError& e) {
         return app.exit(e);
     }
+
+    configureLogging(options);
 
     const doc_parser::pipeline::DocumentPipeline pipeline;
     if (!pipeline.run(options)) {

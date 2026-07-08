@@ -9,7 +9,6 @@
 #include "pipeline/document_backend_factory.h"
 #include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
-#include "pipeline/pipeline_trace.h"
 #include "pipeline/reading_order_stage.h"
 #include "pipeline/stage_interfaces.h"
 #include "pipeline/table_recognition_stage.h"
@@ -20,7 +19,7 @@
 #include "image/image_preprocessor.h"
 #endif
 
-#include <iostream>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <vector>
 
@@ -48,7 +47,7 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
         const std::filesystem::path output_path =
             context.output.debug_dir / ("page_" + std::to_string(page.page_number) + "_preprocessed.png");
         if (!preprocessor.preprocessFile(page.output_path, output_path)) {
-            std::cerr << "error: failed to preprocess image for page " << page.page_number << '\n';
+            spdlog::error("failed to preprocess image for page {}", page.page_number);
             return false;
         }
 
@@ -57,7 +56,7 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
             relativeToOutputRoot(output_path, context),
             output_path,
         });
-        std::cout << "wrote: " << output_path.string() << '\n';
+        spdlog::info("wrote: {}", output_path.string());
     }
 #else
     (void)pages;
@@ -70,48 +69,28 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
 
 bool DocumentPipeline::run(const app::CliOptions& options) const {
     const PipelineContext context = PipelineContext::fromOptions(options);
-    PipelineTrace trace;
-    const auto trace_path = context.output.debug_dir / "pipeline_trace.json";
-
-    const auto write_trace = [&]() {
-        if (!context.debug) {
-            return true;
-        }
-
-        const common::Status status = trace.write(trace_path);
-        if (!status.okStatus()) {
-            std::cerr << "error: " << status.message() << '\n';
-            return false;
-        }
-        return true;
-    };
 
     const auto fail = [&](const std::string& stage, const std::string& message) {
-        trace.record(stage, "failed", message);
-        (void)write_trace();
+        spdlog::error("{}: {}", stage, message);
         return false;
     };
 
     auto backend = createDocumentBackend(context.backends.document);
     if (backend.source == nullptr) {
-        std::cerr << "error: no document backend is enabled\n";
         return fail("backend", "no matching document backend is enabled");
     }
 
     if (!backend.source->open(context.input_pdf)) {
-        std::cerr << "error: failed to open PDF: " << context.input_pdf << '\n';
-        return fail("open_document", "failed to open input document");
+        return fail("open_document", "failed to open input document: " + context.input_pdf.string());
     }
-    trace.record("open_document", "succeeded", backend.source->sourcePath());
 
-    std::cout << "input_pdf: " << backend.source->sourcePath() << '\n'
-              << "output_dir: " << context.output.root.string() << '\n'
-              << "dpi: " << context.render.dpi << '\n'
-              << "debug: " << (context.debug ? "true" : "false") << '\n'
-              << "pages: " << backend.source->pageCount() << '\n';
+    spdlog::info("input: {}", backend.source->sourcePath());
+    spdlog::info("output_dir: {}", context.output.root.string());
+    spdlog::info("dpi: {}", context.render.dpi);
+    spdlog::info("debug: {}", context.debug);
+    spdlog::info("pages: {}", backend.source->pageCount());
 
     if (backend.renderer == nullptr) {
-        std::cerr << "error: document backend cannot render pages\n";
         return fail("render_pages", "document backend cannot render pages");
     }
 
@@ -119,22 +98,22 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     if (!backend.renderer->renderPages(context, rendered_pages)) {
         return fail("render_pages", "failed to render page artifacts");
     }
-    trace.record("render_pages", "succeeded", std::to_string(rendered_pages.size()) + " pages");
+    spdlog::info("rendered pages: {}", rendered_pages.size());
 
     for (const auto& page : rendered_pages) {
-        std::cout << "wrote: " << page.output_path.string() << '\n';
+        spdlog::info("wrote: {}", page.output_path.string());
     }
 
     if (!preprocessDebugImages(context, rendered_pages)) {
         return fail("preprocess_debug_images", "failed to write debug preprocessing images");
     }
-    trace.record("preprocess_debug_images", "succeeded");
+    spdlog::debug("preprocessed debug images");
 
     BackendSelectionResult backend_selection = createPipelineServices(context.backends);
     if (!backend_selection.ok) {
         return fail(backend_selection.error_stage, backend_selection.error_message);
     }
-    trace.record("configure_backends", "succeeded", backend_selection.trace_message);
+    spdlog::info("configured backends: {}", backend_selection.trace_message);
 
     const TextExtractionStage text_extraction(backend.native_text_extractor, *backend_selection.services.ocr);
     std::vector<document::PageText> page_texts;
@@ -142,7 +121,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     if (!stage_status.okStatus()) {
         return fail("text_extraction", stage_status.message());
     }
-    trace.record("text_extraction", "succeeded", std::to_string(page_texts.size()) + " pages");
+    spdlog::info("extracted text pages: {}", page_texts.size());
 
     const LayoutAnalysisStage layout_analysis(*backend_selection.services.layout);
     std::vector<document::PageLayout> page_layouts;
@@ -150,7 +129,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     if (!stage_status.okStatus()) {
         return fail("layout_analysis", stage_status.message());
     }
-    trace.record("layout_analysis", "succeeded", std::to_string(page_layouts.size()) + " pages");
+    spdlog::info("analyzed layout pages: {}", page_layouts.size());
 
     const ReadingOrderStage reading_order(*backend_selection.services.reading_order);
     std::vector<document::PageReadingOrder> page_reading_orders;
@@ -158,7 +137,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     if (!stage_status.okStatus()) {
         return fail("reading_order", stage_status.message());
     }
-    trace.record("reading_order", "succeeded", std::to_string(page_reading_orders.size()) + " pages");
+    spdlog::info("computed reading order pages: {}", page_reading_orders.size());
 
     const TableRecognitionStage table_recognition(*backend_selection.services.table);
     std::vector<document::PageTables> page_tables;
@@ -166,7 +145,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     if (!stage_status.okStatus()) {
         return fail("table_recognition", stage_status.message());
     }
-    trace.record("table_recognition", "succeeded", std::to_string(page_tables.size()) + " pages");
+    spdlog::info("recognized table pages: {}", page_tables.size());
 
     document::ParsedDocument parsed_document;
     document::PipelineArtifacts artifacts;
@@ -184,14 +163,12 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
             },
             parsed_document,
             artifacts)) {
-        std::cerr << "error: failed to assemble document\n";
         return fail("document_assembly", "failed to assemble document");
     }
-    trace.record("document_assembly", "succeeded", std::to_string(parsed_document.blocks.size()) + " blocks");
+    spdlog::info("assembled document blocks: {}", parsed_document.blocks.size());
 
     const auto document_exporter = exporter::createDefaultDocumentExporter();
     if (document_exporter == nullptr) {
-        std::cerr << "error: no document exporter is enabled\n";
         return fail("export", "no document exporter is enabled");
     }
 
@@ -203,10 +180,9 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         })) {
         return fail("export", "failed to write document manifest");
     }
-    trace.record("export", "succeeded", context.output.manifest_json.string());
 
-    std::cout << "wrote: " << context.output.manifest_json.string() << '\n';
-    return write_trace();
+    spdlog::info("wrote: {}", context.output.manifest_json.string());
+    return true;
 }
 
 } // namespace doc_parser::pipeline

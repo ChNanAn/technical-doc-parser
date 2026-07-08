@@ -12,7 +12,7 @@ target_link_libraries(document_intelligence_engine
         CLI11::CLI11
         doc_parser_pipeline
         doc_parser_backend_document
-        nlohmann_json::nlohmann_json
+        spdlog::spdlog
 )
 
 doc_parser_set_common_warnings(document_intelligence_engine)

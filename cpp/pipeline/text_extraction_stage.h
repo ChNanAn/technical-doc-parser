@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/result.h"
+#include "common/status.h"
 
 #include "backend/document_backend_interfaces.h"
 #include "document/page_artifact.h"

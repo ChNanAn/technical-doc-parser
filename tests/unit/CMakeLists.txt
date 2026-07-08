@@ -3,9 +3,9 @@ include(GoogleTest)
 add_executable(domain_unit_tests
     document_assembler_test.cpp
     json_document_exporter_test.cpp
-    layout_service_test.cpp
-    reading_order_service_test.cpp
-    table_service_test.cpp
+    layout_backend_test.cpp
+    reading_order_backend_test.cpp
+    table_backend_test.cpp
     text_normalizer_test.cpp
     text_extraction_stage_test.cpp
 )

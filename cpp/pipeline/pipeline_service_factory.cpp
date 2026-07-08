@@ -83,11 +83,10 @@ BackendSelectionResult createPipelineServices(const BackendOptions& options) {
         return failure("configure_table_backend", "unknown table backend: " + options.table);
     }
 
-    result.services.ocr = std::make_unique<ocr::OcrService>(std::move(ocr_backend));
-    result.services.layout = std::make_unique<layout::LayoutService>(std::move(layout_backend));
-    result.services.reading_order = std::make_unique<reading_order::ReadingOrderService>(
-        std::make_unique<reading_order::DoclingLikeReadingOrderBackend>());
-    result.services.table = std::make_unique<table::TableService>(std::move(table_backend));
+    result.services.ocr = std::move(ocr_backend);
+    result.services.layout = std::move(layout_backend);
+    result.services.reading_order = std::make_unique<reading_order::DoclingLikeReadingOrderBackend>();
+    result.services.table = std::move(table_backend);
     result.trace_message = "document=" + options.document + ", ocr=" + options.ocr + ", layout=" + options.layout +
                            ", table=" + options.table;
     result.ok = true;

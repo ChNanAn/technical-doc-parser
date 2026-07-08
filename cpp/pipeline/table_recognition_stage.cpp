@@ -4,7 +4,7 @@
 
 namespace doc_parser::pipeline {
 
-TableRecognitionStage::TableRecognitionStage(const table::TableService& table) : table_(table) {}
+TableRecognitionStage::TableRecognitionStage(const table::ITableBackend& table) : table_(table) {}
 
 common::Status TableRecognitionStage::recognize(const PipelineContext& context,
                                                 const std::vector<document::PageArtifact>& pages,
@@ -21,12 +21,12 @@ common::Status TableRecognitionStage::recognize(const PipelineContext& context,
 
     page_tables.reserve(pages.size());
     for (std::size_t index = 0; index < pages.size(); ++index) {
-        document::PageTables tables;
-        if (!table_.recognize(pages[index], page_texts[index], page_layouts[index], tables)) {
+        table::TableResult result;
+        if (!table_.recognize({pages[index], page_texts[index], page_layouts[index]}, result)) {
             return common::Status::error("table.recognition_failed",
                                          "table recognition failed for page " + std::to_string(index + 1));
         }
-        page_tables.push_back(tables);
+        page_tables.push_back(result.tables);
     }
 
     return common::Status::ok();

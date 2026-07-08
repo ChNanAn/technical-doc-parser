@@ -1,4 +1,4 @@
-#include "layout/layout_service.h"
+#include "layout/layout_backend.h"
 
 #include <gtest/gtest.h>
 
@@ -34,7 +34,7 @@ doc_parser::document::TextLine makeLine(const std::string& text, doc_parser::doc
 
 } // namespace
 
-TEST(LayoutServiceTest, BuildsTitleAndTextBlocksFromPageText) {
+TEST(LayoutBackendTest, BuildsTitleAndTextBlocksFromPageText) {
     doc_parser::document::PageText text;
     text.page_index = 0;
     text.page_number = 1;
@@ -45,9 +45,9 @@ TEST(LayoutServiceTest, BuildsTitleAndTextBlocksFromPageText) {
     text.lines.push_back(makeLine("It normalizes blocks for downstream stages.", {120.0, 280.0, 730.0, 310.0}));
 
     const doc_parser::layout::TextLayoutModelBackend backend;
-    const doc_parser::layout::LayoutService service(backend);
-    doc_parser::document::PageLayout layout;
-    ASSERT_TRUE(service.analyze(makePage(), text, layout));
+    doc_parser::layout::LayoutResult result;
+    ASSERT_TRUE(backend.analyze({makePage(), text}, result));
+    const doc_parser::document::PageLayout& layout = result.layout;
 
     ASSERT_EQ(layout.blocks.size(), 2U);
     EXPECT_EQ(layout.blocks[0].type, doc_parser::document::LayoutBlockType::Title);
@@ -58,15 +58,15 @@ TEST(LayoutServiceTest, BuildsTitleAndTextBlocksFromPageText) {
     EXPECT_EQ(layout.blocks[1].text_line_indices[1], 2);
 }
 
-TEST(LayoutServiceTest, EmitsFigureBlockWhenPageHasNoText) {
+TEST(LayoutBackendTest, EmitsFigureBlockWhenPageHasNoText) {
     const doc_parser::layout::TextLayoutModelBackend backend;
-    const doc_parser::layout::LayoutService service(backend);
     doc_parser::document::PageText text;
     text.page_index = 0;
     text.page_number = 1;
 
-    doc_parser::document::PageLayout layout;
-    ASSERT_TRUE(service.analyze(makePage(), text, layout));
+    doc_parser::layout::LayoutResult result;
+    ASSERT_TRUE(backend.analyze({makePage(), text}, result));
+    const doc_parser::document::PageLayout& layout = result.layout;
 
     ASSERT_EQ(layout.blocks.size(), 1U);
     EXPECT_EQ(layout.blocks[0].type, doc_parser::document::LayoutBlockType::Figure);

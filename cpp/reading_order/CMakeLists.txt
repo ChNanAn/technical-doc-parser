@@ -1,6 +1,5 @@
 add_library(doc_parser_reading_order
     docling_like_reading_order_backend.cpp
-    reading_order_service.cpp
 )
 
 target_include_directories(doc_parser_reading_order

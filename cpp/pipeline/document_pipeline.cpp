@@ -5,15 +5,12 @@
 #include "backend/document_backend_interfaces.h"
 #include "document/parsed_document.h"
 #include "export/document_exporter.h"
-#include "layout/layout_service.h"
-#include "ocr/ocr_service.h"
 #include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/pipeline_service_factory.h"
 #include "pipeline/reading_order_stage.h"
 #include "pipeline/table_recognition_stage.h"
 #include "pipeline/text_extraction_stage.h"
-#include "table/table_service.h"
 
 #if DOC_PARSER_ENABLE_OPENCV
 #include "image/image_preprocessor.h"

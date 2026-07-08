@@ -1,10 +1,10 @@
 #pragma once
 
-#include "layout/layout_service.h"
-#include "ocr/ocr_service.h"
+#include "layout/layout_backend.h"
+#include "ocr/ocr_backend.h"
 #include "pipeline/pipeline_context.h"
-#include "reading_order/reading_order_service.h"
-#include "table/table_service.h"
+#include "reading_order/reading_order_backend.h"
+#include "table/table_backend.h"
 
 #include <memory>
 #include <string>
@@ -12,10 +12,10 @@
 namespace doc_parser::pipeline {
 
 struct PipelineServices {
-    std::unique_ptr<ocr::OcrService> ocr;
-    std::unique_ptr<layout::LayoutService> layout;
-    std::unique_ptr<reading_order::ReadingOrderService> reading_order;
-    std::unique_ptr<table::TableService> table;
+    std::unique_ptr<ocr::IOcrBackend> ocr;
+    std::unique_ptr<layout::ILayoutBackend> layout;
+    std::unique_ptr<reading_order::IReadingOrderBackend> reading_order;
+    std::unique_ptr<table::ITableBackend> table;
 };
 
 struct BackendSelectionResult {

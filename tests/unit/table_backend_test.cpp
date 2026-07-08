@@ -1,4 +1,4 @@
-#include "table/table_service.h"
+#include "table/table_backend.h"
 
 #include <gtest/gtest.h>
 
@@ -55,7 +55,7 @@ doc_parser::document::PageLayout makeLayout() {
 
 } // namespace
 
-TEST(TableServiceTest, BuildsRowsAndCellsFromTableLayoutBlock) {
+TEST(TableBackendTest, BuildsRowsAndCellsFromTableLayoutBlock) {
     doc_parser::document::PageText text;
     text.page_index = 0;
     text.page_number = 1;
@@ -64,9 +64,9 @@ TEST(TableServiceTest, BuildsRowsAndCellsFromTableLayoutBlock) {
     text.lines.push_back(makeTocLine());
 
     const doc_parser::table::TextTableStructureBackend backend;
-    const doc_parser::table::TableService service(backend);
-    doc_parser::document::PageTables tables;
-    ASSERT_TRUE(service.recognize(makePage(), text, makeLayout(), tables));
+    doc_parser::table::TableResult result;
+    ASSERT_TRUE(backend.recognize({makePage(), text, makeLayout()}, result));
+    const doc_parser::document::PageTables& tables = result.tables;
 
     ASSERT_EQ(tables.tables.size(), 1U);
     EXPECT_EQ(tables.tables[0].layout_block_id, "page_1_block_1");
@@ -76,7 +76,7 @@ TEST(TableServiceTest, BuildsRowsAndCellsFromTableLayoutBlock) {
     EXPECT_EQ(tables.tables[0].rows[0].cells[1].text, "2");
 }
 
-TEST(TableServiceTest, IgnoresPagesWithoutTableBlocks) {
+TEST(TableBackendTest, IgnoresPagesWithoutTableBlocks) {
     doc_parser::document::PageText text;
     text.page_index = 0;
     text.page_number = 1;
@@ -86,8 +86,8 @@ TEST(TableServiceTest, IgnoresPagesWithoutTableBlocks) {
     layout.page_number = 1;
 
     const doc_parser::table::TextTableStructureBackend backend;
-    const doc_parser::table::TableService service(backend);
-    doc_parser::document::PageTables tables;
-    ASSERT_TRUE(service.recognize(makePage(), text, layout, tables));
+    doc_parser::table::TableResult result;
+    ASSERT_TRUE(backend.recognize({makePage(), text, layout}, result));
+    const doc_parser::document::PageTables& tables = result.tables;
     EXPECT_TRUE(tables.tables.empty());
 }

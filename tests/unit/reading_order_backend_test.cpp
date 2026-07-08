@@ -1,4 +1,4 @@
-#include "reading_order/reading_order_service.h"
+#include "reading_order/reading_order_backend.h"
 
 #include <gtest/gtest.h>
 
@@ -37,7 +37,7 @@ doc_parser::document::PageLayout makeLayout(std::vector<doc_parser::document::La
 
 } // namespace
 
-TEST(ReadingOrderServiceTest, OrdersMultiColumnBlocksTopToBottomPerColumn) {
+TEST(ReadingOrderBackendTest, OrdersMultiColumnBlocksTopToBottomPerColumn) {
     const auto layout = makeLayout({
         makeBlock("right_top", doc_parser::document::LayoutBlockType::Text, {600.0, 100.0, 900.0, 150.0}),
         makeBlock("left_bottom", doc_parser::document::LayoutBlockType::Text, {100.0, 180.0, 400.0, 230.0}),
@@ -46,9 +46,9 @@ TEST(ReadingOrderServiceTest, OrdersMultiColumnBlocksTopToBottomPerColumn) {
     });
 
     const doc_parser::reading_order::DoclingLikeReadingOrderBackend backend;
-    const doc_parser::reading_order::ReadingOrderService service(backend);
-    doc_parser::document::PageReadingOrder order;
-    ASSERT_TRUE(service.order(makePage(), layout, order));
+    doc_parser::reading_order::ReadingOrderResult result;
+    ASSERT_TRUE(backend.order({makePage(), layout}, result));
+    const doc_parser::document::PageReadingOrder& order = result.reading_order;
 
     ASSERT_EQ(order.items.size(), 4U);
     EXPECT_EQ(order.items[0].layout_block_id, "left_top");
@@ -57,7 +57,7 @@ TEST(ReadingOrderServiceTest, OrdersMultiColumnBlocksTopToBottomPerColumn) {
     EXPECT_EQ(order.items[3].layout_block_id, "right_bottom");
 }
 
-TEST(ReadingOrderServiceTest, KeepsHeadersBeforeBodyAndFootersAfterBody) {
+TEST(ReadingOrderBackendTest, KeepsHeadersBeforeBodyAndFootersAfterBody) {
     const auto layout = makeLayout({
         makeBlock("footer", doc_parser::document::LayoutBlockType::Footer, {100.0, 1260.0, 900.0, 1300.0}),
         makeBlock("body", doc_parser::document::LayoutBlockType::Text, {100.0, 300.0, 900.0, 360.0}),
@@ -65,9 +65,9 @@ TEST(ReadingOrderServiceTest, KeepsHeadersBeforeBodyAndFootersAfterBody) {
     });
 
     const doc_parser::reading_order::DoclingLikeReadingOrderBackend backend;
-    const doc_parser::reading_order::ReadingOrderService service(backend);
-    doc_parser::document::PageReadingOrder order;
-    ASSERT_TRUE(service.order(makePage(), layout, order));
+    doc_parser::reading_order::ReadingOrderResult result;
+    ASSERT_TRUE(backend.order({makePage(), layout}, result));
+    const doc_parser::document::PageReadingOrder& order = result.reading_order;
 
     ASSERT_EQ(order.items.size(), 3U);
     EXPECT_EQ(order.items[0].layout_block_id, "header");

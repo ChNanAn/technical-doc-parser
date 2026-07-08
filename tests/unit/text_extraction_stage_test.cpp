@@ -2,7 +2,6 @@
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 #include "ocr/ocr_backend.h"
-#include "ocr/ocr_service.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/text_extraction_stage.h"
 
@@ -88,8 +87,7 @@ TEST(TextExtractionStageTest, KeepsNativeTextWhenPresent) {
     native_text_extractor.native_texts = {native_text};
 
     const RecordingOcrBackend ocr_backend;
-    const doc_parser::ocr::OcrService ocr(ocr_backend);
-    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr);
+    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
 
     std::vector<doc_parser::document::PageText> page_texts;
     EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
@@ -114,8 +112,7 @@ TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextIsEmpty) {
     native_text_extractor.native_texts = {empty_native_text};
 
     const RecordingOcrBackend ocr_backend;
-    const doc_parser::ocr::OcrService ocr(ocr_backend);
-    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr);
+    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
 
     std::vector<doc_parser::document::PageText> page_texts;
     EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
@@ -134,8 +131,7 @@ TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextIsEmpty) {
 
 TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextExtractorIsUnavailable) {
     const RecordingOcrBackend ocr_backend;
-    const doc_parser::ocr::OcrService ocr(ocr_backend);
-    const doc_parser::pipeline::TextExtractionStage stage(nullptr, ocr);
+    const doc_parser::pipeline::TextExtractionStage stage(nullptr, ocr_backend);
 
     std::vector<doc_parser::document::PageText> page_texts;
     EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());

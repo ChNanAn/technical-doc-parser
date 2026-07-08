@@ -4,7 +4,7 @@
 
 namespace doc_parser::pipeline {
 
-TextExtractionStage::TextExtractionStage(const INativeTextExtractor* native_text_extractor, const ocr::OcrService& ocr)
+TextExtractionStage::TextExtractionStage(const INativeTextExtractor* native_text_extractor, const ocr::IOcrBackend& ocr)
     : native_text_extractor_(native_text_extractor), ocr_(ocr) {}
 
 common::Status TextExtractionStage::extract(const PipelineContext& context,
@@ -40,9 +40,11 @@ common::Status TextExtractionStage::extract(const PipelineContext& context,
         if (page_texts[index].has_text) {
             continue;
         }
-        if (!ocr_.recognize(pages[index], context.render.dpi, page_texts[index])) {
+        ocr::OcrResult result;
+        if (!ocr_.recognize({pages[index], context.render.dpi}, result)) {
             return common::Status::error("text.ocr_failed", "OCR failed for page " + std::to_string(index + 1));
         }
+        page_texts[index] = result.page_text;
     }
 
     return common::Status::ok();

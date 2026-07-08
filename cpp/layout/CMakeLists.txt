@@ -1,5 +1,4 @@
 add_library(doc_parser_layout
-    layout_service.cpp
     text_layout_model_backend.cpp
 )
 

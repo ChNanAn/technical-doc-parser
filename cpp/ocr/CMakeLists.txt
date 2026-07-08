@@ -1,5 +1,5 @@
 add_library(doc_parser_ocr
-    ocr_service.cpp
+    noop_ocr_backend.cpp
     tesseract_cli_ocr_backend.cpp
 )
 

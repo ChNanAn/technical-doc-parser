@@ -1,5 +1,4 @@
 add_library(doc_parser_table
-    table_service.cpp
     text_table_structure_backend.cpp
 )
 

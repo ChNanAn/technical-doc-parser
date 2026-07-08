@@ -4,7 +4,7 @@
 
 namespace doc_parser::pipeline {
 
-LayoutAnalysisStage::LayoutAnalysisStage(const layout::LayoutService& layout) : layout_(layout) {}
+LayoutAnalysisStage::LayoutAnalysisStage(const layout::ILayoutBackend& layout) : layout_(layout) {}
 
 common::Status LayoutAnalysisStage::analyze(const PipelineContext& context,
                                             const std::vector<document::PageArtifact>& pages,
@@ -19,12 +19,12 @@ common::Status LayoutAnalysisStage::analyze(const PipelineContext& context,
 
     page_layouts.reserve(pages.size());
     for (std::size_t index = 0; index < pages.size(); ++index) {
-        document::PageLayout layout;
-        if (!layout_.analyze(pages[index], page_texts[index], layout)) {
+        layout::LayoutResult result;
+        if (!layout_.analyze({pages[index], page_texts[index]}, result)) {
             return common::Status::error("layout.analysis_failed",
                                          "layout analysis failed for page " + std::to_string(index + 1));
         }
-        page_layouts.push_back(layout);
+        page_layouts.push_back(result.layout);
     }
 
     return common::Status::ok();

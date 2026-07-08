@@ -1,9 +1,9 @@
+#include "backend/document_backend_interfaces.h"
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 #include "ocr/ocr_backend.h"
 #include "ocr/ocr_service.h"
 #include "pipeline/pipeline_context.h"
-#include "pipeline/stage_interfaces.h"
 #include "pipeline/text_extraction_stage.h"
 
 #include <gtest/gtest.h>

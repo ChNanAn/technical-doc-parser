@@ -1,4 +1,4 @@
-#include "pipeline/backend_registry.h"
+#include "pipeline/pipeline_service_factory.h"
 
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"

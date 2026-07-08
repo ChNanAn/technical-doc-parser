@@ -1,16 +1,16 @@
 #include "pipeline/document_pipeline.h"
 
 #include "assembly/document_assembler.h"
+#include "backend/document_backend_factory.h"
+#include "backend/document_backend_interfaces.h"
 #include "document/parsed_document.h"
 #include "export/document_exporter.h"
 #include "layout/layout_service.h"
 #include "ocr/ocr_service.h"
-#include "pipeline/backend_registry.h"
-#include "pipeline/document_backend_factory.h"
 #include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
+#include "pipeline/pipeline_service_factory.h"
 #include "pipeline/reading_order_stage.h"
-#include "pipeline/stage_interfaces.h"
 #include "pipeline/table_recognition_stage.h"
 #include "pipeline/text_extraction_stage.h"
 #include "table/table_service.h"
@@ -75,7 +75,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         return false;
     };
 
-    auto backend = createDocumentBackend(context.backends.document);
+    auto backend = backend::createDocumentBackend(context.backends.document);
     if (backend.source == nullptr) {
         return fail("backend", "no matching document backend is enabled");
     }

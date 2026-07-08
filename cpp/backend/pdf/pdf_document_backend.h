@@ -1,7 +1,7 @@
 #pragma once
 
+#include "backend/document_backend_interfaces.h"
 #include "backend/pdf/pdf_document.h"
-#include "pipeline/stage_interfaces.h"
 
 namespace doc_parser::backend::pdf {
 

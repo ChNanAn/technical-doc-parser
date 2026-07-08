@@ -2,6 +2,9 @@
 
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
+#if DOC_PARSER_ENABLE_ONNXRUNTIME
+#include "ocr/paddle_ocr_onnx_backend.h"
+#endif
 #include "ocr/tesseract_cli_ocr_backend.h"
 #include "reading_order/reading_order_backend.h"
 #include "table/table_backend.h"
@@ -19,6 +22,22 @@ BackendSelectionResult failure(std::string stage, std::string message) {
     return result;
 }
 
+std::unique_ptr<ocr::IOcrBackend> createAutoOcrBackend() {
+    auto tesseract = std::make_unique<ocr::TesseractCliOcrBackend>();
+    if (tesseract->isAvailable()) {
+        return tesseract;
+    }
+
+#if DOC_PARSER_ENABLE_ONNXRUNTIME
+    auto paddle = std::make_unique<ocr::PaddleOcrOnnxBackend>();
+    if (paddle->isAvailable()) {
+        return paddle;
+    }
+#endif
+
+    return std::make_unique<ocr::NoopOcrBackend>();
+}
+
 } // namespace
 
 BackendSelectionResult createPipelineServices(const BackendOptions& options) {
@@ -33,13 +52,19 @@ BackendSelectionResult createPipelineServices(const BackendOptions& options) {
             return failure("configure_ocr_backend", "tesseract OCR backend is not available");
         }
         ocr_backend = std::move(tesseract);
-    } else if (options.ocr == "auto") {
-        auto tesseract = std::make_unique<ocr::TesseractCliOcrBackend>();
-        if (tesseract->isAvailable()) {
-            ocr_backend = std::move(tesseract);
-        } else {
-            ocr_backend = std::make_unique<ocr::NoopOcrBackend>();
+#if DOC_PARSER_ENABLE_ONNXRUNTIME
+    } else if (options.ocr == "paddle") {
+        auto paddle = std::make_unique<ocr::PaddleOcrOnnxBackend>();
+        if (!paddle->isAvailable()) {
+            return failure("configure_ocr_backend", "PaddleOCR ONNX backend is not available");
         }
+        ocr_backend = std::move(paddle);
+#else
+    } else if (options.ocr == "paddle") {
+        return failure("configure_ocr_backend", "PaddleOCR ONNX backend was not enabled at build time");
+#endif
+    } else if (options.ocr == "auto") {
+        ocr_backend = createAutoOcrBackend();
     } else {
         return failure("configure_ocr_backend", "unknown OCR backend: " + options.ocr);
     }

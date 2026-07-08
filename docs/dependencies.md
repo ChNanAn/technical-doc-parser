@@ -60,6 +60,39 @@ bash scripts/setup_pdfium.sh --force
 
 `third_party/pdfium/` is intentionally not committed because PDFium binaries are platform-specific and should be reproducible from CMake setup or the pinned setup script.
 
+## ONNX Runtime and PaddleOCR baseline
+
+PaddleOCR ONNX support is optional. It is disabled by default so the normal build and CI do not need large runtime packages or model files.
+
+To enable the backend, install or unpack ONNX Runtime and pass its root directory to CMake:
+
+```bash
+cmake -S . -B build-ort \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_ONNXRUNTIME=ON \
+  -DONNXRUNTIME_ROOT=/path/to/onnxruntime-linux-x64
+cmake --build build-ort --config Release --parallel
+```
+
+The PaddleOCR baseline expects ONNX model files and a recognition dictionary to be supplied outside git:
+
+```bash
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL=/path/to/det.onnx
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL=/path/to/rec.onnx
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT=/path/to/ppocr_keys_v1.txt
+
+# Optional angle classifier model:
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_CLS_MODEL=/path/to/cls.onnx
+
+# Optional end-to-end baseline image:
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=/path/to/text-image.png
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=expected-substring
+```
+
+With ONNX Runtime enabled, CTest includes `paddle_ocr_onnx_baseline`. The test creates ONNX Runtime sessions for the configured PaddleOCR models. If `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE` is set, it also runs one end-to-end OCR pass and optionally checks `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT`. If the model environment variables are not set, the test is skipped with CTest skip code `77`.
+
+The current PaddleOCR ONNX backend provides a baseline inference path: image loading, DB-style detection preprocessing, contour-based text box extraction, recognition preprocessing, greedy CTC decoding, and OCR `PageText` assembly. It is intentionally conservative and leaves angle-classifier execution, more faithful DB unclip logic, batching, and model-specific tuning as follow-up work.
+
 ### Threading policy
 
 PDFium is treated as a process-wide native dependency. The project keeps PDFium initialization in `PdfLibrary` and document ownership in `PdfReader`.

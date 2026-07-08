@@ -89,3 +89,22 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 
     add_test(NAME pdf_render_smoke COMMAND pdf_render_smoke)
 endif()
+
+if(DOC_PARSER_ENABLE_ONNXRUNTIME)
+    add_executable(paddle_ocr_onnx_baseline
+        paddle_ocr_onnx_baseline.cpp
+    )
+
+    target_link_libraries(paddle_ocr_onnx_baseline
+        PRIVATE
+            doc_parser_ocr
+    )
+
+    doc_parser_set_common_warnings(paddle_ocr_onnx_baseline)
+
+    add_test(NAME paddle_ocr_onnx_baseline COMMAND paddle_ocr_onnx_baseline)
+    set_tests_properties(paddle_ocr_onnx_baseline
+        PROPERTIES
+            SKIP_RETURN_CODE 77
+    )
+endif()

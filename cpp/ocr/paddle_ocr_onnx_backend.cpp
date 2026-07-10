@@ -8,12 +8,14 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <sstream>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -50,6 +52,12 @@ constexpr const char* kDetectionModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEO
 constexpr const char* kRecognitionModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL";
 constexpr const char* kAngleClassifierModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_CLS_MODEL";
 constexpr const char* kCharacterDictEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT";
+constexpr const char* kModelDirEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR";
+constexpr const char* kDebugEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DEBUG";
+
+#ifndef DOC_PARSER_PADDLEOCR_BASELINE_DIR
+#define DOC_PARSER_PADDLEOCR_BASELINE_DIR "models/paddleocr/baseline"
+#endif
 
 struct DetectionInput {
     std::vector<float> tensor;
@@ -74,12 +82,32 @@ struct RecognitionResult {
     double confidence = 0.0;
 };
 
+struct DetectionStats {
+    std::vector<int64_t> output_shape;
+    double probability_min = 0.0;
+    double probability_max = 0.0;
+    std::size_t contours = 0;
+    std::size_t skipped_small_contours = 0;
+    std::size_t skipped_low_score = 0;
+    std::size_t skipped_small_boxes = 0;
+    std::size_t accepted_boxes = 0;
+};
+
 std::filesystem::path envPath(const char* name) {
     const char* value = std::getenv(name);
     if (value == nullptr || std::string(value).empty()) {
         return {};
     }
     return std::filesystem::path(value);
+}
+
+bool envFlag(const char* name) {
+    const char* value = std::getenv(name);
+    if (value == nullptr || std::string(value).empty()) {
+        return false;
+    }
+    const std::string flag(value);
+    return flag != "0" && flag != "false" && flag != "FALSE" && flag != "off" && flag != "OFF";
 }
 
 bool fileExists(const std::filesystem::path& path) {
@@ -115,12 +143,43 @@ std::vector<const char*> namePointers(const std::vector<std::string>& names) {
     return pointers;
 }
 
+std::string shapeToString(const std::vector<int64_t>& shape) {
+    std::ostringstream stream;
+    stream << '[';
+    for (std::size_t index = 0; index < shape.size(); ++index) {
+        if (index > 0) {
+            stream << ',';
+        }
+        stream << shape[index];
+    }
+    stream << ']';
+    return stream.str();
+}
+
 PaddleOcrOnnxConfig configFromEnvironment() {
     PaddleOcrOnnxConfig config;
+    std::filesystem::path model_dir = envPath(kModelDirEnv);
+    if (model_dir.empty()) {
+        model_dir = DOC_PARSER_PADDLEOCR_BASELINE_DIR;
+    }
+
     config.detection_model = envPath(kDetectionModelEnv);
+    if (config.detection_model.empty()) {
+        config.detection_model = model_dir / "det.onnx";
+    }
+
     config.recognition_model = envPath(kRecognitionModelEnv);
+    if (config.recognition_model.empty()) {
+        config.recognition_model = model_dir / "rec.onnx";
+    }
+
     config.angle_classifier_model = envPath(kAngleClassifierModelEnv);
+
     config.character_dict = envPath(kCharacterDictEnv);
+    if (config.character_dict.empty()) {
+        config.character_dict = model_dir / "ppocrv5_dict.txt";
+    }
+
     config.enable_angle_classifier = !config.angle_classifier_model.empty();
     return config;
 }
@@ -240,10 +299,15 @@ double distance(const cv::Point2f& lhs, const cv::Point2f& rhs) {
     return std::sqrt(dx * dx + dy * dy);
 }
 
-std::vector<DetectionBox>
-extractBoxes(const Ort::Value& detection_output, const cv::Size& image_size, const PaddleOcrOnnxConfig& config) {
+std::vector<DetectionBox> extractBoxes(const Ort::Value& detection_output,
+                                       const cv::Size& image_size,
+                                       const PaddleOcrOnnxConfig& config,
+                                       DetectionStats* stats) {
     const float* probabilities = detection_output.GetTensorData<float>();
     const auto shape = detection_output.GetTensorTypeAndShapeInfo().GetShape();
+    if (stats != nullptr) {
+        stats->output_shape = shape;
+    }
     if (probabilities == nullptr || shape.size() < 2) {
         return {};
     }
@@ -255,16 +319,30 @@ extractBoxes(const Ort::Value& detection_output, const cv::Size& image_size, con
     }
 
     cv::Mat probability_map(probability_height, probability_width, CV_32FC1, const_cast<float*>(probabilities));
+    if (stats != nullptr) {
+        double min_value = 0.0;
+        double max_value = 0.0;
+        cv::minMaxLoc(probability_map, &min_value, &max_value);
+        stats->probability_min = min_value;
+        stats->probability_max = max_value;
+    }
+
     cv::Mat bitmap;
     cv::threshold(probability_map, bitmap, config.detection_threshold, 255.0, cv::THRESH_BINARY);
     bitmap.convertTo(bitmap, CV_8UC1);
 
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(bitmap, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+    if (stats != nullptr) {
+        stats->contours = contours.size();
+    }
 
     std::vector<DetectionBox> boxes;
     for (const auto& contour : contours) {
         if (contour.size() < 4 || std::fabs(cv::contourArea(contour)) < 4.0) {
+            if (stats != nullptr) {
+                ++stats->skipped_small_contours;
+            }
             continue;
         }
 
@@ -273,6 +351,9 @@ extractBoxes(const Ort::Value& detection_output, const cv::Size& image_size, con
         cv::drawContours(mask, single_contour, 0, cv::Scalar(255), cv::FILLED);
         const double score = cv::mean(probability_map, mask)[0];
         if (score < config.box_threshold) {
+            if (stats != nullptr) {
+                ++stats->skipped_low_score;
+            }
             continue;
         }
 
@@ -297,10 +378,16 @@ extractBoxes(const Ort::Value& detection_output, const cv::Size& image_size, con
         const double box_width = std::max(distance(points[0], points[1]), distance(points[2], points[3]));
         const double box_height = std::max(distance(points[0], points[3]), distance(points[1], points[2]));
         if (box_width < 3.0 || box_height < 3.0) {
+            if (stats != nullptr) {
+                ++stats->skipped_small_boxes;
+            }
             continue;
         }
 
         boxes.push_back({points, bboxFromPoints(points, image_size), score});
+        if (stats != nullptr) {
+            ++stats->accepted_boxes;
+        }
     }
 
     std::sort(boxes.begin(), boxes.end(), [](const DetectionBox& lhs, const DetectionBox& rhs) {
@@ -383,16 +470,32 @@ RecognitionInput makeRecognitionInput(const cv::Mat& bgr_crop,
     return input;
 }
 
-double softmaxProbability(const float* logits, int class_count, int index) {
-    const float max_value = *std::max_element(logits, logits + class_count);
+bool looksLikeProbabilityDistribution(const float* values, int class_count) {
     double sum = 0.0;
     for (int class_index = 0; class_index < class_count; ++class_index) {
-        sum += std::exp(static_cast<double>(logits[class_index] - max_value));
+        const float value = values[class_index];
+        if (value < -1.0e-6F || value > 1.0F + 1.0e-6F) {
+            return false;
+        }
+        sum += value;
+    }
+    return sum > 0.90 && sum < 1.10;
+}
+
+double classProbability(const float* values, int class_count, int index) {
+    if (looksLikeProbabilityDistribution(values, class_count)) {
+        return values[index];
+    }
+
+    const float max_value = *std::max_element(values, values + class_count);
+    double sum = 0.0;
+    for (int class_index = 0; class_index < class_count; ++class_index) {
+        sum += std::exp(static_cast<double>(values[class_index] - max_value));
     }
     if (sum <= 0.0) {
         return 0.0;
     }
-    return std::exp(static_cast<double>(logits[index] - max_value)) / sum;
+    return std::exp(static_cast<double>(values[index] - max_value)) / sum;
 }
 
 std::string labelForIndex(int index, const std::vector<std::string>& dictionary) {
@@ -440,7 +543,7 @@ decodeRecognition(const Ort::Value& recognition_output, const std::vector<std::s
         const std::string label = labelForIndex(best_index, dictionary);
         if (!label.empty()) {
             result.text += label;
-            confidence_sum += softmaxProbability(step_logits, class_count, best_index);
+            confidence_sum += classProbability(step_logits, class_count, best_index);
             ++emitted_count;
         }
         previous_index = best_index;
@@ -534,19 +637,34 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
     result.page_text = {};
     result.page_text.page_index = request.page.page_index;
     result.page_text.page_number = request.page.page_number;
-    result.page_text.preferred_source = document::TextSource::Unknown;
+    result.page_text.preferred_source = document::TextSource::Ocr;
 
+    const bool debug = envFlag(kDebugEnv);
     if (model_ == nullptr || request.dpi <= 0 || !fileExists(request.page.output_path)) {
+        if (debug) {
+            std::cerr << "[paddleocr] unavailable input path=" << request.page.output_path.string()
+                      << " dpi=" << request.dpi << " model=" << (model_ == nullptr ? "missing" : "loaded") << '\n';
+        }
         return false;
     }
 
     const cv::Mat image = cv::imread(request.page.output_path.string(), cv::IMREAD_COLOR);
     if (image.empty()) {
+        if (debug) {
+            std::cerr << "[paddleocr] failed to read image path=" << request.page.output_path.string() << '\n';
+        }
         return false;
     }
 
     try {
         const DetectionInput detection_input = makeDetectionInput(image, config_);
+        if (debug) {
+            std::cerr << "[paddleocr] image=" << request.page.output_path.filename().string() << " size=" << image.cols
+                      << 'x' << image.rows << " det_input=[" << detection_input.shape[0] << ','
+                      << detection_input.shape[1] << ',' << detection_input.shape[2] << ',' << detection_input.shape[3]
+                      << "]\n";
+        }
+
         Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
         Ort::Value detection_tensor = Ort::Value::CreateTensor<float>(memory_info,
                                                                       const_cast<float*>(detection_input.tensor.data()),
@@ -562,18 +680,42 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
                                                                                    detection_output_names.data(),
                                                                                    detection_output_names.size());
         if (detection_outputs.empty()) {
+            if (debug) {
+                std::cerr << "[paddleocr] detection returned no outputs\n";
+            }
             return false;
         }
 
-        const std::vector<DetectionBox> boxes = extractBoxes(detection_outputs.front(), image.size(), config_);
+        DetectionStats detection_stats;
+        const std::vector<DetectionBox> boxes =
+            extractBoxes(detection_outputs.front(), image.size(), config_, &detection_stats);
+        if (debug) {
+            std::cerr << "[paddleocr] det_output_shape=" << shapeToString(detection_stats.output_shape)
+                      << " prob_min=" << detection_stats.probability_min
+                      << " prob_max=" << detection_stats.probability_max << " contours=" << detection_stats.contours
+                      << " skipped_small_contours=" << detection_stats.skipped_small_contours
+                      << " skipped_low_score=" << detection_stats.skipped_low_score
+                      << " skipped_small_boxes=" << detection_stats.skipped_small_boxes << " boxes=" << boxes.size()
+                      << '\n';
+        }
+
         const std::vector<const char*> recognition_input_names = namePointers(model_->recognition_input_names);
         const std::vector<const char*> recognition_output_names = namePointers(model_->recognition_output_names);
+
+        std::size_t crops = 0;
+        std::size_t empty_crops = 0;
+        std::size_t recognition_runs = 0;
+        std::size_t decoded_texts = 0;
+        std::size_t empty_decodes = 0;
+        bool logged_recognition_shape = false;
 
         for (const DetectionBox& box : boxes) {
             const cv::Mat crop = cropTextImage(image, box);
             if (crop.empty()) {
+                ++empty_crops;
                 continue;
             }
+            ++crops;
 
             const RecognitionInput recognition_input =
                 makeRecognitionInput(crop, config_, model_->recognition_input_shape);
@@ -593,16 +735,42 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
             if (recognition_outputs.empty()) {
                 continue;
             }
+            ++recognition_runs;
+
+            if (debug && !logged_recognition_shape) {
+                const auto shape = recognition_outputs.front().GetTensorTypeAndShapeInfo().GetShape();
+                std::cerr << "[paddleocr] rec_output_shape=" << shapeToString(shape) << '\n';
+                logged_recognition_shape = true;
+            }
 
             const RecognitionResult recognition =
                 decodeRecognition(recognition_outputs.front(), model_->dictionary, config_.recognition_threshold);
             if (!recognition.text.empty()) {
+                ++decoded_texts;
+                if (debug && decoded_texts <= 5) {
+                    std::cerr << "[paddleocr] decoded text=\"" << recognition.text
+                              << "\" confidence=" << recognition.confidence << '\n';
+                }
                 result.page_text.lines.push_back(makeTextLine(box, recognition));
+            } else {
+                ++empty_decodes;
             }
         }
+
+        if (debug) {
+            std::cerr << "[paddleocr] crops=" << crops << " empty_crops=" << empty_crops
+                      << " recognition_runs=" << recognition_runs << " decoded_texts=" << decoded_texts
+                      << " empty_decodes=" << empty_decodes << '\n';
+        }
     } catch (const Ort::Exception&) {
+        if (debug) {
+            std::cerr << "[paddleocr] ONNX Runtime exception during recognition\n";
+        }
         return false;
     } catch (const cv::Exception&) {
+        if (debug) {
+            std::cerr << "[paddleocr] OpenCV exception during recognition\n";
+        }
         return false;
     }
 

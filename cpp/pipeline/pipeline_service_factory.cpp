@@ -17,17 +17,17 @@ namespace doc_parser::pipeline {
 namespace {
 
 std::unique_ptr<ocr::IOcrBackend> createAutoOcrBackend() {
-    auto tesseract = std::make_unique<ocr::TesseractCliOcrBackend>();
-    if (tesseract->isAvailable()) {
-        return tesseract;
-    }
-
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
     auto paddle = std::make_unique<ocr::PaddleOcrOnnxBackend>();
     if (paddle->isAvailable()) {
         return paddle;
     }
 #endif
+
+    auto tesseract = std::make_unique<ocr::TesseractCliOcrBackend>();
+    if (tesseract->isAvailable()) {
+        return tesseract;
+    }
 
     return std::make_unique<ocr::NoopOcrBackend>();
 }

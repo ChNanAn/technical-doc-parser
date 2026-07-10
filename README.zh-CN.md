@@ -264,13 +264,15 @@ tests/         Unit and integration tests
 
 Demo 和针对性评估可以使用一小组公开技术 PDF。
 
+默认 OCR baseline 是 PaddleOCR ONNX。第一版可运行评估骨架使用 FUNSD 评估 PaddleOCR 的文本级 CER，见 [docs/evaluation.md](docs/evaluation.md)。
+
 ## 路线图
 
 当前实现已经跑通端到端引擎骨架，但 OCR/Layout/Table 还不是完成态智能能力。最新路线图见 [docs/roadmap.md](docs/roadmap.md)，覆盖 OCR、layout analysis、table understanding、reading order、document assembly、RAG output、model backends、evaluation 和 performance。
 
 ## 当前状态
 
-项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、可选 Tesseract OCR baseline、基础 layout analysis、Docling-like reading order、基础 table recognition、document assembly、JSON 输出，以及主流程冒烟测试。
+项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、默认 PaddleOCR ONNX baseline、可选 Tesseract OCR fallback、基础 layout analysis、Docling-like reading order、基础 table recognition、document assembly、JSON 输出，以及主流程冒烟测试。
 
 当前 pipeline 骨架已经跑通：
 

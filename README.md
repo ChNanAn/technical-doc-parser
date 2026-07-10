@@ -266,13 +266,15 @@ The project is designed around public datasets so the work can be reproduced:
 
 For demos and targeted evaluation, the project can also use a small curated set of public technical PDFs.
 
+The default OCR baseline is PaddleOCR ONNX. The initial runnable evaluation skeleton uses FUNSD for PaddleOCR text-level CER. See [docs/evaluation.md](docs/evaluation.md).
+
 ## Roadmap
 
 The current implementation has an end-to-end engine skeleton, not finished OCR/Layout/Table intelligence. See [docs/roadmap.md](docs/roadmap.md) for the active roadmap covering OCR, layout analysis, table understanding, reading order, document assembly, RAG output, model backends, evaluation, and performance.
 
 ## Current Status
 
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, an optional Tesseract OCR baseline, baseline layout analysis, Docling-like reading order, baseline table recognition, document assembly, JSON output, and smoke tests for the main pipeline pieces.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, a default PaddleOCR ONNX baseline, an optional Tesseract OCR fallback, baseline layout analysis, Docling-like reading order, baseline table recognition, document assembly, JSON output, and smoke tests for the main pipeline pieces.
 
 The current pipeline skeleton is running:
 

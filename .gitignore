@@ -1,6 +1,7 @@
 build/
 build-*/
 third_party/pdfium/
+third_party/onnxruntime-*/
 
 # Local datasets and model weights can be very large.
 data/raw/

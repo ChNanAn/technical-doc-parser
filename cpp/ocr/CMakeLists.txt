@@ -6,6 +6,39 @@ add_library(doc_parser_ocr
 if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     find_package(OpenCV 4.2 REQUIRED COMPONENTS core imgproc imgcodecs)
 
+    set(DOC_PARSER_PADDLEOCR_BASELINE_DIR
+        "${PROJECT_SOURCE_DIR}/models/paddleocr/baseline"
+        CACHE PATH
+        "Directory containing the default PaddleOCR ONNX baseline models"
+    )
+    if(NOT IS_ABSOLUTE "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}")
+        set(DOC_PARSER_PADDLEOCR_BASELINE_DIR
+            "${PROJECT_SOURCE_DIR}/${DOC_PARSER_PADDLEOCR_BASELINE_DIR}"
+            CACHE PATH
+            "Directory containing the default PaddleOCR ONNX baseline models"
+            FORCE
+        )
+    endif()
+
+    if(DOC_PARSER_AUTO_SETUP_PADDLEOCR_BASELINE
+        AND (NOT EXISTS "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/det.onnx"
+            OR NOT EXISTS "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/rec.onnx"
+            OR NOT EXISTS "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/ppocrv5_dict.txt"))
+        message(STATUS "PaddleOCR baseline models not found at ${DOC_PARSER_PADDLEOCR_BASELINE_DIR}; running scripts/setup_paddleocr_baseline.sh")
+        execute_process(
+            COMMAND
+                "${CMAKE_COMMAND}" -E env
+                "PADDLEOCR_BASELINE_DIR=${DOC_PARSER_PADDLEOCR_BASELINE_DIR}"
+                bash "${PROJECT_SOURCE_DIR}/scripts/setup_paddleocr_baseline.sh"
+            WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+            RESULT_VARIABLE DOC_PARSER_PADDLEOCR_BASELINE_SETUP_RESULT
+        )
+
+        if(NOT DOC_PARSER_PADDLEOCR_BASELINE_SETUP_RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to download PaddleOCR baseline models. Run bash scripts/setup_paddleocr_baseline.sh manually for details, or configure with -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLEOCR_BASELINE=OFF.")
+        endif()
+    endif()
+
     target_sources(doc_parser_ocr
         PRIVATE
             paddle_ocr_onnx_backend.cpp
@@ -40,6 +73,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_compile_definitions(doc_parser_ocr
         PUBLIC
             DOC_PARSER_ENABLE_ONNXRUNTIME=1
+            DOC_PARSER_PADDLEOCR_BASELINE_DIR="${DOC_PARSER_PADDLEOCR_BASELINE_DIR}"
     )
 endif()
 

@@ -62,24 +62,52 @@ bash scripts/setup_pdfium.sh --force
 
 ## ONNX Runtime and PaddleOCR baseline
 
-PaddleOCR ONNX support is optional. It is disabled by default so the normal build and CI do not need large runtime packages or model files.
+PaddleOCR ONNX is the default OCR baseline. When ONNX Runtime support is enabled, CMake downloads the pinned ONNX Runtime package and the pinned PaddleOCR ONNX baseline models if they are missing.
 
-To enable the backend, install or unpack ONNX Runtime and pass its root directory to CMake:
+The default build path is:
 
 ```bash
-cmake -S . -B build-ort \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_ONNXRUNTIME=ON \
-  -DONNXRUNTIME_ROOT=/path/to/onnxruntime-linux-x64
-cmake --build build-ort --config Release --parallel
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 ```
 
-The PaddleOCR baseline expects ONNX model files and a recognition dictionary to be supplied outside git:
+The downloaded runtime and models live outside git:
+
+```text
+third_party/onnxruntime-linux-x64-1.18.1/
+models/paddleocr/baseline/
+  det.onnx
+  rec.onnx
+  ppocrv5_dict.txt
+```
+
+The pinned setup scripts can also be run manually:
 
 ```bash
+bash scripts/setup_onnxruntime.sh
+bash scripts/setup_paddleocr_baseline.sh
+```
+
+Automatic downloads can be disabled:
+
+```bash
+cmake -S . -B build \
+  -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_ONNXRUNTIME=OFF \
+  -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLEOCR_BASELINE=OFF
+```
+
+To use custom ONNX Runtime or PaddleOCR model locations:
+
+```bash
+cmake -S . -B build \
+  -DONNXRUNTIME_ROOT=/path/to/onnxruntime-linux-x64-1.18.1 \
+  -DDOC_PARSER_PADDLEOCR_BASELINE_DIR=/path/to/paddleocr-baseline
+
+# Runtime override, useful for quick experiments:
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR=/path/to/paddleocr-baseline
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL=/path/to/det.onnx
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL=/path/to/rec.onnx
-export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT=/path/to/ppocr_keys_v1.txt
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT=/path/to/ppocrv5_dict.txt
 
 # Optional angle classifier model:
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_CLS_MODEL=/path/to/cls.onnx
@@ -89,7 +117,7 @@ export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=/path/to/text-image.png
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=expected-substring
 ```
 
-With ONNX Runtime enabled, CTest includes `paddle_ocr_onnx_baseline`. The test creates ONNX Runtime sessions for the configured PaddleOCR models. If `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE` is set, it also runs one end-to-end OCR pass and optionally checks `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT`. If the model environment variables are not set, the test is skipped with CTest skip code `77`.
+With ONNX Runtime enabled, CTest includes `paddle_ocr_onnx_baseline`. The test creates ONNX Runtime sessions for the default PaddleOCR models. If `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE` is set, it also runs one end-to-end OCR pass and optionally checks `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT`. If the models are unavailable, the test is skipped with CTest skip code `77`.
 
 The current PaddleOCR ONNX backend provides a baseline inference path: image loading, DB-style detection preprocessing, contour-based text box extraction, recognition preprocessing, greedy CTC decoding, and OCR `PageText` assembly. It is intentionally conservative and leaves angle-classifier execution, more faithful DB unclip logic, batching, and model-specific tuning as follow-up work.
 

@@ -95,12 +95,23 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         paddle_ocr_onnx_baseline.cpp
     )
 
+    add_executable(funsd_ocr_eval
+        funsd_ocr_eval.cpp
+    )
+
     target_link_libraries(paddle_ocr_onnx_baseline
         PRIVATE
             doc_parser_ocr
     )
 
+    target_link_libraries(funsd_ocr_eval
+        PRIVATE
+            doc_parser_ocr
+            nlohmann_json::nlohmann_json
+    )
+
     doc_parser_set_common_warnings(paddle_ocr_onnx_baseline)
+    doc_parser_set_common_warnings(funsd_ocr_eval)
 
     add_test(NAME paddle_ocr_onnx_baseline COMMAND paddle_ocr_onnx_baseline)
     set_tests_properties(paddle_ocr_onnx_baseline

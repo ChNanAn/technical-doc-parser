@@ -9,17 +9,6 @@ namespace {
 
 constexpr int kSkip = 77;
 
-bool hasEnv(const char* name) {
-    const char* value = std::getenv(name);
-    return value != nullptr && !std::string(value).empty();
-}
-
-bool hasBaselineEnvironment() {
-    return hasEnv("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL") &&
-           hasEnv("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL") &&
-           hasEnv("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT");
-}
-
 std::string envString(const char* name) {
     const char* value = std::getenv(name);
     if (value == nullptr) {
@@ -31,18 +20,12 @@ std::string envString(const char* name) {
 } // namespace
 
 int main() {
-    if (!hasBaselineEnvironment()) {
-        std::cout << "PaddleOCR ONNX baseline skipped; set "
-                     "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL, "
-                     "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL, and "
-                     "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT\n";
-        return kSkip;
-    }
-
     const doc_parser::ocr::PaddleOcrOnnxBackend backend;
     if (!backend.isAvailable()) {
-        std::cerr << "PaddleOCR ONNX backend could not initialize configured models\n";
-        return 1;
+        std::cout << "PaddleOCR ONNX baseline skipped; default models are unavailable. "
+                     "Run bash scripts/setup_paddleocr_baseline.sh or set "
+                     "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR.\n";
+        return kSkip;
     }
 
     const std::string image_path = envString("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE");

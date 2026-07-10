@@ -1,6 +1,6 @@
-#include "backend/pdf/pdfium/pdf_reader.h"
+#include "document_source/pdf/pdfium/pdf_reader.h"
 
-#include "backend/pdf/pdfium/pdfium_runtime.h"
+#include "document_source/pdf/pdfium/pdfium_runtime.h"
 
 namespace doc_parser::pdf {
 

@@ -2,9 +2,9 @@
 
 #include "common/status.h"
 
-#include "backend/document_backend_interfaces.h"
 #include "document/page_artifact.h"
 #include "document/text_model.h"
+#include "document_source/document_source_interfaces.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/pipeline_context.h"
 

@@ -1,6 +1,6 @@
-#include "backend/pdf/render_service.h"
+#include "document_source/pdf/render_service.h"
 
-#include "backend/pdf/pdfium/pdf_page_renderer.h"
+#include "document_source/pdf/pdfium/pdf_page_renderer.h"
 
 #include <iostream>
 

@@ -1,6 +1,6 @@
-#include "backend/pdf/pdf_document.h"
-#include "backend/pdf/render_service.h"
 #include "document/page_artifact.h"
+#include "document_source/pdf/pdf_document.h"
+#include "document_source/pdf/render_service.h"
 
 #include <array>
 #include <cstdint>

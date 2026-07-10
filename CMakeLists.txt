@@ -127,8 +127,8 @@ if(DOC_PARSER_ENABLE_OPENCV)
     add_subdirectory(cpp/image)
 endif()
 
+add_subdirectory(cpp/document_source)
 add_subdirectory(cpp/pipeline)
-add_subdirectory(cpp/backend)
 add_subdirectory(cpp/app)
 
 if(BUILD_TESTING)

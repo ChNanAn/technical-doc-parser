@@ -18,6 +18,7 @@ target_link_libraries(doc_parser_pipeline
         doc_parser_assembly
         doc_parser_common
         doc_parser_document
+        doc_parser_document_source
         doc_parser_export
         doc_parser_layout
         doc_parser_ocr

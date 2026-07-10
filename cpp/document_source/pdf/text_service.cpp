@@ -1,6 +1,6 @@
-#include "backend/pdf/text_service.h"
+#include "document_source/pdf/text_service.h"
 
-#include "backend/pdf/pdfium/pdf_text_extractor.h"
+#include "document_source/pdf/pdfium/pdf_text_extractor.h"
 
 #include <iostream>
 

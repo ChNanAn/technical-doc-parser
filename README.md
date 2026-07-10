@@ -127,7 +127,7 @@ document input
 
 **Source ingestion**
 
-Owns backend setup and document access. The current implementation opens PDF files through PDFium, manages PDFium lifetime, reads page count and page metadata, and hides PDFium-specific resource management from the rest of the pipeline. Future source adapters can target other document backends or external parser outputs.
+Owns document source setup and document access. The current implementation opens PDF files through PDFium, manages PDFium lifetime, reads page count and page metadata, and hides PDFium-specific resource management from the rest of the pipeline. Future source adapters can target other document formats or external parser outputs.
 
 **Page rendering**
 
@@ -234,8 +234,8 @@ cpp/
   app/          CLI entrypoint
   pipeline/     pipeline orchestration and stage interfaces
   document/     shared internal document models
-  backend/
-    pdf/        PDF backend facades for document access, rendering, and text extraction
+  document_source/
+    pdf/        PDF source facades for document access, rendering, and text extraction
       pdfium/   PDFium-specific adapter and native resource handling
   image/        OpenCV preprocessing
   ocr/          OCR adapters and text normalization

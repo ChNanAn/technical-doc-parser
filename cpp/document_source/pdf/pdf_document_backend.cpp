@@ -1,9 +1,9 @@
-#include "backend/pdf/pdf_document_backend.h"
+#include "document_source/pdf/pdf_document_backend.h"
 
-#include "backend/pdf/render_service.h"
-#include "backend/pdf/text_service.h"
+#include "document_source/pdf/render_service.h"
+#include "document_source/pdf/text_service.h"
 
-namespace doc_parser::backend::pdf {
+namespace doc_parser::document_source::pdf {
 
 bool PdfDocumentBackend::open(const std::filesystem::path& input_path) {
     source_path_ = input_path.string();
@@ -34,4 +34,4 @@ bool PdfDocumentBackend::extractNativeText(const pipeline::PipelineContext& cont
     return text.extractText(source_, context.render.dpi, page_texts);
 }
 
-} // namespace doc_parser::backend::pdf
+} // namespace doc_parser::document_source::pdf

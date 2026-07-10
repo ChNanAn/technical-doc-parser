@@ -1,4 +1,4 @@
-#include "backend/pdf/pdfium/pdfium_runtime.h"
+#include "document_source/pdf/pdfium/pdfium_runtime.h"
 
 namespace doc_parser::pdf::detail {
 

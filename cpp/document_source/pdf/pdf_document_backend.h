@@ -1,9 +1,9 @@
 #pragma once
 
-#include "backend/document_backend_interfaces.h"
-#include "backend/pdf/pdf_document.h"
+#include "document_source/document_source_interfaces.h"
+#include "document_source/pdf/pdf_document.h"
 
-namespace doc_parser::backend::pdf {
+namespace doc_parser::document_source::pdf {
 
 class PdfDocumentBackend final : public pipeline::IDocumentSource,
                                  public pipeline::IPageRenderer,
@@ -25,4 +25,4 @@ private:
     doc_parser::pdf::PdfDocument source_;
 };
 
-} // namespace doc_parser::backend::pdf
+} // namespace doc_parser::document_source::pdf

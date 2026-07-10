@@ -1,9 +1,9 @@
-#include "backend/pdf/pdfium/pdf_page_renderer.h"
+#include "document_source/pdf/pdfium/pdf_page_renderer.h"
 
-#include "backend/pdf/pdfium/pdf_reader.h"
-#include "backend/pdf/pdfium/pdfium_runtime.h"
-#include "backend/pdf/pdfium/pdfium_scoped_handles.h"
-#include "backend/pdf/render_service.h"
+#include "document_source/pdf/pdfium/pdf_reader.h"
+#include "document_source/pdf/pdfium/pdfium_runtime.h"
+#include "document_source/pdf/pdfium/pdfium_scoped_handles.h"
+#include "document_source/pdf/render_service.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <cmath>

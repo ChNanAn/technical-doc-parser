@@ -125,7 +125,7 @@ document input
 
 **Source ingestion**
 
-负责后端初始化和文档访问。当前实现通过 PDFium 打开 PDF，管理 PDFium 生命周期，读取页数和页级元数据，并把 PDFium 资源管理细节隔离在 PDFium backend 模块内部。未来可以增加其他文档后端或外部解析器输出适配器。
+负责文档源初始化和文档访问。当前实现通过 PDFium 打开 PDF，管理 PDFium 生命周期，读取页数和页级元数据，并把 PDFium 资源管理细节隔离在 PDFium source 模块内部。未来可以增加其他文档格式或外部解析器输出适配器。
 
 **Page rendering**
 
@@ -232,8 +232,8 @@ cpp/
   app/          CLI entrypoint
   pipeline/     Pipeline 编排和 stage interfaces
   document/     共享内部文档模型
-  backend/
-    pdf/        PDF backend facade，负责文档访问、渲染、文本提取
+  document_source/
+    pdf/        PDF source facade，负责文档访问、渲染、文本提取
       pdfium/   PDFium-specific adapter 和 native 资源管理
   image/        OpenCV preprocessing
   ocr/          OCR adapters and text normalization

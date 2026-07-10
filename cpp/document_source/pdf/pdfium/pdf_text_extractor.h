@@ -1,7 +1,7 @@
 #pragma once
 
-#include "backend/pdf/pdfium/pdf_reader.h"
 #include "document/text_model.h"
+#include "document_source/pdf/pdfium/pdf_reader.h"
 
 namespace doc_parser::pdf {
 

@@ -1,8 +1,6 @@
 #include "pipeline/document_pipeline.h"
 
 #include "assembly/document_assembler.h"
-#include "backend/document_backend_factory.h"
-#include "backend/document_backend_interfaces.h"
 #include "document/parsed_document.h"
 #include "export/document_exporter.h"
 #include "pipeline/layout_analysis_stage.h"
@@ -67,30 +65,32 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
 bool DocumentPipeline::run(const app::CliOptions& options) const {
     const PipelineContext context = PipelineContext::fromOptions(options);
 
-    auto backend = backend::createDocumentBackend(context.backends.document);
-    if (backend.source == nullptr) {
-        spdlog::error("backend: no matching document backend is enabled");
+    PipelineServiceCreationResult service_creation = createPipelineServices(context.backends);
+    if (!service_creation.ok) {
         return false;
     }
+    spdlog::info("configured services: {}", service_creation.trace_message);
 
-    if (!backend.source->open(context.input_pdf)) {
+    auto& document = service_creation.services.document;
+
+    if (!document.source->open(context.input_pdf)) {
         spdlog::error("open_document: failed to open input document: {}", context.input_pdf.string());
         return false;
     }
 
-    spdlog::info("input: {}", backend.source->sourcePath());
+    spdlog::info("input: {}", document.source->sourcePath());
     spdlog::info("output_dir: {}", context.output.root.string());
     spdlog::info("dpi: {}", context.render.dpi);
     spdlog::info("debug: {}", context.debug);
-    spdlog::info("pages: {}", backend.source->pageCount());
+    spdlog::info("pages: {}", document.source->pageCount());
 
-    if (backend.renderer == nullptr) {
-        spdlog::error("render_pages: document backend cannot render pages");
+    if (document.renderer == nullptr) {
+        spdlog::error("render_pages: document source cannot render pages");
         return false;
     }
 
     std::vector<document::PageArtifact> rendered_pages;
-    if (!backend.renderer->renderPages(context, rendered_pages)) {
+    if (!document.renderer->renderPages(context, rendered_pages)) {
         spdlog::error("render_pages: failed to render page artifacts");
         return false;
     }
@@ -106,14 +106,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
     spdlog::debug("preprocessed debug images");
 
-    BackendSelectionResult backend_selection = createPipelineServices(context.backends);
-    if (!backend_selection.ok) {
-        spdlog::error("{}: {}", backend_selection.error_stage, backend_selection.error_message);
-        return false;
-    }
-    spdlog::info("configured backends: {}", backend_selection.trace_message);
-
-    const TextExtractionStage text_extraction(backend.native_text_extractor, *backend_selection.services.ocr);
+    const TextExtractionStage text_extraction(document.native_text_extractor, *service_creation.services.ocr);
     std::vector<document::PageText> page_texts;
     common::Status stage_status = text_extraction.extract(context, rendered_pages, page_texts);
     if (!stage_status.okStatus()) {
@@ -122,7 +115,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
     spdlog::info("extracted text pages: {}", page_texts.size());
 
-    const LayoutAnalysisStage layout_analysis(*backend_selection.services.layout);
+    const LayoutAnalysisStage layout_analysis(*service_creation.services.layout);
     std::vector<document::PageLayout> page_layouts;
     stage_status = layout_analysis.analyze(context, rendered_pages, page_texts, page_layouts);
     if (!stage_status.okStatus()) {
@@ -131,7 +124,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
     spdlog::info("analyzed layout pages: {}", page_layouts.size());
 
-    const ReadingOrderStage reading_order(*backend_selection.services.reading_order);
+    const ReadingOrderStage reading_order(*service_creation.services.reading_order);
     std::vector<document::PageReadingOrder> page_reading_orders;
     stage_status = reading_order.order(context, rendered_pages, page_layouts, page_reading_orders);
     if (!stage_status.okStatus()) {
@@ -140,7 +133,7 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
     spdlog::info("computed reading order pages: {}", page_reading_orders.size());
 
-    const TableRecognitionStage table_recognition(*backend_selection.services.table);
+    const TableRecognitionStage table_recognition(*service_creation.services.table);
     std::vector<document::PageTables> page_tables;
     stage_status = table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables);
     if (!stage_status.okStatus()) {
@@ -154,8 +147,8 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     const assembly::DocumentAssembler document_assembler;
     if (!document_assembler.assemble(
             {
-                backend.source->sourcePath(),
-                backend.source->sourceType(),
+                document.source->sourcePath(),
+                document.source->sourceType(),
                 context.render.dpi,
                 rendered_pages,
                 page_texts,

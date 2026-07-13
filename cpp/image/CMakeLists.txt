@@ -1,4 +1,11 @@
-find_package(OpenCV 4.2 REQUIRED COMPONENTS core imgproc imgcodecs)
+find_package(OpenCV 4.2 QUIET COMPONENTS core imgproc imgcodecs)
+if(NOT OpenCV_FOUND)
+    message(FATAL_ERROR
+        "OpenCV 4.2+ is required for image preprocessing. On Ubuntu/Debian run "
+        "'bash scripts/setup_ubuntu_dependencies.sh' or 'sudo apt-get install -y libopencv-dev'. "
+        "To build without image preprocessing, set DOCUMENT_INTELLIGENCE_ENGINE_ENABLE_OPENCV=OFF."
+    )
+endif()
 
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 

@@ -46,6 +46,9 @@ PDFIUM_PACKAGE=pdfium-linux-x64.tgz
 PDFIUM_DIR=third_party/pdfium
 ```
 
+The release archive is verified against the SHA256 embedded in `scripts/setup_pdfium.sh` before extraction.
+Custom platforms or download URLs must also provide the matching `PDFIUM_SHA256` value.
+
 To inspect the resolved settings without downloading:
 
 ```bash
@@ -87,6 +90,11 @@ The pinned setup scripts can also be run manually:
 bash scripts/setup_onnxruntime.sh
 bash scripts/setup_paddleocr_baseline.sh
 ```
+
+ONNX Runtime is downloaded from an immutable release and verified with SHA256 before extraction. PaddleOCR
+model and dictionary URLs contain immutable repository revisions, and every downloaded file is verified with
+SHA256 before it replaces an existing model. When overriding a URL, override its corresponding `*_SHA256`
+environment variable as well.
 
 Automatic downloads can be disabled:
 
@@ -157,7 +165,10 @@ Install OpenCV through your system package manager:
 
 ```bash
 # Ubuntu / Debian
-sudo apt-get install -y libopencv-dev
+bash scripts/setup_ubuntu_dependencies.sh
+
+# Equivalent direct command:
+sudo apt-get update && sudo apt-get install -y libopencv-dev
 
 # macOS
 brew install opencv
@@ -178,6 +189,12 @@ cmake -S . -B build -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_OPENCV=OFF
 OpenCV is treated as a system dependency rather than a vendored dependency. It is large, platform-specific,
 and usually pulls additional image codec libraries from the host package manager. Keeping it external avoids
 long source builds and large committed binaries while still letting CI pin a repeatable reference OS.
+
+CMake deliberately does not run `sudo` or mutate the host package manager during configuration. On a fresh
+Ubuntu/Debian machine, run the dependency setup script once before configuring the default build. Disabling
+only image preprocessing is not enough when the PaddleOCR ONNX backend is enabled, because that backend also
+uses OpenCV; disable both `DOCUMENT_INTELLIGENCE_ENGINE_ENABLE_OPENCV` and
+`DOCUMENT_INTELLIGENCE_ENGINE_ENABLE_ONNXRUNTIME` for an OpenCV-free build.
 
 Legacy `DOC_PARSER_AUTO_SETUP_PDFIUM`, `DOC_PARSER_ENABLE_PDFIUM`, and `DOC_PARSER_ENABLE_OPENCV` CMake options
 are still accepted for compatibility.

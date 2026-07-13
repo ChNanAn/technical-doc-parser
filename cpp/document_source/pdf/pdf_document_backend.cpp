@@ -16,22 +16,21 @@ std::string PdfDocumentBackend::sourceType() const { return "pdf"; }
 
 int PdfDocumentBackend::pageCount() const { return source_.pageCount(); }
 
-bool PdfDocumentBackend::renderPages(const pipeline::PipelineContext& context,
-                                     std::vector<document::PageArtifact>& pages) const {
+bool PdfDocumentBackend::renderPages(const RenderRequest& request, std::vector<document::PageArtifact>& pages) const {
     const doc_parser::pdf::RenderService render;
     return render.renderPages(source_,
                               {
-                                  context.render.dpi,
-                                  context.output.root,
-                                  context.output.pages_dir,
+                                  request.dpi,
+                                  request.output_root,
+                                  request.pages_dir,
                               },
                               pages);
 }
 
-bool PdfDocumentBackend::extractNativeText(const pipeline::PipelineContext& context,
+bool PdfDocumentBackend::extractNativeText(const NativeTextRequest& request,
                                            std::vector<document::PageText>& page_texts) const {
     const doc_parser::pdf::TextService text;
-    return text.extractText(source_, context.render.dpi, page_texts);
+    return text.extractText(source_, request.dpi, page_texts);
 }
 
 } // namespace doc_parser::document_source::pdf

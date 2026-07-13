@@ -90,7 +90,8 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
 
     std::vector<document::PageArtifact> rendered_pages;
-    if (!document.renderer->renderPages(context, rendered_pages)) {
+    if (!document.renderer->renderPages({context.render.dpi, context.output.root, context.output.pages_dir},
+                                        rendered_pages)) {
         spdlog::error("render_pages: failed to render page artifacts");
         return false;
     }

@@ -10,6 +10,7 @@ PDFIUM_PLATFORM="${PDFIUM_PLATFORM:-linux-x64}"
 PDFIUM_PACKAGE="pdfium-${PDFIUM_PLATFORM}.tgz"
 PDFIUM_DIR="${PDFIUM_DIR:-third_party/pdfium}"
 PDFIUM_URL="${PDFIUM_URL:-https://github.com/bblanchon/pdfium-binaries/releases/download/${PDFIUM_RELEASE//\//%2F}/${PDFIUM_PACKAGE}}"
+PDFIUM_SHA256="${PDFIUM_SHA256:-e07bc44c4e422c50eb01da742dc1ec59ad6780ce64ed91955533da8e9fe1a363}"
 
 usage() {
   cat <<EOF
@@ -27,6 +28,7 @@ Environment:
   PDFIUM_PLATFORM      Package platform. Default: ${PDFIUM_PLATFORM}
   PDFIUM_DIR           Install directory. Default: ${PDFIUM_DIR}
   PDFIUM_URL           Override download URL.
+  PDFIUM_SHA256        Expected archive SHA256.
 EOF
 }
 
@@ -36,6 +38,7 @@ PDFIUM_VERSION=${PDFIUM_VERSION}
 PDFIUM_PACKAGE=${PDFIUM_PACKAGE}
 PDFIUM_DIR=${PDFIUM_DIR}
 PDFIUM_URL=${PDFIUM_URL}
+PDFIUM_SHA256=${PDFIUM_SHA256}
 EOF
 }
 
@@ -81,6 +84,7 @@ fi
 
 require_cmd curl
 require_cmd tar
+require_cmd sha256sum
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -90,6 +94,18 @@ archive="$tmp_dir/$PDFIUM_PACKAGE"
 echo "Downloading PDFium ${PDFIUM_VERSION} (${PDFIUM_PLATFORM})"
 echo "  ${PDFIUM_URL}"
 curl -L --fail --retry 3 --output "$archive" "$PDFIUM_URL"
+
+echo "${PDFIUM_SHA256}  ${archive}" | sha256sum --check --status || {
+  echo "PDFium archive SHA256 verification failed" >&2
+  exit 1
+}
+
+while IFS= read -r entry; do
+  if [[ "$entry" == /* || "$entry" == ".." || "$entry" == ../* || "$entry" == */../* || "$entry" == */.. ]]; then
+    echo "Unsafe path in PDFium archive: $entry" >&2
+    exit 1
+  fi
+done < <(tar -tzf "$archive")
 
 mkdir -p "$PDFIUM_DIR"
 tar -xzf "$archive" -C "$PDFIUM_DIR"

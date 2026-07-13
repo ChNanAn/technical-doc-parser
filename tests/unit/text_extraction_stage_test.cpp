@@ -13,11 +13,11 @@
 
 namespace {
 
-class FakeNativeTextExtractor final : public doc_parser::pipeline::INativeTextExtractor {
+class FakeNativeTextExtractor final : public doc_parser::document_source::INativeTextExtractor {
 public:
-    bool extractNativeText(const doc_parser::pipeline::PipelineContext& context,
+    bool extractNativeText(const doc_parser::document_source::NativeTextRequest& request,
                            std::vector<doc_parser::document::PageText>& page_texts) const override {
-        if (context.render.dpi <= 0) {
+        if (request.dpi <= 0) {
             return false;
         }
         ++extract_native_text_calls;

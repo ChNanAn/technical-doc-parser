@@ -2,13 +2,22 @@
 
 #include "document/page_artifact.h"
 #include "document/text_model.h"
-#include "pipeline/pipeline_context.h"
 
 #include <filesystem>
 #include <string>
 #include <vector>
 
-namespace doc_parser::pipeline {
+namespace doc_parser::document_source {
+
+struct RenderRequest {
+    int dpi = 200;
+    std::filesystem::path output_root;
+    std::filesystem::path pages_dir;
+};
+
+struct NativeTextRequest {
+    int dpi = 200;
+};
 
 class IDocumentSource {
 public:
@@ -23,14 +32,14 @@ public:
 class IPageRenderer {
 public:
     virtual ~IPageRenderer() = default;
-    virtual bool renderPages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) const = 0;
+    virtual bool renderPages(const RenderRequest& request, std::vector<document::PageArtifact>& pages) const = 0;
 };
 
 class INativeTextExtractor {
 public:
     virtual ~INativeTextExtractor() = default;
-    virtual bool extractNativeText(const PipelineContext& context,
+    virtual bool extractNativeText(const NativeTextRequest& request,
                                    std::vector<document::PageText>& page_texts) const = 0;
 };
 
-} // namespace doc_parser::pipeline
+} // namespace doc_parser::document_source

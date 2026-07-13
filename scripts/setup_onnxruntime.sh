@@ -9,6 +9,7 @@ ONNXRUNTIME_PLATFORM="${ONNXRUNTIME_PLATFORM:-linux-x64}"
 ONNXRUNTIME_PACKAGE="onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_VERSION}.tgz"
 ONNXRUNTIME_ROOT="${ONNXRUNTIME_ROOT:-third_party/onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_VERSION}}"
 ONNXRUNTIME_URL="${ONNXRUNTIME_URL:-https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ONNXRUNTIME_PACKAGE}}"
+ONNXRUNTIME_SHA256="${ONNXRUNTIME_SHA256:-a0994512ec1e1debc00c18bfc7a5f16249f6ebd6a6128ff2034464cc380ea211}"
 
 usage() {
   cat <<EOF
@@ -25,6 +26,7 @@ Environment:
   ONNXRUNTIME_PLATFORM Package platform. Default: ${ONNXRUNTIME_PLATFORM}
   ONNXRUNTIME_ROOT     Install directory. Default: ${ONNXRUNTIME_ROOT}
   ONNXRUNTIME_URL      Override download URL.
+  ONNXRUNTIME_SHA256   Expected archive SHA256.
 EOF
 }
 
@@ -34,6 +36,7 @@ ONNXRUNTIME_VERSION=${ONNXRUNTIME_VERSION}
 ONNXRUNTIME_PACKAGE=${ONNXRUNTIME_PACKAGE}
 ONNXRUNTIME_ROOT=${ONNXRUNTIME_ROOT}
 ONNXRUNTIME_URL=${ONNXRUNTIME_URL}
+ONNXRUNTIME_SHA256=${ONNXRUNTIME_SHA256}
 EOF
 }
 
@@ -79,6 +82,7 @@ fi
 
 require_cmd curl
 require_cmd tar
+require_cmd sha256sum
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -89,6 +93,18 @@ extract_dir="$tmp_dir/extract"
 echo "Downloading ONNX Runtime ${ONNXRUNTIME_VERSION} (${ONNXRUNTIME_PLATFORM})"
 echo "  ${ONNXRUNTIME_URL}"
 curl -L --fail --retry 3 --output "$archive" "$ONNXRUNTIME_URL"
+
+echo "${ONNXRUNTIME_SHA256}  ${archive}" | sha256sum --check --status || {
+  echo "ONNX Runtime archive SHA256 verification failed" >&2
+  exit 1
+}
+
+while IFS= read -r entry; do
+  if [[ "$entry" == /* || "$entry" == ".." || "$entry" == ../* || "$entry" == */../* || "$entry" == */.. ]]; then
+    echo "Unsafe path in ONNX Runtime archive: $entry" >&2
+    exit 1
+  fi
+done < <(tar -tzf "$archive")
 
 mkdir -p "$extract_dir"
 tar -xzf "$archive" -C "$extract_dir"

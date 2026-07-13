@@ -4,7 +4,8 @@
 
 namespace doc_parser::pipeline {
 
-TextExtractionStage::TextExtractionStage(const INativeTextExtractor* native_text_extractor, const ocr::IOcrBackend& ocr)
+TextExtractionStage::TextExtractionStage(const document_source::INativeTextExtractor* native_text_extractor,
+                                         const ocr::IOcrBackend& ocr)
     : native_text_extractor_(native_text_extractor), ocr_(ocr) {}
 
 common::Status TextExtractionStage::extract(const PipelineContext& context,
@@ -17,7 +18,7 @@ common::Status TextExtractionStage::extract(const PipelineContext& context,
     }
 
     if (native_text_extractor_ != nullptr) {
-        if (!native_text_extractor_->extractNativeText(context, page_texts)) {
+        if (!native_text_extractor_->extractNativeText({context.render.dpi}, page_texts)) {
             return common::Status::error("text.native_extraction_failed", "native text extraction failed");
         }
     } else {

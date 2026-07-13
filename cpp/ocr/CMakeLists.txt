@@ -4,7 +4,14 @@ add_library(doc_parser_ocr
 )
 
 if(DOC_PARSER_ENABLE_ONNXRUNTIME)
-    find_package(OpenCV 4.2 REQUIRED COMPONENTS core imgproc imgcodecs)
+    find_package(OpenCV 4.2 QUIET COMPONENTS core imgproc imgcodecs)
+    if(NOT OpenCV_FOUND)
+        message(FATAL_ERROR
+            "OpenCV 4.2+ is required by the PaddleOCR ONNX backend. On Ubuntu/Debian run "
+            "'bash scripts/setup_ubuntu_dependencies.sh' or 'sudo apt-get install -y libopencv-dev'. "
+            "To build without this backend, set DOCUMENT_INTELLIGENCE_ENGINE_ENABLE_ONNXRUNTIME=OFF."
+        )
+    endif()
 
     set(DOC_PARSER_PADDLEOCR_BASELINE_DIR
         "${PROJECT_SOURCE_DIR}/models/paddleocr/baseline"

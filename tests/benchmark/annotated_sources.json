@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "datasets": [
+    {
+      "id": "tesseract-ocr-test",
+      "task": "ocr_text",
+      "repository": "https://github.com/tesseract-ocr/test",
+      "commit": "232ff181c66516116ec0e84c4963f70de15050fd",
+      "selected_ids": ["eurotext", "phototest", "phototest_rotated_180", "unlv_8071_093_3b", "unlv_8087_054_3b"],
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/tesseract-ocr/test/blob/232ff181c66516116ec0e84c4963f70de15050fd/LICENSE"
+    },
+    {
+      "id": "doclaynet",
+      "task": "layout",
+      "homepage": "https://github.com/DS4SD/DocLayNet",
+      "repository_commit": "66947398f04d050fed84e89e5509828f2ee17ecf",
+      "archive_url": "https://codait-cos-dax.s3.us.cloud-object-storage.appdomain.cloud/dax-doclaynet/1.0.0/DocLayNet_core.zip",
+      "archive_version": "1.0.0",
+      "test_annotation_sha256": "37ccce8c7951dcfd9c7c832bbff5aee71cb59c032ed7021e125e6188e6ac4fe1",
+      "selected_image_ids": [1736, 1847, 3647, 4264, 4714],
+      "license": "CDLA-Permissive-1.0",
+      "license_url": "https://github.com/DS4SD/DocLayNet/blob/66947398f04d050fed84e89e5509828f2ee17ecf/LICENSE"
+    },
+    {
+      "id": "pubtables-1m",
+      "task": "table_structure",
+      "homepage": "https://github.com/microsoft/table-transformer",
+      "mirror": "https://huggingface.co/datasets/bsmock/pubtables-1m",
+      "mirror_commit": "35b1c097807e0b07ec5313879b85956b7b3890db",
+      "annotation_archive_sha256": "be13440e09f9ecc2b502dc87898420080bf572986a2ae74e0b8713d5cebaa384",
+      "selected_ids": [
+        "PMC4840909_table_0",
+        "PMC3430698_table_1",
+        "PMC4429321_table_0",
+        "PMC3430698_table_0",
+        "PMC1187882_table_1"
+      ],
+      "license": "CDLA-Permissive-2.0",
+      "license_url": "https://huggingface.co/datasets/bsmock/pubtables-1m/blob/main/README.md"
+    }
+  ]
+}

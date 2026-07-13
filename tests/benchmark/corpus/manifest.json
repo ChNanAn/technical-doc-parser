@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "sample_count": 15,
+  "datasets": [
+    {
+      "dataset": "tesseract-ocr/test",
+      "task": "ocr_text",
+      "samples": 5,
+      "ground_truth": "ocr_tesseract/ground_truth.json",
+      "ground_truth_sha256": "67c473c77e08558d3b4e45c4d18ba5e23804e6d5152e3ca72d909676db794059"
+    },
+    {
+      "dataset": "DocLayNet",
+      "task": "layout",
+      "samples": 5,
+      "ground_truth": "layout_doclaynet/ground_truth.json",
+      "ground_truth_sha256": "04e024ea9f851cdbe6b06657c203e4036e7da1ba9d8dbd2dd8a761856654cfd4"
+    },
+    {
+      "dataset": "PubTables-1M",
+      "task": "table_structure",
+      "samples": 5,
+      "ground_truth": "table_pubtables/ground_truth.json",
+      "ground_truth_sha256": "36cf69c3df562f7c87c6feffeb8c3bc29d94ead224f2687912a267a7e6e0beb2"
+    }
+  ]
+}

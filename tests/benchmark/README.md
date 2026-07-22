@@ -40,6 +40,89 @@ tests/benchmark/corpus/
   manifest.json
 ```
 
+## Evaluate predictions
+
+The metric evaluators consume backend-independent prediction JSON. Missing sample IDs are scored as empty
+predictions; duplicate or unknown sample IDs and unknown labels are rejected. This makes failed inference visible
+without silently accepting misspelled IDs or categories.
+
+OCR predictions contain page-level text:
+
+```json
+{
+  "version": 1,
+  "task": "ocr_text",
+  "dataset": "tesseract-ocr/test",
+  "metadata": {
+    "engine_version": "0.1.0",
+    "git_revision": "<git-sha>",
+    "model": {"name": "example", "sha256": "<sha256>"}
+  },
+  "samples": [
+    {"id": "eurotext", "text": "recognized text"}
+  ]
+}
+```
+
+The optional `metadata` object is copied into the metric report. Prediction producers should record the engine
+version, git revision, model name and hash, and relevant inference configuration there. If `dataset` is present it
+must match the ground-truth dataset.
+
+Calculate corpus and per-sample CER/WER after NFKC and whitespace normalization:
+
+```bash
+python3 tests/benchmark/evaluate_ocr.py \
+  --predictions output/ocr_predictions.json \
+  --output output/ocr_metrics.json
+```
+
+Layout predictions use the internal mapped labels (`title`, `text`, `list`, `table`, `figure`, `header`,
+`footer`, or `unknown`):
+
+```json
+{
+  "version": 1,
+  "task": "layout",
+  "samples": [
+    {
+      "id": 1736,
+      "objects": [
+        {"label": "title", "bbox": [90.4, 94.8, 190.1, 106.0], "confidence": 0.9}
+      ]
+    }
+  ]
+}
+```
+
+```bash
+python3 tests/benchmark/evaluate_layout.py \
+  --predictions output/layout_predictions.json \
+  --iou-threshold 0.5 \
+  --output output/layout_metrics.json
+```
+
+Table predictions use the PubTables structure labels (`table`, `table row`, `table column`,
+`table column header`, and `table spanning cell`):
+
+```bash
+python3 tests/benchmark/evaluate_table.py \
+  --predictions output/table_predictions.json \
+  --iou-threshold 0.5 \
+  --output output/table_metrics.json
+```
+
+Layout and table reports use class-aware, one-to-one maximum-cardinality matching. They contain per-class and
+per-sample precision, recall, F1, mean matched IoU, micro/macro F1, and exact object-structure match rate. The table
+metric evaluates the available PubTables row/column/header/spanning-cell boxes; it is not a text-content or TEDS
+metric.
+
+The corpus integrity check, evaluator unit tests, and perfect-prediction CLI smoke tests are registered with CTest
+under the `benchmark` label. The normal GitHub Actions `ctest` step therefore runs them automatically:
+
+```bash
+ctest --test-dir build -L benchmark --output-on-failure
+```
+
 The fixed annotated subset contains:
 
 | Dataset | Samples | Existing ground truth used |

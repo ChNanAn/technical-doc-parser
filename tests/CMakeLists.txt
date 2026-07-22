@@ -1,3 +1,48 @@
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+add_test(
+    NAME benchmark_corpus_integrity
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/validate_corpus.py
+)
+
+add_test(
+    NAME benchmark_evaluator_tests
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/test_evaluators.py
+)
+
+add_test(
+    NAME benchmark_ocr_evaluator_smoke
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_ocr.py
+        --predictions ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/ground_truth.json
+        --quiet
+)
+
+add_test(
+    NAME benchmark_layout_evaluator_smoke
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_layout.py
+        --predictions ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/layout_doclaynet/ground_truth.json
+        --quiet
+)
+
+add_test(
+    NAME benchmark_table_evaluator_smoke
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_table.py
+        --predictions ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/table_pubtables/ground_truth.json
+        --quiet
+)
+
+set_tests_properties(
+    benchmark_corpus_integrity
+    benchmark_evaluator_tests
+    benchmark_ocr_evaluator_smoke
+    benchmark_layout_evaluator_smoke
+    benchmark_table_evaluator_smoke
+    PROPERTIES LABELS benchmark
+)
+
 add_executable(text_model_smoke
     text_model_smoke.cpp
 )

@@ -116,18 +116,31 @@ export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR=/path/to/paddleocr-basel
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL=/path/to/det.onnx
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL=/path/to/rec.onnx
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT=/path/to/ppocrv5_dict.txt
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_PROFILE=ppocrv5_mobile
 
-# Optional angle classifier model:
-export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_CLS_MODEL=/path/to/cls.onnx
+# Optional inference tuning:
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_BATCH_SIZE=8
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MAX_WIDTH=2048
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_LIMIT_SIDE=960
 
 # Optional end-to-end baseline image:
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=/path/to/text-image.png
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=expected-substring
 ```
 
-With ONNX Runtime enabled, CTest includes `paddle_ocr_onnx_baseline`. The test creates ONNX Runtime sessions for the default PaddleOCR models. If `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE` is set, it also runs one end-to-end OCR pass and optionally checks `DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT`. If the models are unavailable, the test is skipped with CTest skip code `77`.
+With ONNX Runtime enabled, CTest includes `paddle_ocr_onnx_baseline`. It loads the default models and runs
+end-to-end detection, batched recognition, detection-only, and supplied-region recognition against a committed
+test image. If the models are unavailable, the test is skipped with CTest skip code `77`.
 
-The current PaddleOCR ONNX backend provides a baseline inference path: image loading, DB-style detection preprocessing, contour-based text box extraction, recognition preprocessing, greedy CTC decoding, and OCR `PageText` assembly. It is intentionally conservative and leaves angle-classifier execution, more faithful DB unclip logic, batching, and model-specific tuning as follow-up work.
+The built-in `ppocrv4_mobile` and `ppocrv5_mobile` profiles are separate model contracts. The current official
+mobile exports share the same BGR channel order and normalization values, while the public profile keeps those
+fields model-scoped for future or custom exports. DB post-processing uses the official area/perimeter unclip
+distance, recognition batches crops with similar aspect ratios, and dynamic-width ONNX models can grow from 320 to
+the configured maximum width.
+
+Angle classification is deliberately not advertised by this backend. Earlier configuration accepted a classifier
+path but only loaded the session without executing it; that misleading option has been removed. Rotation support
+should return as a complete preprocessing stage with its own model profile and evaluation corpus.
 
 ### Threading policy
 
@@ -201,9 +214,11 @@ are still accepted for compatibility.
 
 ## Tesseract OCR
 
-OCR uses an optional Tesseract CLI adapter as the first baseline. The C++ pipeline detects `tesseract` at
-runtime. If it is available, image-only pages can be normalized into `PageText`; if it is missing, the OCR
-service falls back to the no-op backend.
+OCR uses an optional Tesseract CLI adapter as the first baseline. The C++ pipeline checks both the executable and
+the requested language packs at runtime. If PaddleOCR and Tesseract are both unavailable, `auto` mode keeps
+native-text-only documents usable but returns an explicit error as soon as a page requires OCR. A non-zero
+Tesseract process exit is also treated as OCR failure. Silent empty output is available only when the caller selects
+`--ocr-backend noop` deliberately.
 
 Install Tesseract through your system package manager or a user environment:
 
@@ -223,8 +238,10 @@ DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_CMD=/path/to/tesseract DOCUMENT_INTELLIGE
 
 The legacy `DOC_PARSER_TESSERACT_CMD` and `DOC_PARSER_TESSERACT_LANG` variables are still accepted for now.
 
-OCR is only used by the text extraction stage when the PDF text layer for a page is empty. Debug output records
-OCR text under `pages[].debug.text` with `preferred_source` set to `ocr`.
+The text extraction stage measures native text validity and vertical coverage. Empty or suspicious native text is
+replaced by OCR. Sparse but usable native text triggers a full-page OCR pass whose non-overlapping lines are merged
+by coordinates; overlapping OCR lines are discarded and `preferred_source` becomes `mixed`. If enhancement OCR
+fails, usable native text is retained. Debug logs record the decision and quality measurements for every page.
 
 Select the OCR backend explicitly with:
 

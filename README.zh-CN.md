@@ -145,14 +145,10 @@ pages/page_2.png
 当前策略：
 
 ```text
-PDF text layer -> PageText
-```
-
-未来策略：
-
-```text
-if PDF text layer is usable:
+if PDF text layer is complete and usable:
   use PDF text layer
+else if PDF text layer is usable but sparse:
+  merge non-overlapping OCR lines by coordinates
 else:
   use OCR
 ```

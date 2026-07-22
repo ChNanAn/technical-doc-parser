@@ -42,7 +42,8 @@ Important caveats:
 - Reading order is a heuristic baseline, not a measured reading-order model.
 - Table recognition is a minimal text-gap baseline, not full table understanding.
 - Markdown/HTML/RAG outputs are not yet mature.
-- Evaluation datasets and metrics are still missing.
+- A small distributed OCR/layout/table metric corpus now exists; broader domain coverage and release thresholds are
+  still missing.
 
 ## Design Principles
 
@@ -93,15 +94,15 @@ Goal: make OCR and layout inputs more reliable.
 
 ### OCR
 
-Goal: move from fallback demo to real OCR subsystem.
+Goal: turn the measurable PaddleOCR baseline into a production OCR subsystem.
 
 - Improve Tesseract baseline.
-- Add PaddleOCR / RapidOCR / docTR adapters.
+- Maintain PaddleOCR model profiles; add RapidOCR / docTR adapters where they add measurable value.
 - Support language configuration.
 - Track confidence and source per token/span/line.
 - Normalize OCR word boxes into lines and spans.
-- Merge OCR with PDF native text when useful.
-- Add OCR fixtures and accuracy metrics.
+- Calibrate native-text quality and coordinate-based OCR merge policies by document domain.
+- Add orientation and domain-specific fixtures, then define release thresholds for the layered OCR metrics.
 
 ### Layout Analysis
 

@@ -1,6 +1,10 @@
 #include "pipeline/text_extraction_stage.h"
 
+#include "pipeline/text_quality.h"
+
+#include <spdlog/spdlog.h>
 #include <string>
+#include <utility>
 
 namespace doc_parser::pipeline {
 
@@ -37,15 +41,42 @@ common::Status TextExtractionStage::extract(const PipelineContext& context,
                                      "native text page count does not match page artifacts");
     }
 
+    const NativeTextQualityPolicy quality_policy;
     for (std::size_t index = 0; index < page_texts.size(); ++index) {
-        if (page_texts[index].has_text) {
+        const NativeTextQuality quality = quality_policy.evaluate(pages[index], page_texts[index]);
+        spdlog::debug("text_quality: page={} action={} reason={} bytes={} suspicious={} vertical_coverage={:.3f}",
+                      pages[index].page_number,
+                      nativeTextActionName(quality.action),
+                      quality.reason,
+                      quality.non_whitespace_bytes,
+                      quality.suspicious_bytes,
+                      quality.vertical_coverage);
+        if (quality.action == NativeTextAction::UseNative) {
             continue;
         }
+
         ocr::OcrResult result;
         if (!ocr_.recognize({pages[index], context.render.dpi}, result)) {
-            return common::Status::error("text.ocr_failed", "OCR failed for page " + std::to_string(index + 1));
+            if (quality.action == NativeTextAction::MergeOcr) {
+                spdlog::warn("text_quality: OCR enhancement failed for page {}; keeping usable native text",
+                             pages[index].page_number);
+                continue;
+            }
+            const std::string unavailable_reason = ocr_.unavailableReason();
+            const std::string message =
+                unavailable_reason.empty()
+                    ? "OCR failed for page " + std::to_string(index + 1)
+                    : "OCR is required for page " + std::to_string(index + 1) + ": " + unavailable_reason;
+            return common::Status::error("text.ocr_failed", message);
         }
-        page_texts[index] = result.page_text;
+        if (quality.action == NativeTextAction::MergeOcr) {
+            TextMergeResult merged = quality_policy.merge(page_texts[index], result.page_text);
+            spdlog::debug(
+                "text_quality: page={} merged_ocr_lines={}", pages[index].page_number, merged.added_ocr_lines);
+            page_texts[index] = std::move(merged.text);
+        } else {
+            page_texts[index] = std::move(result.page_text);
+        }
     }
 
     return common::Status::ok();

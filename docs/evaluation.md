@@ -56,13 +56,19 @@ Then run the full testing split:
   --report output/funsd_ocr_eval_testing.json
 ```
 
-The first baseline reports:
+The evaluator reports three independent layers:
 
 - `ok_rate`: ratio of pages where the OCR backend returned successfully.
 - `corpus_cer`: character error rate over all evaluated pages after simple text normalization.
-- per-page `cer`, `gt_chars`, `pred_chars`, and `edit_distance`.
+- `detection_recall`: fraction of FUNSD ground-truth word boxes for which a detected line covers at least 50% of
+  the word area. The threshold can be changed with `--detection-coverage-threshold`.
+- `gt_crop_recognition_cer`: recognition CER when the recognizer receives ground-truth word crops, isolating
+  recognition from detection and reading order.
+- per-page end-to-end, detection, and ground-truth-crop counters.
 
-This is intentionally a text-level baseline. FUNSD annotations contain word boxes, while the current PaddleOCR adapter returns normalized lines/spans. Detection precision/recall and end-to-end box matching should be added after the project defines a stable line/word matching policy.
+PaddleOCR detects text lines while FUNSD annotates words, so the report intentionally does not call line count versus
+word count a detection precision metric. Coverage recall is stable across that granularity mismatch. A future
+line-grouping policy can add matched-line precision and hmean without changing the current metrics.
 
 If `ok_rate` is high but `text_found_rate` is zero, enable PaddleOCR backend diagnostics on a single page:
 
@@ -74,13 +80,14 @@ DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DEBUG=1 \
   --limit 1
 ```
 
-The diagnostic output includes detection output shape, probability range, contour counts, accepted boxes, crop counts, recognition output shape, and decoded text counts. This separates "the detector found no text boxes" from "the recognizer decoded no text".
+The diagnostic output includes the model profile, detection shape and probability range, contour rejection counts,
+dynamic recognition input/output shapes, crop counts, batch count, and decoded text counts. This separates "the
+detector found no text boxes" from "the recognizer decoded no text" and verifies that batching is active.
 
 ## Next Metrics
 
 The next useful evaluation steps are:
 
-- Add word/line box matching with IoU thresholding.
-- Report detection precision, recall, and hmean.
-- Report matched-line CER.
+- Define a word-to-line grouping policy, then report matched-line precision, recall, hmean, and CER.
+- Add orientation-specific recognition fixtures before introducing an angle classifier.
 - Keep a pinned small subset, such as `testing_data --limit 20`, for fast regression checks.

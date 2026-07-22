@@ -147,14 +147,10 @@ Provides a unified text extraction interface. The pipeline should call one text 
 Current strategy:
 
 ```text
-PDF text layer -> PageText
-```
-
-Future strategy:
-
-```text
-if PDF text layer is usable:
+if PDF text layer is complete and usable:
   use PDF text layer
+else if PDF text layer is usable but sparse:
+  merge non-overlapping OCR lines by coordinates
 else:
   use OCR
 ```

@@ -6,6 +6,7 @@ add_library(doc_parser_pipeline
     reading_order_stage.cpp
     table_recognition_stage.cpp
     text_extraction_stage.cpp
+    text_quality.cpp
 )
 
 target_include_directories(doc_parser_pipeline

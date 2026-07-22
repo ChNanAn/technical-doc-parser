@@ -16,20 +16,31 @@
 namespace doc_parser::pipeline {
 namespace {
 
-std::unique_ptr<ocr::IOcrBackend> createAutoOcrBackend() {
+struct AutoOcrSelection {
+    std::unique_ptr<ocr::IOcrBackend> backend;
+    std::string name;
+    bool available = false;
+};
+
+AutoOcrSelection createAutoOcrBackend() {
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
     auto paddle = std::make_unique<ocr::PaddleOcrOnnxBackend>();
     if (paddle->isAvailable()) {
-        return paddle;
+        return {std::move(paddle), "paddle", true};
     }
 #endif
 
     auto tesseract = std::make_unique<ocr::TesseractCliOcrBackend>();
     if (tesseract->isAvailable()) {
-        return tesseract;
+        return {std::move(tesseract), "tesseract", true};
     }
 
-    return std::make_unique<ocr::NoopOcrBackend>();
+    return {
+        std::make_unique<ocr::UnavailableOcrBackend>("no OCR backend is available; install models or select "
+                                                     "--ocr-backend noop explicitly"),
+        "unavailable",
+        false,
+    };
 }
 
 } // namespace
@@ -46,6 +57,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     }
 
     std::unique_ptr<ocr::IOcrBackend> ocr_backend;
+    std::string selected_ocr = options.ocr;
     if (options.ocr == "noop") {
         ocr_backend = std::make_unique<ocr::NoopOcrBackend>();
     } else if (options.ocr == "tesseract") {
@@ -75,7 +87,13 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
         return result;
 #endif
     } else if (options.ocr == "auto") {
-        ocr_backend = createAutoOcrBackend();
+        AutoOcrSelection selection = createAutoOcrBackend();
+        selected_ocr = selection.name;
+        if (!selection.available) {
+            spdlog::warn("configure_ocr_backend: auto mode found no usable OCR backend; native-text documents can "
+                         "still be processed, but pages requiring OCR will fail");
+        }
+        ocr_backend = std::move(selection.backend);
     } else {
         spdlog::error("configure_ocr_backend: unknown OCR backend: {}", options.ocr);
         result.error_stage = "configure_ocr_backend";
@@ -107,7 +125,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     result.services.layout = std::move(layout_backend);
     result.services.reading_order = std::make_unique<reading_order::DoclingLikeReadingOrderBackend>();
     result.services.table = std::move(table_backend);
-    result.trace_message = "document=" + options.document + ", ocr=" + options.ocr + ", layout=" + options.layout +
+    result.trace_message = "document=" + options.document + ", ocr=" + selected_ocr + ", layout=" + options.layout +
                            ", table=" + options.table;
     result.ok = true;
     return result;

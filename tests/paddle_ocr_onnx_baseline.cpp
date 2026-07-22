@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -41,6 +42,24 @@ int main() {
     doc_parser::ocr::OcrResult result;
     if (!backend.recognize({page, 200}, result)) {
         std::cerr << "PaddleOCR ONNX backend failed to recognize configured test image\n";
+        return 1;
+    }
+
+    doc_parser::ocr::OcrDetectionResult detection_result;
+    if (!backend.detect({page, 200}, detection_result) || detection_result.regions.empty()) {
+        std::cerr << "PaddleOCR ONNX backend returned no detection regions\n";
+        return 1;
+    }
+
+    std::vector<doc_parser::document::BBox> detected_boxes;
+    detected_boxes.reserve(detection_result.regions.size());
+    for (const auto& region : detection_result.regions) {
+        detected_boxes.push_back(region.bbox);
+    }
+    doc_parser::ocr::OcrRegionRecognitionResult region_result;
+    if (!backend.recognizeRegions({page, 200, detected_boxes}, region_result) ||
+        region_result.regions.size() != detected_boxes.size()) {
+        std::cerr << "PaddleOCR ONNX backend failed region recognition\n";
         return 1;
     }
 

@@ -7,9 +7,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
+#include <sys/wait.h>
 #include <utility>
 #include <vector>
 
@@ -38,6 +40,11 @@ struct LineKey {
     }
 };
 
+struct CommandResult {
+    std::string output;
+    int exit_code = -1;
+};
+
 std::string shellQuote(const std::string& value) {
     std::string quoted = "'";
     for (const char c : value) {
@@ -51,20 +58,48 @@ std::string shellQuote(const std::string& value) {
     return quoted;
 }
 
-std::string readCommandOutput(const std::string& command) {
+CommandResult runCommand(const std::string& command) {
     std::array<char, 4096> buffer{};
-    std::string output;
+    CommandResult result;
 
     FILE* pipe = popen(command.c_str(), "r");
     if (pipe == nullptr) {
-        return {};
+        return result;
     }
 
     while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
-        output += buffer.data();
+        result.output += buffer.data();
     }
-    pclose(pipe);
-    return output;
+    const int status = pclose(pipe);
+    if (status >= 0 && WIFEXITED(status)) {
+        result.exit_code = WEXITSTATUS(status);
+    }
+    return result;
+}
+
+bool hasRequestedLanguages(const std::string& listed_languages, const std::string& requested_languages) {
+    if (requested_languages.empty()) {
+        return false;
+    }
+
+    std::vector<std::string> available;
+    std::istringstream listed_stream(listed_languages);
+    std::string line;
+    while (std::getline(listed_stream, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        available.push_back(line);
+    }
+
+    std::istringstream requested_stream(requested_languages);
+    std::string requested;
+    while (std::getline(requested_stream, requested, '+')) {
+        if (requested.empty() || std::find(available.begin(), available.end(), requested) == available.end()) {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::vector<std::string> splitTabLine(const std::string& line) {
@@ -229,10 +264,16 @@ TesseractCliOcrBackend::TesseractCliOcrBackend(std::string executable, std::stri
 
 bool TesseractCliOcrBackend::isAvailable() const {
     const std::string command = "command -v " + shellQuote(executable_) + " >/dev/null 2>&1";
-    return std::system(command.c_str()) == 0;
+    if (std::system(command.c_str()) != 0) {
+        return false;
+    }
+
+    const CommandResult languages = runCommand(shellQuote(executable_) + " --list-langs 2>/dev/null");
+    return languages.exit_code == 0 && hasRequestedLanguages(languages.output, language_);
 }
 
 bool TesseractCliOcrBackend::recognize(const OcrRequest& request, OcrResult& result) const {
+    result = {};
     result.page_text = {};
     result.page_text.page_index = request.page.page_index;
     result.page_text.page_number = request.page.page_number;
@@ -245,8 +286,14 @@ bool TesseractCliOcrBackend::recognize(const OcrRequest& request, OcrResult& res
     const std::string command = shellQuote(executable_) + ' ' + shellQuote(request.page.output_path.string()) +
                                 " stdout -l " + shellQuote(language_) + " --dpi " + std::to_string(request.dpi) +
                                 " --psm 6 tsv 2>/dev/null";
-    const std::string tsv = readCommandOutput(command);
-    const std::vector<TsvWord> words = parseTsvWords(tsv);
+    const CommandResult command_result = runCommand(command);
+    if (command_result.exit_code != 0) {
+        std::cerr << "[tesseract] recognition failed: exit_code=" << command_result.exit_code
+                  << " language=" << language_ << " image=" << request.page.output_path.string() << '\n';
+        return false;
+    }
+
+    const std::vector<TsvWord> words = parseTsvWords(command_result.output);
     appendWordsAsLines(words, result.page_text);
 
     result.page_text.has_text = !result.page_text.lines.empty();

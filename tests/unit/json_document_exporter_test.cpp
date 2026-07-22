@@ -244,6 +244,25 @@ TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     std::filesystem::remove(output_path);
 }
 
+TEST(JsonDocumentExporterTest, WritesMixedPreferredTextSource) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_mixed_source_test.json");
+    std::filesystem::remove(output_path);
+
+    DocumentFixture fixture = makeDocumentFixture();
+    fixture.artifacts.pages[0].text.preferred_source = TextSource::Mixed;
+    ASSERT_TRUE(JsonDocumentExporter().write({
+        true,
+        output_path,
+        &fixture.document,
+        &fixture.artifacts,
+    }));
+
+    const auto manifest = readJson(output_path);
+    EXPECT_EQ(manifest["pages"][0]["debug"]["text"]["preferred_source"], "mixed");
+
+    std::filesystem::remove(output_path);
+}
+
 TEST(JsonDocumentExporterTest, RejectsMissingDocument) {
     const auto output_path = tempManifestPath("tdp_json_document_exporter_missing_document_test.json");
 

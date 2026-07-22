@@ -16,6 +16,7 @@ enum class TextSource {
     Unknown,
     PdfTextLayer,
     Ocr,
+    Mixed,
 };
 
 struct TextSpan {

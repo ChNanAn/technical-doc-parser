@@ -12,7 +12,7 @@
 
 namespace doc_parser::pipeline {
 
-// 文本提取策略阶段：优先使用文档后端的原生文本，空页再交给 OCR fallback。
+// 文本提取策略阶段：评估原生文本质量，并按页选择原生文本、OCR 或坐标去重合并。
 class TextExtractionStage {
 public:
     TextExtractionStage(const document_source::INativeTextExtractor* native_text_extractor,

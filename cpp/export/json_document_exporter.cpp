@@ -14,6 +14,8 @@ const char* textSourceToString(document::TextSource source) {
         return "pdf_text_layer";
     case document::TextSource::Ocr:
         return "ocr";
+    case document::TextSource::Mixed:
+        return "mixed";
     case document::TextSource::Unknown:
         return "unknown";
     }

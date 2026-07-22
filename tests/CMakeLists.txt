@@ -162,5 +162,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     set_tests_properties(paddle_ocr_onnx_baseline
         PROPERTIES
             SKIP_RETURN_CODE 77
+            ENVIRONMENT
+                "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/images/phototest.tif;DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=quick"
     )
 endif()

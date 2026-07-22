@@ -222,3 +222,98 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksInReadingOrder) {
     EXPECT_EQ(document.blocks[0].text, "Left column");
     EXPECT_EQ(document.blocks[1].text, "Right column");
 }
+
+TEST(DocumentAssemblerTest, RemovesRepeatedHeadersAndPageNumberFootersAcrossPages) {
+    std::vector<doc_parser::document::PageArtifact> pages;
+    std::vector<doc_parser::document::PageText> texts;
+    std::vector<doc_parser::document::PageLayout> layouts;
+    std::vector<doc_parser::document::PageReadingOrder> orders;
+    std::vector<doc_parser::document::PageTables> tables;
+    for (int page_index = 0; page_index < 2; ++page_index) {
+        auto page = makePage();
+        page.page_index = page_index;
+        page.page_number = page_index + 1;
+        pages.push_back(page);
+
+        doc_parser::document::PageText text;
+        text.page_index = page_index;
+        text.page_number = page_index + 1;
+        text.has_text = true;
+        text.lines.push_back(makeLine("Company Report 2025", {100.0, 20.0, 500.0, 50.0}));
+        text.lines.push_back(makeLine("Body " + std::to_string(page_index + 1), {100.0, 200.0, 500.0, 240.0}));
+        text.lines.push_back(makeLine("Page " + std::to_string(page_index + 1), {450.0, 1350.0, 550.0, 1380.0}));
+        texts.push_back(text);
+
+        doc_parser::document::LayoutBlock header;
+        header.id = "header_" + std::to_string(page_index + 1);
+        header.type = doc_parser::document::LayoutBlockType::Header;
+        header.text_line_indices = {0};
+        doc_parser::document::LayoutBlock body;
+        body.id = "body_" + std::to_string(page_index + 1);
+        body.type = doc_parser::document::LayoutBlockType::Text;
+        body.text_line_indices = {1};
+        doc_parser::document::LayoutBlock footer;
+        footer.id = "footer_" + std::to_string(page_index + 1);
+        footer.type = doc_parser::document::LayoutBlockType::Footer;
+        footer.text_line_indices = {2};
+        doc_parser::document::PageLayout layout;
+        layout.page_index = page_index;
+        layout.page_number = page_index + 1;
+        layout.blocks = {header, body, footer};
+        layouts.push_back(layout);
+
+        doc_parser::document::PageReadingOrder order;
+        order.page_index = page_index;
+        order.page_number = page_index + 1;
+        order.items = {{header.id, 0, 0}, {body.id, 1, 1}, {footer.id, 2, 2}};
+        orders.push_back(order);
+        tables.push_back({page_index, page_index + 1, {}});
+    }
+
+    doc_parser::document::ParsedDocument document;
+    doc_parser::document::PipelineArtifacts artifacts;
+    ASSERT_TRUE(doc_parser::assembly::DocumentAssembler().assemble(
+        {"fixture.pdf", "pdf", 144, pages, texts, layouts, orders, tables}, document, artifacts));
+
+    ASSERT_EQ(document.blocks.size(), 2U);
+    EXPECT_EQ(document.blocks[0].text, "Body 1");
+    EXPECT_EQ(document.blocks[1].text, "Body 2");
+    ASSERT_EQ(artifacts.pages.size(), 2U);
+    EXPECT_EQ(artifacts.pages[0].layout.blocks.size(), 3U);
+}
+
+TEST(DocumentAssemblerTest, TranslatesCaptionRelationToDocumentBlockId) {
+    auto text = makePageText();
+    text.lines[0].text = "Figure caption";
+
+    doc_parser::document::LayoutBlock figure;
+    figure.id = "figure";
+    figure.type = doc_parser::document::LayoutBlockType::Figure;
+    figure.source_label = "Picture";
+    doc_parser::document::LayoutBlock caption;
+    caption.id = "caption";
+    caption.type = doc_parser::document::LayoutBlockType::Text;
+    caption.source_label = "Caption";
+    caption.related_block_id = figure.id;
+    caption.text_line_indices = {0};
+
+    doc_parser::document::PageLayout layout;
+    layout.page_index = 0;
+    layout.page_number = 1;
+    layout.blocks = {figure, caption};
+    doc_parser::document::PageReadingOrder order;
+    order.page_index = 0;
+    order.page_number = 1;
+    order.items = {{figure.id, 0, 0}, {caption.id, 1, 1}};
+    doc_parser::document::PageTables page_tables;
+
+    doc_parser::document::ParsedDocument document;
+    doc_parser::document::PipelineArtifacts artifacts;
+    ASSERT_TRUE(doc_parser::assembly::DocumentAssembler().assemble(
+        {"fixture.pdf", "pdf", 144, {makePage()}, {text}, {layout}, {order}, {page_tables}}, document, artifacts));
+
+    ASSERT_EQ(document.blocks.size(), 2U);
+    EXPECT_EQ(document.blocks[0].source_label, "Picture");
+    EXPECT_EQ(document.blocks[1].source_label, "Caption");
+    EXPECT_EQ(document.blocks[1].related_block_id, document.blocks[0].id);
+}

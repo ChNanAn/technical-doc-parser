@@ -260,7 +260,29 @@ tests/         Unit and integration tests
 
 Demo 和针对性评估可以使用一小组公开技术 PDF。
 
-默认 OCR baseline 是 PaddleOCR ONNX。第一版可运行评估骨架使用 FUNSD 评估 PaddleOCR 的文本级 CER，见 [docs/evaluation.md](docs/evaluation.md)。
+默认 OCR baseline 是 PaddleOCR ONNX。Layout 提供两个真实 ONNX 后端：基于 DocLayNet 训练的 RF-DETR 和
+Paddle PP-DocLayoutV3。现有评测会计算分层 FUNSD OCR 指标和按类别匹配的 DocLayNet Layout F1，见
+[docs/evaluation.md](docs/evaluation.md)。
+
+### Layout 基线对比
+
+两个后端使用仓库内同一组 5 页 DocLayNet 图片测试，采用按类别一对一匹配和 IoU `0.5`；两个模型均使用
+官方预处理和 `0.5` 置信度阈值。以下数字用于持续回归，不是生产模型排名：
+
+| 后端 | 评测标签体系 | Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| RF-DETR DocLayNet | 原生 DocLayNet 11 类 | 0.880 | 0.682 | 0.769 | 0.839 | 0.873 |
+| Paddle PP-DocLayoutV3 | Paddle 25 类映射到 DocLayNet | 0.479 | 0.523 | 0.500 | 0.590 | 0.826 |
+
+RF-DETR 在这项测试上更合适，因为它原生使用 DocLayNet 标签。Paddle 没有 `List-item` 等价类，因此映射后
+无法命中这个子集中的 47 个 list 真值，list recall 为 `0`。这不能推导出 Paddle 在中文文档、拍照/曲面
+页面或它面向的其他场景中更差。5 页小集合只用于防止推理、预处理、标签映射和后处理发生回归。
+
+可以一次运行两个真实模型基准：
+
+```bash
+ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)$' --output-on-failure
+```
 
 ## 路线图
 
@@ -268,7 +290,7 @@ Demo 和针对性评估可以使用一小组公开技术 PDF。
 
 ## 当前状态
 
-项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、默认 PaddleOCR ONNX baseline、可选 Tesseract OCR fallback、基础 layout analysis、Docling-like reading order、基础 table recognition、document assembly、JSON 输出，以及主流程冒烟测试。
+项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、默认 PaddleOCR ONNX baseline、可选 Tesseract OCR fallback、可评测的 DocLayNet RF-DETR 与 Paddle PP-DocLayoutV3 ONNX Layout 后端和链式规则降级、多栏阅读顺序、caption 关联、重复页眉页脚清理、基础 table recognition、document assembly、JSON 输出和主流程回归测试。
 
 当前 pipeline 骨架已经跑通：
 
@@ -294,7 +316,7 @@ cmake --build build --config Release --target document_intelligence_engine --par
 ./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
   --document-backend pdf \
   --ocr-backend auto \
-  --layout-backend text \
+  --layout-backend auto \
   --table-backend text
 ```
 

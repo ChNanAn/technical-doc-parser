@@ -21,8 +21,11 @@ enum class LayoutBlockType {
 struct LayoutBlock {
     std::string id;
     LayoutBlockType type = LayoutBlockType::Unknown;
+    std::string source_label;
+    std::string related_block_id;
     BBox bbox;
     double confidence = 1.0;
+    int reading_order_hint = -1;
     std::vector<int> text_line_indices;
 };
 

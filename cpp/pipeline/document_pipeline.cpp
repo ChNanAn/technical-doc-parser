@@ -162,6 +162,22 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         spdlog::error("document_assembly: failed to assemble document");
         return false;
     }
+    std::size_t detected_furniture = 0;
+    for (const document::PageLayout& layout : page_layouts) {
+        for (const document::LayoutBlock& block : layout.blocks) {
+            if (block.type == document::LayoutBlockType::Header || block.type == document::LayoutBlockType::Footer) {
+                ++detected_furniture;
+            }
+        }
+    }
+    std::size_t emitted_furniture = 0;
+    for (const document::DocumentBlock& block : parsed_document.blocks) {
+        if (block.type == document::DocumentBlockType::Header || block.type == document::DocumentBlockType::Footer) {
+            ++emitted_furniture;
+        }
+    }
+    spdlog::debug("document_assembly: repeated_header_footer_removed={}",
+                  detected_furniture >= emitted_furniture ? detected_furniture - emitted_furniture : 0U);
     spdlog::info("assembled document blocks: {}", parsed_document.blocks.size());
 
     const auto document_exporter = exporter::createDefaultDocumentExporter();

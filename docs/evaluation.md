@@ -91,3 +91,28 @@ The next useful evaluation steps are:
 - Define a word-to-line grouping policy, then report matched-line precision, recall, hmean, and CER.
 - Add orientation-specific recognition fixtures before introducing an angle classifier.
 - Keep a pinned small subset, such as `testing_data --limit 20`, for fast regression checks.
+
+## DocLayNet Layout F1
+
+The repository distributes five DocLayNet images and their annotations. With ONNX Runtime enabled, CTest runs real
+RF-DETR and Paddle PP-DocLayoutV3 inference on all five and then applies class-aware, maximum-cardinality IoU
+matching at IoU `0.5`:
+
+```bash
+ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)$' --output-on-failure
+```
+
+The prediction and metric reports are written under the build tree with `doclaynet_layout_` and `paddle_layout_`
+prefixes. CI uses model-specific micro-F1 regression floors: `0.70` for RF-DETR and `0.45` for Paddle.
+
+| Backend | Precision | Recall | Micro F1 | Macro F1 | Mean matched IoU |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| RF-DETR DocLayNet | 0.880342 | 0.682119 | 0.768657 | 0.839304 | 0.873327 |
+| Paddle PP-DocLayoutV3 | 0.478788 | 0.523179 | 0.500000 | 0.590087 | 0.826115 |
+
+Paddle's 25 labels are mapped into the internal DocLayNet-shaped evaluation labels. It has no `List-item`
+equivalent, so this comparison measures taxonomy compatibility as well as detector quality. RF-DETR's native
+DocLayNet taxonomy therefore has an inherent advantage on this corpus.
+
+The threshold is a regression floor, not a production acceptance target. Five pages are enough to catch model,
+preprocessing, label-map, and postprocessing regressions, but not enough to establish domain-wide quality.

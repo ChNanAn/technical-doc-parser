@@ -27,7 +27,7 @@ Working today:
 - PDF text-layer extraction.
 - Optional Tesseract CLI OCR baseline.
 - OpenCV preprocessing baseline for debug images.
-- Rule-based layout baseline.
+- DocLayNet RF-DETR ONNX layout baseline with a rule-based fallback.
 - Docling-like reading-order baseline.
 - Rule-based table baseline.
 - Document assembly into `DocumentBlock`.
@@ -38,7 +38,7 @@ Working today:
 Important caveats:
 
 - OCR is only a baseline adapter, not a robust OCR subsystem.
-- Layout analysis is heuristic, not a production layout detector.
+- Layout analysis is measured on a five-page DocLayNet regression subset, but broader domain validation is pending.
 - Reading order is a heuristic baseline, not a measured reading-order model.
 - Table recognition is a minimal text-gap baseline, not full table understanding.
 - Markdown/HTML/RAG outputs are not yet mature.
@@ -108,13 +108,13 @@ Goal: turn the measurable PaddleOCR baseline into a production OCR subsystem.
 
 Goal: identify document regions robustly.
 
-- Improve rule-based baseline.
-- Add ONNX layout detector backend.
+- Calibrate the DocLayNet ONNX backend on broader domain-specific corpora.
+- Keep the rule-based backend as a deterministic fallback.
 - Support DocLayNet / PubLayNet-style labels.
 - Detect titles, paragraphs, lists, tables, figures, captions, headers, footers, sidebars, footnotes.
-- Detect multi-column layouts.
-- Link layout blocks to text lines and visual regions.
-- Add layout evaluation metrics.
+- Extend multi-column handling to nested sidebars and floating figures.
+- Improve text-line and caption-to-visual-region linking.
+- Add per-domain layout release thresholds beyond the five-page regression set.
 
 ### Reading Order
 

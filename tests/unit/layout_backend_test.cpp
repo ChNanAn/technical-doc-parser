@@ -73,3 +73,49 @@ TEST(LayoutBackendTest, EmitsFigureBlockWhenPageHasNoText) {
     EXPECT_EQ(layout.blocks[0].bbox.x1, 1000.0);
     EXPECT_EQ(layout.blocks[0].bbox.y1, 1400.0);
 }
+
+TEST(LayoutBackendTest, MapsAllDocLayNetLabelsToInternalTypes) {
+    using doc_parser::document::LayoutBlockType;
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Caption"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Footnote"), LayoutBlockType::Footer);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Formula"), LayoutBlockType::Unknown);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("List-item"), LayoutBlockType::List);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Page-footer"), LayoutBlockType::Footer);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Page-header"), LayoutBlockType::Header);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Picture"), LayoutBlockType::Figure);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Section-header"), LayoutBlockType::Title);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Table"), LayoutBlockType::Table);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Text"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("Title"), LayoutBlockType::Title);
+    EXPECT_EQ(doc_parser::layout::mapDocLayNetLabel("not-a-label"), LayoutBlockType::Unknown);
+}
+
+TEST(LayoutBackendTest, MapsAllPaddleDocLayoutLabelsToInternalTypes) {
+    using doc_parser::document::LayoutBlockType;
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("abstract"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("algorithm"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("aside_text"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("chart"), LayoutBlockType::Figure);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("content"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("display_formula"), LayoutBlockType::Unknown);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("doc_title"), LayoutBlockType::Title);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("figure_title"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("footer"), LayoutBlockType::Footer);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("footer_image"), LayoutBlockType::Footer);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("footnote"), LayoutBlockType::Footer);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("formula_number"), LayoutBlockType::Unknown);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("header"), LayoutBlockType::Header);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("header_image"), LayoutBlockType::Header);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("image"), LayoutBlockType::Figure);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("inline_formula"), LayoutBlockType::Unknown);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("number"), LayoutBlockType::Footer);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("paragraph_title"), LayoutBlockType::Title);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("reference"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("reference_content"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("seal"), LayoutBlockType::Figure);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("table"), LayoutBlockType::Table);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("text"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("vertical_text"), LayoutBlockType::Text);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("vision_footnote"), LayoutBlockType::Footer);
+    EXPECT_EQ(doc_parser::layout::mapPaddleDocLayoutLabel("not-a-label"), LayoutBlockType::Unknown);
+}

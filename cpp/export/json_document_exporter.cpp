@@ -105,6 +105,8 @@ nlohmann::json documentBlocksToJson(const std::vector<document::DocumentBlock>& 
         nlohmann::json block_json = {
             {"id", block.id},
             {"type", documentBlockTypeToString(block.type)},
+            {"source_label", block.source_label},
+            {"related_block_id", block.related_block_id},
             {"page_index", block.page_index},
             {"page_number", block.page_number},
             {"bbox", bboxToJson(block.bbox)},
@@ -155,8 +157,11 @@ nlohmann::json pageLayoutToJson(const document::PageLayout& page_layout) {
         blocks.push_back({
             {"id", block.id},
             {"type", layoutBlockTypeToString(block.type)},
+            {"source_label", block.source_label},
+            {"related_block_id", block.related_block_id},
             {"bbox", bboxToJson(block.bbox)},
             {"confidence", block.confidence},
+            {"reading_order_hint", block.reading_order_hint},
             {"text_line_indices", block.text_line_indices},
         });
     }

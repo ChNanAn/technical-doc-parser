@@ -22,6 +22,8 @@ enum class DocumentBlockType {
 struct DocumentBlock {
     std::string id;
     DocumentBlockType type = DocumentBlockType::Unknown;
+    std::string source_label;
+    std::string related_block_id;
     int page_index = 0;
     int page_number = 0;
     BBox bbox;

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <set>
 #include <utility>
 #include <vector>
@@ -15,6 +16,7 @@ using document::LayoutBlockType;
 
 constexpr double kEpsilon = 1.0e-3;
 constexpr double kHorizontalDilationThresholdNorm = 0.15;
+constexpr double kSpanningWidthThresholdNorm = 0.65;
 
 struct PageElement {
     int layout_block_index = -1;
@@ -301,7 +303,7 @@ std::vector<int> findOrder(const std::vector<PageElement>& elements, const Readi
     return order;
 }
 
-std::vector<int> predictGroupOrder(const document::PageArtifact& page, const std::vector<PageElement>& elements) {
+std::vector<int> predictLocalOrder(const document::PageArtifact& page, const std::vector<PageElement>& elements) {
     if (elements.empty()) {
         return {};
     }
@@ -311,6 +313,129 @@ std::vector<int> predictGroupOrder(const document::PageArtifact& page, const std
     graph = buildGraph(dilated);
     sortGraph(elements, graph);
     return findOrder(elements, graph);
+}
+
+std::vector<int> orderSubset(const document::PageArtifact& page,
+                             const std::vector<PageElement>& elements,
+                             const std::vector<int>& indices) {
+    std::vector<PageElement> subset;
+    subset.reserve(indices.size());
+    for (const int index : indices) {
+        subset.push_back(elements[static_cast<std::size_t>(index)]);
+    }
+
+    std::vector<int> result;
+    for (const int local_index : predictLocalOrder(page, subset)) {
+        result.push_back(indices[static_cast<std::size_t>(local_index)]);
+    }
+    return result;
+}
+
+std::vector<int> predictGroupOrder(const document::PageArtifact& page, const std::vector<PageElement>& elements) {
+    if (elements.empty()) {
+        return {};
+    }
+
+    const bool has_model_order = std::all_of(elements.begin(), elements.end(), [](const PageElement& element) {
+        return element.block->reading_order_hint >= 0;
+    });
+    if (has_model_order) {
+        std::vector<int> order(elements.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::stable_sort(order.begin(), order.end(), [&](int lhs, int rhs) {
+            return elements[static_cast<std::size_t>(lhs)].block->reading_order_hint <
+                   elements[static_cast<std::size_t>(rhs)].block->reading_order_hint;
+        });
+        return order;
+    }
+
+    const double width = pageWidth(page, elements);
+    std::vector<int> spanning;
+    std::vector<int> remaining;
+    for (std::size_t index = 0; index < elements.size(); ++index) {
+        const double element_width = std::max(0.0, elements[index].bbox.x1 - elements[index].bbox.x0);
+        if (element_width >= width * kSpanningWidthThresholdNorm) {
+            spanning.push_back(static_cast<int>(index));
+        } else {
+            remaining.push_back(static_cast<int>(index));
+        }
+    }
+    if (spanning.empty()) {
+        return predictLocalOrder(page, elements);
+    }
+
+    const auto topLeftOrder = [&](int lhs, int rhs) {
+        const BBox& lhs_bbox = elements[static_cast<std::size_t>(lhs)].bbox;
+        const BBox& rhs_bbox = elements[static_cast<std::size_t>(rhs)].bbox;
+        if (std::abs(lhs_bbox.y0 - rhs_bbox.y0) > kEpsilon) {
+            return lhs_bbox.y0 < rhs_bbox.y0;
+        }
+        return lhs_bbox.x0 < rhs_bbox.x0;
+    };
+    std::sort(spanning.begin(), spanning.end(), topLeftOrder);
+
+    std::vector<int> result;
+    std::vector<bool> consumed(elements.size(), false);
+    for (const int spanning_index : spanning) {
+        std::vector<int> band;
+        const double separator_y = elements[static_cast<std::size_t>(spanning_index)].bbox.y0;
+        for (const int index : remaining) {
+            const BBox& bbox = elements[static_cast<std::size_t>(index)].bbox;
+            const double center_y = (bbox.y0 + bbox.y1) * 0.5;
+            if (!consumed[static_cast<std::size_t>(index)] && center_y < separator_y) {
+                band.push_back(index);
+                consumed[static_cast<std::size_t>(index)] = true;
+            }
+        }
+        const std::vector<int> ordered_band = orderSubset(page, elements, band);
+        result.insert(result.end(), ordered_band.begin(), ordered_band.end());
+        result.push_back(spanning_index);
+        consumed[static_cast<std::size_t>(spanning_index)] = true;
+    }
+
+    std::vector<int> tail;
+    for (const int index : remaining) {
+        if (!consumed[static_cast<std::size_t>(index)]) {
+            tail.push_back(index);
+        }
+    }
+    const std::vector<int> ordered_tail = orderSubset(page, elements, tail);
+    result.insert(result.end(), ordered_tail.begin(), ordered_tail.end());
+    return result;
+}
+
+std::vector<int> placeCaptionsAfterTargets(const std::vector<PageElement>& elements, const std::vector<int>& order) {
+    std::vector<int> linked_captions;
+    for (const int index : order) {
+        const LayoutBlock& block = *elements[static_cast<std::size_t>(index)].block;
+        if (!block.related_block_id.empty()) {
+            linked_captions.push_back(index);
+        }
+    }
+    if (linked_captions.empty()) {
+        return order;
+    }
+
+    std::vector<int> result;
+    for (const int index : order) {
+        if (std::find(linked_captions.begin(), linked_captions.end(), index) != linked_captions.end()) {
+            continue;
+        }
+        result.push_back(index);
+        const std::string& target_id = elements[static_cast<std::size_t>(index)].block->id;
+        for (const int caption_index : linked_captions) {
+            const LayoutBlock& caption = *elements[static_cast<std::size_t>(caption_index)].block;
+            if (caption.related_block_id == target_id) {
+                result.push_back(caption_index);
+            }
+        }
+    }
+    for (const int caption_index : linked_captions) {
+        if (std::find(result.begin(), result.end(), caption_index) == result.end()) {
+            result.push_back(caption_index);
+        }
+    }
+    return result;
 }
 
 void appendItems(const std::vector<PageElement>& elements,
@@ -361,7 +486,8 @@ bool DoclingLikeReadingOrderBackend::order(const ReadingOrderRequest& request, R
     const std::vector<PageElement> footers = collectElements(request.layout, footer_types, true);
 
     appendItems(headers, predictGroupOrder(request.page, headers), result.reading_order);
-    appendItems(body, predictGroupOrder(request.page, body), result.reading_order);
+    const std::vector<int> body_order = placeCaptionsAfterTargets(body, predictGroupOrder(request.page, body));
+    appendItems(body, body_order, result.reading_order);
     appendItems(footers, predictGroupOrder(request.page, footers), result.reading_order);
 
     return true;

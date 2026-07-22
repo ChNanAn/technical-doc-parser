@@ -101,6 +101,14 @@ python3 tests/benchmark/evaluate_layout.py \
   --output output/layout_metrics.json
 ```
 
+When ONNX Runtime is enabled, two CTests generate predictions for all five committed images. The pinned RF-DETR
+model has a `0.70` micro-F1 regression floor, while Paddle PP-DocLayoutV3 has a separate `0.45` floor because its
+25-class taxonomy must be mapped to DocLayNet and has no `List-item` equivalent:
+
+```bash
+ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)$' --output-on-failure
+```
+
 Table predictions use the PubTables structure labels (`table`, `table row`, `table column`,
 `table column header`, and `table spanning cell`):
 

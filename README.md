@@ -262,7 +262,32 @@ The project is designed around public datasets so the work can be reproduced:
 
 For demos and targeted evaluation, the project can also use a small curated set of public technical PDFs.
 
-The default OCR baseline is PaddleOCR ONNX. The initial runnable evaluation skeleton uses FUNSD for PaddleOCR text-level CER. See [docs/evaluation.md](docs/evaluation.md).
+The default OCR baseline is PaddleOCR ONNX. Layout provides two real ONNX backends: an RF-DETR model trained on
+DocLayNet and Paddle PP-DocLayoutV3. Runnable evaluations report layered FUNSD OCR metrics and class-aware
+DocLayNet layout F1. See [docs/evaluation.md](docs/evaluation.md).
+
+### Layout baseline comparison
+
+Both layout backends are tested on the same five committed DocLayNet pages with class-aware one-to-one matching at
+IoU `0.5`; each model uses its official confidence threshold `0.5` and preprocessing. These are regression results,
+not a production model ranking:
+
+| Backend | Taxonomy evaluated | Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| RF-DETR DocLayNet | Native DocLayNet 11-class | 0.880 | 0.682 | 0.769 | 0.839 | 0.873 |
+| Paddle PP-DocLayoutV3 | Paddle 25-class mapped to DocLayNet | 0.479 | 0.523 | 0.500 | 0.590 | 0.826 |
+
+RF-DETR is the better fit for this particular benchmark because its labels are native DocLayNet labels. Paddle has
+no `List-item` equivalent, so its mapped list recall is `0` on the 47 list objects in this subset. The result does
+not establish that Paddle is worse on Chinese documents, photographed or curved pages, or its other target
+scenarios. Five pages are intentionally small and only protect inference, preprocessing, mapping, and
+postprocessing from regressions.
+
+Run both measured backends with:
+
+```bash
+ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)$' --output-on-failure
+```
 
 ## Roadmap
 
@@ -270,7 +295,7 @@ The current implementation has an end-to-end engine skeleton, not finished OCR/L
 
 ## Current Status
 
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, a default PaddleOCR ONNX baseline, an optional Tesseract OCR fallback, baseline layout analysis, Docling-like reading order, baseline table recognition, document assembly, JSON output, and smoke tests for the main pipeline pieces.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, a default PaddleOCR ONNX baseline, an optional Tesseract OCR fallback, measured DocLayNet RF-DETR and Paddle PP-DocLayoutV3 ONNX layout backends with chained rule fallback, multi-column reading order, caption association, repeated header/footer removal, baseline table recognition, document assembly, JSON output, and regression tests for the main pipeline pieces.
 
 The current pipeline skeleton is running:
 
@@ -296,7 +321,7 @@ Backends can be selected explicitly while keeping the same pipeline contract:
 ./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
   --document-backend pdf \
   --ocr-backend auto \
-  --layout-backend text \
+  --layout-backend auto \
   --table-backend text
 ```
 

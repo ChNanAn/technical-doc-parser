@@ -144,6 +144,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         funsd_ocr_eval.cpp
     )
 
+    add_executable(doclaynet_layout_eval
+        doclaynet_layout_eval.cpp
+    )
+
     target_link_libraries(paddle_ocr_onnx_baseline
         PRIVATE
             doc_parser_ocr
@@ -155,8 +159,15 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             nlohmann_json::nlohmann_json
     )
 
+    target_link_libraries(doclaynet_layout_eval
+        PRIVATE
+            doc_parser_layout
+            nlohmann_json::nlohmann_json
+    )
+
     doc_parser_set_common_warnings(paddle_ocr_onnx_baseline)
     doc_parser_set_common_warnings(funsd_ocr_eval)
+    doc_parser_set_common_warnings(doclaynet_layout_eval)
 
     add_test(NAME paddle_ocr_onnx_baseline COMMAND paddle_ocr_onnx_baseline)
     set_tests_properties(paddle_ocr_onnx_baseline
@@ -164,5 +175,47 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             SKIP_RETURN_CODE 77
             ENVIRONMENT
                 "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/images/phototest.tif;DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=quick"
+    )
+
+    set(DOCLAYNET_LAYOUT_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/doclaynet_layout_predictions.json")
+    set(DOCLAYNET_LAYOUT_REPORT "${CMAKE_CURRENT_BINARY_DIR}/doclaynet_layout_report.json")
+    add_test(
+        NAME doclaynet_layout_benchmark
+        COMMAND bash
+            ${CMAKE_CURRENT_SOURCE_DIR}/run_doclaynet_layout_benchmark.sh
+            $<TARGET_FILE:doclaynet_layout_eval>
+            doclaynet
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/layout_doclaynet/ground_truth.json
+            ${DOCLAYNET_LAYOUT_PREDICTIONS}
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_layout.py
+            ${DOCLAYNET_LAYOUT_REPORT}
+            0.70
+    )
+    set_tests_properties(doclaynet_layout_benchmark
+        PROPERTIES
+            LABELS benchmark
+            SKIP_RETURN_CODE 77
+    )
+
+    set(PADDLE_LAYOUT_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/paddle_layout_predictions.json")
+    set(PADDLE_LAYOUT_REPORT "${CMAKE_CURRENT_BINARY_DIR}/paddle_layout_report.json")
+    add_test(
+        NAME paddle_layout_benchmark
+        COMMAND bash
+            ${CMAKE_CURRENT_SOURCE_DIR}/run_doclaynet_layout_benchmark.sh
+            $<TARGET_FILE:doclaynet_layout_eval>
+            paddle-layout
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/layout_doclaynet/ground_truth.json
+            ${PADDLE_LAYOUT_PREDICTIONS}
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_layout.py
+            ${PADDLE_LAYOUT_REPORT}
+            0.45
+    )
+    set_tests_properties(paddle_layout_benchmark
+        PROPERTIES
+            LABELS benchmark
+            SKIP_RETURN_CODE 77
     )
 endif()

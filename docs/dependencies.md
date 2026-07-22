@@ -253,18 +253,59 @@ Select the OCR backend explicitly with:
 
 ## Layout Analysis
 
-The first layout stage uses a built-in baseline model that consumes normalized `PageText` lines and page image
-metadata. It groups text lines into `PageLayout` blocks and labels them as `title`, `text`, `list`, `table`,
-`figure`, `header`, or `footer`.
+The default `auto` layout mode can use two pinned ONNX models. RF-DETR is trained on the DocLayNet 11-label
+taxonomy, while the official Paddle PP-DocLayoutV3 backend provides an alternative 25-label taxonomy. Both downloads
+use immutable revisions and SHA256 verification:
 
-This baseline has no external runtime dependency. It is intentionally shaped like a model adapter so a DocLayNet,
-ONNX, or external detector backend can replace it without changing the rest of the pipeline.
+```bash
+bash scripts/setup_doclaynet_layout.sh
+bash scripts/setup_paddle_layout.sh
+```
+
+Automatic setup can be disabled independently with
+`-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_DOCLAYNET_LAYOUT=OFF` and
+`-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLE_LAYOUT=OFF`. Custom model paths or runtime thresholds can be
+selected with:
+
+```bash
+export DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_MODEL=/path/to/model.onnx
+export DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE=0.5
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLE_LAYOUT_MODEL=/path/to/pp-doclayout-v3.onnx
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLE_LAYOUT_CONFIDENCE=0.5
+```
+
+The model uses RGB ImageNet normalization at `576x576` and emits `Caption`, `Footnote`, `Formula`, `List-item`,
+`Page-footer`, `Page-header`, `Picture`, `Section-header`, `Table`, `Text`, and `Title`. These labels map into the
+stable internal types as follows:
+
+| DocLayNet labels | Internal type |
+| --- | --- |
+| `Title`, `Section-header` | `title` |
+| `Text`, `Caption` | `text` |
+| `List-item` | `list` |
+| `Table` | `table` |
+| `Picture` | `figure` |
+| `Page-header` | `header` |
+| `Page-footer`, `Footnote` | `footer` |
+| `Formula` | `unknown` |
+
+The original label remains available as `source_label`. Captions also carry `related_block_id` when a nearby
+figure or table is found. Detected blocks are linked to normalized text lines by coordinate coverage.
+
+`--layout-backend auto` uses the available chain `doclaynet -> paddle-layout -> text`; a model that is missing at
+startup is omitted, and a per-page inference failure advances to the next backend. Use `--layout-backend doclaynet`
+or `--layout-backend paddle-layout` for strict model-only execution, or `--layout-backend text` for the deterministic
+rule backend.
 
 Debug output records layout results under:
 
 ```text
 pages[].debug.layout.blocks
 ```
+
+Set `DOCUMENT_INTELLIGENCE_ENGINE_LAYOUT_DEBUG=1` to log input shape, threshold, block count, and inference errors.
+The RF-DETR model repository declares its weights as MIT licensed, and Paddle PP-DocLayoutV3 is Apache-2.0.
+DocLayNet corpus samples retain their CDLA-Permissive-1.0 terms.
 
 ## Table Recognition
 

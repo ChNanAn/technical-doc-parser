@@ -179,6 +179,56 @@ std::string blockId(int page_number, std::size_t block_index) {
 
 } // namespace
 
+document::LayoutBlockType mapDocLayNetLabel(const std::string& label) {
+    if (label == "Title" || label == "Section-header") {
+        return document::LayoutBlockType::Title;
+    }
+    if (label == "Text" || label == "Caption") {
+        return document::LayoutBlockType::Text;
+    }
+    if (label == "List-item") {
+        return document::LayoutBlockType::List;
+    }
+    if (label == "Table") {
+        return document::LayoutBlockType::Table;
+    }
+    if (label == "Picture") {
+        return document::LayoutBlockType::Figure;
+    }
+    if (label == "Page-header") {
+        return document::LayoutBlockType::Header;
+    }
+    if (label == "Page-footer" || label == "Footnote") {
+        return document::LayoutBlockType::Footer;
+    }
+    return document::LayoutBlockType::Unknown;
+}
+
+document::LayoutBlockType mapPaddleDocLayoutLabel(const std::string& label) {
+    if (label == "doc_title" || label == "paragraph_title") {
+        return document::LayoutBlockType::Title;
+    }
+    if (label == "abstract" || label == "algorithm" || label == "aside_text" || label == "content" ||
+        label == "figure_title" || label == "reference" || label == "reference_content" || label == "text" ||
+        label == "vertical_text") {
+        return document::LayoutBlockType::Text;
+    }
+    if (label == "table") {
+        return document::LayoutBlockType::Table;
+    }
+    if (label == "chart" || label == "image" || label == "seal") {
+        return document::LayoutBlockType::Figure;
+    }
+    if (label == "header" || label == "header_image") {
+        return document::LayoutBlockType::Header;
+    }
+    if (label == "footer" || label == "footer_image" || label == "footnote" || label == "number" ||
+        label == "vision_footnote") {
+        return document::LayoutBlockType::Footer;
+    }
+    return document::LayoutBlockType::Unknown;
+}
+
 bool TextLayoutModelBackend::analyze(const LayoutRequest& request, LayoutResult& result) const {
     result.layout = {};
     result.layout.page_index = request.page.page_index;

@@ -1,6 +1,8 @@
 #include "assembly/document_assembler.h"
 
 #include <algorithm>
+#include <cctype>
+#include <map>
 #include <set>
 #include <sstream>
 #include <string>
@@ -84,10 +86,16 @@ std::string tableText(const document::Table& table) {
 
 document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts& page,
                                           const document::LayoutBlock& layout_block,
-                                          std::size_t block_index) {
+                                          std::string document_block_id,
+                                          const std::map<std::string, std::string>& related_block_ids) {
     document::DocumentBlock block;
-    block.id = blockId(page.page_number, block_index);
+    block.id = std::move(document_block_id);
     block.type = toDocumentBlockType(layout_block.type);
+    block.source_label = layout_block.source_label;
+    const auto related = related_block_ids.find(layout_block.related_block_id);
+    if (related != related_block_ids.end()) {
+        block.related_block_id = related->second;
+    }
     block.page_index = page.page_index;
     block.page_number = page.page_number;
     block.bbox = layout_block.bbox;
@@ -142,6 +150,67 @@ std::vector<int> orderedLayoutBlockIndices(const document::PipelinePageArtifacts
     return indices;
 }
 
+std::string normalizeFurnitureText(const std::string& text) {
+    std::string normalized;
+    bool previous_space = true;
+    bool previous_digit = false;
+    for (const unsigned char value : text) {
+        if (std::isdigit(value)) {
+            if (!previous_digit) {
+                normalized += '#';
+            }
+            previous_digit = true;
+            previous_space = false;
+        } else if (std::isspace(value)) {
+            if (!previous_space && !normalized.empty()) {
+                normalized += ' ';
+            }
+            previous_space = true;
+            previous_digit = false;
+        } else {
+            normalized += static_cast<char>(std::tolower(value));
+            previous_space = false;
+            previous_digit = false;
+        }
+    }
+    if (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+    }
+    return normalized;
+}
+
+std::string furnitureSignature(const document::PipelinePageArtifacts& page, const document::LayoutBlock& layout_block) {
+    if (layout_block.type != document::LayoutBlockType::Header &&
+        layout_block.type != document::LayoutBlockType::Footer) {
+        return {};
+    }
+    const std::string text = normalizeFurnitureText(joinLayoutBlockText(page.text, layout_block));
+    if (text.empty()) {
+        return {};
+    }
+    return std::to_string(static_cast<int>(layout_block.type)) + ':' + text;
+}
+
+std::set<std::string> repeatedFurniture(const std::vector<document::PipelinePageArtifacts>& pages) {
+    std::map<std::string, std::set<int>> pages_by_signature;
+    for (const document::PipelinePageArtifacts& page : pages) {
+        for (const document::LayoutBlock& block : page.layout.blocks) {
+            const std::string signature = furnitureSignature(page, block);
+            if (!signature.empty()) {
+                pages_by_signature[signature].insert(page.page_index);
+            }
+        }
+    }
+
+    std::set<std::string> repeated;
+    for (const auto& [signature, page_indices] : pages_by_signature) {
+        if (page_indices.size() >= 2) {
+            repeated.insert(signature);
+        }
+    }
+    return repeated;
+}
+
 } // namespace
 
 bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
@@ -168,11 +237,30 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
             request.page_reading_orders[index],
             request.page_tables[index],
         });
+    }
 
-        const document::PipelinePageArtifacts& parsed_page = artifacts.pages.back();
+    const std::set<std::string> repeated_furniture = repeatedFurniture(artifacts.pages);
+    for (const document::PipelinePageArtifacts& parsed_page : artifacts.pages) {
+        std::vector<int> included_indices;
         for (const int layout_block_index : orderedLayoutBlockIndices(parsed_page)) {
+            const document::LayoutBlock& layout_block =
+                parsed_page.layout.blocks[static_cast<std::size_t>(layout_block_index)];
+            const std::string signature = furnitureSignature(parsed_page, layout_block);
+            if (signature.empty() || repeated_furniture.find(signature) == repeated_furniture.end()) {
+                included_indices.push_back(layout_block_index);
+            }
+        }
+
+        std::map<std::string, std::string> related_block_ids;
+        for (std::size_t offset = 0; offset < included_indices.size(); ++offset) {
+            const document::LayoutBlock& layout_block =
+                parsed_page.layout.blocks[static_cast<std::size_t>(included_indices[offset])];
+            related_block_ids[layout_block.id] = blockId(parsed_page.page_number, document.blocks.size() + offset);
+        }
+        for (const int layout_block_index : included_indices) {
             const auto& layout_block = parsed_page.layout.blocks[static_cast<std::size_t>(layout_block_index)];
-            document.blocks.push_back(makeDocumentBlock(parsed_page, layout_block, document.blocks.size()));
+            document.blocks.push_back(
+                makeDocumentBlock(parsed_page, layout_block, related_block_ids[layout_block.id], related_block_ids));
         }
     }
 

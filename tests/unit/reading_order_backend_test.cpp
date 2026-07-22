@@ -74,3 +74,44 @@ TEST(ReadingOrderBackendTest, KeepsHeadersBeforeBodyAndFootersAfterBody) {
     EXPECT_EQ(order.items[1].layout_block_id, "body");
     EXPECT_EQ(order.items[2].layout_block_id, "footer");
 }
+
+TEST(ReadingOrderBackendTest, FinishesBothColumnsBeforeFollowingSpanningBlock) {
+    const auto layout = makeLayout({
+        makeBlock("right_top", doc_parser::document::LayoutBlockType::Text, {600.0, 180.0, 900.0, 230.0}),
+        makeBlock("bottom", doc_parser::document::LayoutBlockType::Text, {100.0, 500.0, 900.0, 550.0}),
+        makeBlock("left_bottom", doc_parser::document::LayoutBlockType::Text, {100.0, 280.0, 400.0, 330.0}),
+        makeBlock("title", doc_parser::document::LayoutBlockType::Title, {100.0, 80.0, 900.0, 130.0}),
+        makeBlock("right_bottom", doc_parser::document::LayoutBlockType::Text, {600.0, 280.0, 900.0, 330.0}),
+        makeBlock("left_top", doc_parser::document::LayoutBlockType::Text, {100.0, 180.0, 400.0, 230.0}),
+    });
+
+    const doc_parser::reading_order::DoclingLikeReadingOrderBackend backend;
+    doc_parser::reading_order::ReadingOrderResult result;
+    ASSERT_TRUE(backend.order({makePage(), layout}, result));
+    const auto& items = result.reading_order.items;
+
+    ASSERT_EQ(items.size(), 6U);
+    EXPECT_EQ(items[0].layout_block_id, "title");
+    EXPECT_EQ(items[1].layout_block_id, "left_top");
+    EXPECT_EQ(items[2].layout_block_id, "left_bottom");
+    EXPECT_EQ(items[3].layout_block_id, "right_top");
+    EXPECT_EQ(items[4].layout_block_id, "right_bottom");
+    EXPECT_EQ(items[5].layout_block_id, "bottom");
+}
+
+TEST(ReadingOrderBackendTest, PlacesLinkedCaptionAfterTarget) {
+    auto figure = makeBlock("figure", doc_parser::document::LayoutBlockType::Figure, {100.0, 200.0, 500.0, 500.0});
+    figure.source_label = "Picture";
+    auto caption = makeBlock("caption", doc_parser::document::LayoutBlockType::Text, {100.0, 100.0, 500.0, 140.0});
+    caption.source_label = "Caption";
+    caption.related_block_id = "figure";
+    const auto layout = makeLayout({caption, figure});
+
+    const doc_parser::reading_order::DoclingLikeReadingOrderBackend backend;
+    doc_parser::reading_order::ReadingOrderResult result;
+    ASSERT_TRUE(backend.order({makePage(), layout}, result));
+
+    ASSERT_EQ(result.reading_order.items.size(), 2U);
+    EXPECT_EQ(result.reading_order.items[0].layout_block_id, "figure");
+    EXPECT_EQ(result.reading_order.items[1].layout_block_id, "caption");
+}

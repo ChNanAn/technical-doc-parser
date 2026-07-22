@@ -29,9 +29,9 @@ Working today:
 - OpenCV preprocessing baseline for debug images.
 - DocLayNet RF-DETR ONNX layout baseline with a rule-based fallback.
 - Docling-like reading-order baseline.
-- Rule-based table baseline.
+- Table Transformer ONNX region/structure baseline with a rule fallback.
 - Document assembly into `DocumentBlock`.
-- JSON exporter with debug/raw artifacts.
+- JSON, Markdown, and HTML exporters with debug/raw artifacts.
 - Unit and smoke tests for the main pipeline.
 - Backend boundaries split from pipeline orchestration.
 
@@ -40,8 +40,9 @@ Important caveats:
 - OCR is only a baseline adapter, not a robust OCR subsystem.
 - Layout analysis is measured on a five-page DocLayNet regression subset, but broader domain validation is pending.
 - Reading order is a heuristic baseline, not a measured reading-order model.
-- Table recognition is a minimal text-gap baseline, not full table understanding.
-- Markdown/HTML/RAG outputs are not yet mature.
+- Table recognition is measured on five in-domain PubTables samples, but broader borderless, photographed,
+  multilingual, and cross-page validation is pending.
+- Markdown/HTML table output exists; the broader Markdown AST and RAG outputs are not yet mature.
 - A small distributed OCR/layout/table metric corpus now exists; broader domain coverage and release thresholds are
   still missing.
 
@@ -132,14 +133,15 @@ Goal: model reading sequence as a first-class stage.
 
 Goal: replace the current table demo with real table structure recovery.
 
-- Table region detection.
-- Table structure recognition.
-- Borderless table support.
-- Row, column, and cell recovery.
-- Rowspan and colspan support.
+- [x] Table region detection with a pinned Table Transformer ONNX model.
+- [x] Table structure recognition with a separate pinned ONNX model.
+- [x] Borderless table support without ruling-line assumptions.
+- [x] Row, column, and cell recovery.
+- [x] Rowspan and colspan support.
+- [x] Cross-page continuation linking.
 - Table caption linking.
-- Table-to-Markdown and table-to-HTML export.
-- Table structure metrics.
+- [x] Table-to-Markdown and table-to-HTML export.
+- [x] Table structure metrics and a five-image PubTables regression.
 
 ### Document Assembly
 
@@ -230,10 +232,11 @@ Goal: make the engine usable in batch and production-like environments.
 
 ### Milestone 4: Table Understanding
 
-- Improve table detection and structure recovery.
-- Add borderless table cases.
+- [x] Add real table detection and structure recovery.
+- [x] Add a borderless-capable model backend.
 - Preserve row/column/cell source references.
-- Add table snapshot and structure tests.
+- [x] Add table snapshot and structure tests.
+- Add broader photographed, multilingual, and multi-page evaluation data.
 
 ### Milestone 5: Markdown, HTML, and RAG Outputs
 

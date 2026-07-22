@@ -1,6 +1,7 @@
 add_library(doc_parser_export
     document_exporter.cpp
     json_document_exporter.cpp
+    structured_text_document_exporter.cpp
 )
 
 target_include_directories(doc_parser_export

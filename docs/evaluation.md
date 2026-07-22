@@ -116,3 +116,24 @@ DocLayNet taxonomy therefore has an inherent advantage on this corpus.
 
 The threshold is a regression floor, not a production acceptance target. Five pages are enough to catch model,
 preprocessing, label-map, and postprocessing regressions, but not enough to establish domain-wide quality.
+
+## PubTables-1M Table Structure
+
+With both Table Transformer models installed, CTest runs region detection, padded region cropping, and structure
+recognition on the five committed PubTables-1M table images:
+
+```bash
+ctest --test-dir build -R pubtables_table_benchmark --output-on-failure
+```
+
+At IoU `0.5`, the pinned baseline predicts all 130 table, row, column, column-header, projected-row-header, and
+spanning-cell objects:
+
+| Precision | Recall | Micro F1 | Macro F1 | Mean matched IoU | Exact match |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.000 | 1.000 | 1.000 | 1.000 | 0.9746 | 1.000 |
+
+CI enforces a `0.95` micro-F1 regression floor. This is a deliberately tiny in-domain regression set for the
+Table Transformer/PubTables label system, not evidence of perfect production accuracy. It catches changes to
+region preprocessing, crop padding, tensor decoding, label mapping, and structural postprocessing. Text accuracy
+and TEDS are not yet measured by this object-structure metric.

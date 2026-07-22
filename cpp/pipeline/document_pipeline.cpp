@@ -125,15 +125,6 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
     spdlog::info("analyzed layout pages: {}", page_layouts.size());
 
-    const ReadingOrderStage reading_order(*service_creation.services.reading_order);
-    std::vector<document::PageReadingOrder> page_reading_orders;
-    stage_status = reading_order.order(context, rendered_pages, page_layouts, page_reading_orders);
-    if (!stage_status.okStatus()) {
-        spdlog::error("reading_order: {}", stage_status.message());
-        return false;
-    }
-    spdlog::info("computed reading order pages: {}", page_reading_orders.size());
-
     const TableRecognitionStage table_recognition(*service_creation.services.table);
     std::vector<document::PageTables> page_tables;
     stage_status = table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables);
@@ -142,6 +133,15 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
         return false;
     }
     spdlog::info("recognized table pages: {}", page_tables.size());
+
+    const ReadingOrderStage reading_order(*service_creation.services.reading_order);
+    std::vector<document::PageReadingOrder> page_reading_orders;
+    stage_status = reading_order.order(context, rendered_pages, page_layouts, page_reading_orders);
+    if (!stage_status.okStatus()) {
+        spdlog::error("reading_order: {}", stage_status.message());
+        return false;
+    }
+    spdlog::info("computed reading order pages: {}", page_reading_orders.size());
 
     document::ParsedDocument parsed_document;
     document::PipelineArtifacts artifacts;
@@ -197,6 +197,10 @@ bool DocumentPipeline::run(const app::CliOptions& options) const {
     }
 
     spdlog::info("wrote: {}", context.output.manifest_json.string());
+    std::filesystem::path markdown_path = context.output.manifest_json;
+    std::filesystem::path html_path = context.output.manifest_json;
+    spdlog::info("wrote: {}", markdown_path.replace_extension(".md").string());
+    spdlog::info("wrote: {}", html_path.replace_extension(".html").string());
     return true;
 }
 

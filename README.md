@@ -35,6 +35,7 @@ Output:
 output/
   document.json
   document.md
+  document.html
   pages/
     page_1.png
     page_2.png
@@ -295,15 +296,28 @@ The current implementation has an end-to-end engine skeleton, not finished OCR/L
 
 ## Current Status
 
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, a default PaddleOCR ONNX baseline, an optional Tesseract OCR fallback, measured DocLayNet RF-DETR and Paddle PP-DocLayoutV3 ONNX layout backends with chained rule fallback, multi-column reading order, caption association, repeated header/footer removal, baseline table recognition, document assembly, JSON output, and regression tests for the main pipeline pieces.
+Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, a default PaddleOCR ONNX baseline, an optional Tesseract OCR fallback, measured DocLayNet RF-DETR and Paddle PP-DocLayoutV3 ONNX layout backends with chained rule fallback, multi-column reading order, caption association, repeated header/footer removal, measured Table Transformer region/structure recognition, merged and cross-page table metadata, JSON/Markdown/HTML output, and regression tests for the main pipeline pieces.
 
 The current pipeline skeleton is running:
 
 ```text
-PDF -> Render -> Text/OCR -> Layout -> Reading Order -> Table -> Assembly -> JSON
+PDF -> Render -> Text/OCR -> Layout -> Table -> Reading Order -> Assembly -> JSON/Markdown/HTML
 ```
 
-OCR, layout analysis, reading order, and table recognition are still baseline implementations. The next work is to make each intelligent stage pluggable, debuggable, and measurable.
+OCR, layout analysis, reading order, and table recognition are measurable baseline implementations. Broader multilingual, borderless, photographed, and cross-page datasets are still required before production claims.
+
+### Table structure baseline
+
+The pinned Table Transformer backend runs table region detection followed by row/column/header/spanning-cell
+structure recognition. On the five committed PubTables-1M images it matches all 130 annotated objects at IoU `0.5`:
+
+| Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
+| ---: | ---: | ---: | ---: | ---: |
+| 1.000 | 1.000 | 1.000 | 1.000 | 0.9746 |
+
+This is a small in-domain regression result, not a production accuracy claim. Install the pinned models and run it
+with `bash scripts/setup_table_transformer.sh` and
+`ctest --test-dir build -R pubtables_table_benchmark --output-on-failure`.
 
 ## Build
 
@@ -322,7 +336,7 @@ Backends can be selected explicitly while keeping the same pipeline contract:
   --document-backend pdf \
   --ocr-backend auto \
   --layout-backend auto \
-  --table-backend text
+  --table-backend auto
 ```
 
 PDFium is downloaded automatically during CMake configure when it is missing. The pinned package is installed under `third_party/pdfium`, which is not committed to git.

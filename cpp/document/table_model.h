@@ -12,6 +12,7 @@ struct TableCell {
     int column_index = 0;
     int row_span = 1;
     int column_span = 1;
+    bool is_header = false;
     std::string text;
     BBox bbox;
     double confidence = 1.0;
@@ -19,7 +20,22 @@ struct TableCell {
 
 struct TableRow {
     int row_index = 0;
+    BBox bbox;
+    double confidence = 1.0;
+    bool is_header = false;
     std::vector<TableCell> cells;
+};
+
+struct TableColumn {
+    int column_index = 0;
+    BBox bbox;
+    double confidence = 1.0;
+};
+
+struct TableStructureObject {
+    std::string label;
+    BBox bbox;
+    double confidence = 1.0;
 };
 
 struct Table {
@@ -29,7 +45,13 @@ struct Table {
     int page_number = 0;
     BBox bbox;
     double confidence = 1.0;
+    std::string source_label;
+    std::string continuation_group_id;
+    bool continues_from_previous_page = false;
+    bool continues_on_next_page = false;
+    std::vector<TableColumn> columns;
     std::vector<TableRow> rows;
+    std::vector<TableStructureObject> structure_objects;
 };
 
 struct PageTables {

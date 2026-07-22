@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
     app.add_option("--document-backend", options.document_backend, "Document source: auto, pdf");
     app.add_option("--ocr-backend", options.ocr_backend, "OCR backend: auto, tesseract, paddle, noop");
     app.add_option("--layout-backend", options.layout_backend, "Layout backend: auto, doclaynet, paddle-layout, text");
-    app.add_option("--table-backend", options.table_backend, "Table backend: auto, text");
+    app.add_option("--table-backend", options.table_backend, "Table backend: auto, table-transformer, text");
 
     try {
         app.parse(argc, argv);

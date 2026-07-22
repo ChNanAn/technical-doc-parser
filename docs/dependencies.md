@@ -309,18 +309,46 @@ DocLayNet corpus samples retain their CDLA-Permissive-1.0 terms.
 
 ## Table Recognition
 
-The first table stage uses a built-in baseline recognizer. It consumes `PageText` plus table layout blocks from
-`PageLayout`, then recovers simple rows and cells by grouping text spans and splitting large horizontal gaps.
+The real table backend uses the Microsoft Table Transformer detection and structure-recognition models converted to
+ONNX. The two model files use immutable Hugging Face revisions and SHA256 verification:
 
-This baseline has no external runtime dependency. It is intentionally shaped like a backend adapter so a
-Table Transformer, PubTables-style model, ONNX backend, or external table service can replace it while preserving
-the same `PageTables` output model.
+```bash
+bash scripts/setup_table_transformer.sh
+```
+
+The models total approximately 221 MiB, so automatic configure-time setup is disabled by default. Enable it with
+`-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON`, or configure custom files and thresholds with:
+
+```bash
+export DOCUMENT_INTELLIGENCE_ENGINE_TABLE_DETECTION_MODEL=/path/to/detection.onnx
+export DOCUMENT_INTELLIGENCE_ENGINE_TABLE_STRUCTURE_MODEL=/path/to/structure.onnx
+export DOCUMENT_INTELLIGENCE_ENGINE_TABLE_DETECTION_CONFIDENCE=0.9
+export DOCUMENT_INTELLIGENCE_ENGINE_TABLE_STRUCTURE_CONFIDENCE=0.5
+export DOCUMENT_INTELLIGENCE_ENGINE_TABLE_CROP_PADDING=20
+```
+
+`--table-backend auto` selects Table Transformer when both models are present and falls back to the text-geometry
+backend on startup or inference failure. `--table-backend table-transformer` is strict model-only mode and
+`--table-backend text` selects the dependency-free fallback.
+
+The backend detects table regions before reading order, expands each crop by a configurable margin, and predicts
+rows, columns, column headers, projected row headers, and spanning cells. Row/column intersections form the cell
+grid; spanning predictions become `row_span`/`column_span`, and normalized PDF/OCR tokens are assigned by geometry.
+This supports borderless tables because grid recovery does not depend on visible ruling lines. Tables touching the
+bottom and top of consecutive pages are linked with a continuation group when their horizontal bounds and column
+counts agree.
 
 Debug output records table results under:
 
 ```text
 pages[].debug.tables.tables
 ```
+
+Set `DOCUMENT_INTELLIGENCE_ENGINE_TABLE_DEBUG=1` to log thresholds, crop padding, detected regions, rows, columns,
+cells, merged cells, and runtime errors. The default exporter writes `document.json`, `document.md`, and
+`document.html`. HTML preserves `rowspan` and `colspan`; Markdown uses pipe tables for simple grids and embedded HTML
+for merged cells. The Table Transformer weights are MIT licensed and the benchmark samples are
+CDLA-Permissive-2.0.
 
 ## Pipeline Trace
 

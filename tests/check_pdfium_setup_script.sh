@@ -41,3 +41,13 @@ fi
 grep -q '^PADDLE_LAYOUT_REVISION=46bbdf188bb0a772c08aed74882ce7e51a8f1ea6$' <<<"$paddle_layout_output"
 grep -q '^PADDLE_LAYOUT_MODEL_SHA256=45bf71750b00739a41fc209f132eb104a4d6b5bb29483c9078164d8b87cf28ba$' <<<"$paddle_layout_output"
 grep -q '^PADDLE_LAYOUT_CONFIG_SHA256=506fcfac13b3b546ae40d7886b44126420f392adb694e3f8bb6a6286a1f90fdc$' <<<"$paddle_layout_output"
+
+table_transformer_output="$(bash scripts/setup_table_transformer.sh --print-config)"
+if grep -Eq '/resolve/main/' <<<"$table_transformer_output"; then
+    echo "Table Transformer dependencies must use immutable revisions" >&2
+    exit 1
+fi
+grep -q '^TABLE_DETECTION_REVISION=187ac355617c8fee3d69c00d461ecf8eb8a4a5b7$' <<<"$table_transformer_output"
+grep -q '^TABLE_STRUCTURE_REVISION=5387550de655512721e1b88e4e42117001ba4813$' <<<"$table_transformer_output"
+grep -q '^TABLE_DETECTION_SHA256=5be82ec9d157814ea8616588398d7baec17aed0780b870f7adf24b280ee1b5aa$' <<<"$table_transformer_output"
+grep -q '^TABLE_STRUCTURE_SHA256=2c90a63298df61006a45267932f47b345a8b104ce53fd504eacf11aee3c05a41$' <<<"$table_transformer_output"

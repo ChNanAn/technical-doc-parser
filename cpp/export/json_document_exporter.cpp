@@ -85,6 +85,7 @@ nlohmann::json tableRowsToJson(const std::vector<document::TableRow>& table_rows
                 {"column_index", cell.column_index},
                 {"row_span", cell.row_span},
                 {"column_span", cell.column_span},
+                {"is_header", cell.is_header},
                 {"text", cell.text},
                 {"bbox", bboxToJson(cell.bbox)},
                 {"confidence", cell.confidence},
@@ -93,6 +94,9 @@ nlohmann::json tableRowsToJson(const std::vector<document::TableRow>& table_rows
 
         rows.push_back({
             {"row_index", row.row_index},
+            {"bbox", bboxToJson(row.bbox)},
+            {"confidence", row.confidence},
+            {"is_header", row.is_header},
             {"cells", cells},
         });
     }
@@ -115,6 +119,9 @@ nlohmann::json documentBlocksToJson(const std::vector<document::DocumentBlock>& 
         };
         if (!block.table_id.empty()) {
             block_json["table_id"] = block.table_id;
+            block_json["table_continuation_group_id"] = block.table_continuation_group_id;
+            block_json["table_continues_from_previous_page"] = block.table_continues_from_previous_page;
+            block_json["table_continues_on_next_page"] = block.table_continues_on_next_page;
             block_json["rows"] = tableRowsToJson(block.table_rows);
         }
         blocks.push_back(block_json);
@@ -189,12 +196,34 @@ nlohmann::json pageReadingOrderToJson(const document::PageReadingOrder& page_rea
 nlohmann::json pageTablesToJson(const document::PageTables& page_tables) {
     nlohmann::json tables = nlohmann::json::array();
     for (const auto& table : page_tables.tables) {
+        nlohmann::json columns = nlohmann::json::array();
+        for (const auto& column : table.columns) {
+            columns.push_back({
+                {"column_index", column.column_index},
+                {"bbox", bboxToJson(column.bbox)},
+                {"confidence", column.confidence},
+            });
+        }
+        nlohmann::json structure_objects = nlohmann::json::array();
+        for (const auto& object : table.structure_objects) {
+            structure_objects.push_back({
+                {"label", object.label},
+                {"bbox", bboxToJson(object.bbox)},
+                {"confidence", object.confidence},
+            });
+        }
         tables.push_back({
             {"id", table.id},
             {"layout_block_id", table.layout_block_id},
             {"bbox", bboxToJson(table.bbox)},
             {"confidence", table.confidence},
+            {"source_label", table.source_label},
+            {"continuation_group_id", table.continuation_group_id},
+            {"continues_from_previous_page", table.continues_from_previous_page},
+            {"continues_on_next_page", table.continues_on_next_page},
+            {"columns", columns},
             {"rows", tableRowsToJson(table.rows)},
+            {"structure_objects", structure_objects},
         });
     }
 

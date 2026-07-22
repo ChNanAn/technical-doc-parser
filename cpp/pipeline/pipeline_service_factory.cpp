@@ -53,6 +53,25 @@ private:
     std::vector<Entry> backends_;
 };
 
+class FallbackTableBackend final : public table::ITableBackend {
+public:
+    FallbackTableBackend(std::unique_ptr<table::ITableBackend> primary, std::unique_ptr<table::ITableBackend> fallback)
+        : primary_(std::move(primary)), fallback_(std::move(fallback)) {}
+
+    bool recognize(const table::TableRequest& request, table::TableResult& result) const override {
+        if (primary_->recognize(request, result)) {
+            return true;
+        }
+        spdlog::warn("table: Table Transformer inference failed for page {}; using text-geometry fallback",
+                     request.page.page_number);
+        return fallback_->recognize(request, result);
+    }
+
+private:
+    std::unique_ptr<table::ITableBackend> primary_;
+    std::unique_ptr<table::ITableBackend> fallback_;
+};
+
 AutoOcrSelection createAutoOcrBackend() {
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
     auto paddle = std::make_unique<ocr::PaddleOcrOnnxBackend>();
@@ -198,8 +217,41 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     }
 
     std::unique_ptr<table::ITableBackend> table_backend;
-    if (options.table == "auto" || options.table == "text") {
+    std::string selected_table = options.table;
+    if (options.table == "text") {
         table_backend = std::make_unique<table::TextTableStructureBackend>();
+#if DOC_PARSER_ENABLE_ONNXRUNTIME
+    } else if (options.table == "table-transformer") {
+        auto transformer = std::make_unique<table::TableTransformerOnnxBackend>();
+        if (!transformer->isAvailable()) {
+            spdlog::error("configure_table_backend: Table Transformer ONNX backend is not available");
+            result.error_stage = "configure_table_backend";
+            result.error_message = "Table Transformer ONNX backend is not available";
+            return result;
+        }
+        table_backend = std::move(transformer);
+#else
+    } else if (options.table == "table-transformer") {
+        spdlog::error("configure_table_backend: Table Transformer was not enabled at build time");
+        result.error_stage = "configure_table_backend";
+        result.error_message = "Table Transformer was not enabled at build time";
+        return result;
+#endif
+    } else if (options.table == "auto") {
+#if DOC_PARSER_ENABLE_ONNXRUNTIME
+        auto transformer = std::make_unique<table::TableTransformerOnnxBackend>();
+        if (transformer->isAvailable()) {
+            selected_table = "table-transformer->text";
+            table_backend = std::make_unique<FallbackTableBackend>(
+                std::move(transformer), std::make_unique<table::TextTableStructureBackend>());
+        } else {
+            selected_table = "text(fallback:no-table-transformer-model)";
+            table_backend = std::make_unique<table::TextTableStructureBackend>();
+        }
+#else
+        selected_table = "text(fallback:onnx-disabled)";
+        table_backend = std::make_unique<table::TextTableStructureBackend>();
+#endif
     } else {
         spdlog::error("configure_table_backend: unknown table backend: {}", options.table);
         result.error_stage = "configure_table_backend";
@@ -212,7 +264,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     result.services.reading_order = std::make_unique<reading_order::DoclingLikeReadingOrderBackend>();
     result.services.table = std::move(table_backend);
     result.trace_message = "document=" + options.document + ", ocr=" + selected_ocr + ", layout=" + selected_layout +
-                           ", table=" + options.table;
+                           ", table=" + selected_table;
     result.ok = true;
     return result;
 }

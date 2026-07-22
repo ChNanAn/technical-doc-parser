@@ -119,6 +119,17 @@ python3 tests/benchmark/evaluate_table.py \
   --output output/table_metrics.json
 ```
 
+When the pinned Table Transformer models are installed, `pubtables_table_benchmark` runs real C++ region and
+structure inference over all five images and enforces a `0.95` micro-F1 floor:
+
+```bash
+bash scripts/setup_table_transformer.sh
+ctest --test-dir build -R pubtables_table_benchmark --output-on-failure
+```
+
+The pinned baseline has micro-F1 `1.000` and mean matched IoU `0.9746` over 130 objects. The small in-domain subset
+is suitable for regression detection only; it is not a broad table-model leaderboard or a text/TEDS evaluation.
+
 Layout and table reports use class-aware, one-to-one maximum-cardinality matching. They contain per-class and
 per-sample precision, recall, F1, mean matched IoU, micro/macro F1, and exact object-structure match rate. The table
 metric evaluates the available PubTables row/column/header/spanning-cell boxes; it is not a text-content or TEDS

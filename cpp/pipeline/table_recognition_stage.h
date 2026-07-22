@@ -20,7 +20,7 @@ public:
     common::Status recognize(const PipelineContext& context,
                              const std::vector<document::PageArtifact>& pages,
                              const std::vector<document::PageText>& page_texts,
-                             const std::vector<document::PageLayout>& page_layouts,
+                             std::vector<document::PageLayout>& page_layouts,
                              std::vector<document::PageTables>& page_tables) const;
 
 private:

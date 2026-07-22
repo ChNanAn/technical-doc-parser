@@ -31,6 +31,9 @@ struct DocumentBlock {
     std::string text;
     std::vector<int> text_line_indices;
     std::string table_id;
+    std::string table_continuation_group_id;
+    bool table_continues_from_previous_page = false;
+    bool table_continues_on_next_page = false;
     std::vector<TableRow> table_rows;
 };
 

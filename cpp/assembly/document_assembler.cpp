@@ -107,6 +107,9 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
         const document::Table* table = findTableForLayoutBlock(page.tables, layout_block.id);
         if (table != nullptr) {
             block.table_id = table->id;
+            block.table_continuation_group_id = table->continuation_group_id;
+            block.table_continues_from_previous_page = table->continues_from_previous_page;
+            block.table_continues_on_next_page = table->continues_on_next_page;
             block.table_rows = table->rows;
             block.text = tableText(*table);
             block.confidence = std::min(block.confidence, table->confidence);

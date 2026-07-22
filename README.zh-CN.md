@@ -33,6 +33,7 @@ document_intelligence_engine input.pdf --out output/
 output/
   document.json
   document.md
+  document.html
   pages/
     page_1.png
     page_2.png
@@ -290,15 +291,28 @@ ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)
 
 ## 当前状态
 
-项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、默认 PaddleOCR ONNX baseline、可选 Tesseract OCR fallback、可评测的 DocLayNet RF-DETR 与 Paddle PP-DocLayoutV3 ONNX Layout 后端和链式规则降级、多栏阅读顺序、caption 关联、重复页眉页脚清理、基础 table recognition、document assembly、JSON 输出和主流程回归测试。
+项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、默认 PaddleOCR ONNX baseline、可选 Tesseract OCR fallback、可评测的 DocLayNet RF-DETR 与 Paddle PP-DocLayoutV3 ONNX Layout 后端和链式规则降级、多栏阅读顺序、caption 关联、重复页眉页脚清理、可评测的 Table Transformer 区域与结构识别、合并/跨页表格元数据、JSON/Markdown/HTML 输出和主流程回归测试。
 
 当前 pipeline 骨架已经跑通：
 
 ```text
-PDF -> Render -> Text/OCR -> Layout -> Reading Order -> Table -> Assembly -> JSON
+PDF -> Render -> Text/OCR -> Layout -> Table -> Reading Order -> Assembly -> JSON/Markdown/HTML
 ```
 
-OCR、layout analysis、reading order、table recognition 仍然是 baseline 实现。后续重点是把每个智能阶段做成可插拔、可调试、可评测的模块。
+OCR、layout analysis、reading order、table recognition 已经具备可评测 baseline。达到生产标准前仍需扩充多语言、无框、拍照和跨页数据集。
+
+### Table 结构基线
+
+固定版本的 Table Transformer 后端先检测表格区域，再识别 row、column、header 和 spanning cell。在仓库内
+5 张 PubTables-1M 图片上，以 IoU `0.5` 匹配全部 130 个标注对象：
+
+| Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
+| ---: | ---: | ---: | ---: | ---: |
+| 1.000 | 1.000 | 1.000 | 1.000 | 0.9746 |
+
+这是同分布小集合的持续回归结果，不代表生产准确率。运行方式：
+`bash scripts/setup_table_transformer.sh`，然后执行
+`ctest --test-dir build -R pubtables_table_benchmark --output-on-failure`。
 
 ## 构建
 
@@ -317,7 +331,7 @@ cmake --build build --config Release --target document_intelligence_engine --par
   --document-backend pdf \
   --ocr-backend auto \
   --layout-backend auto \
-  --table-backend text
+  --table-backend auto
 ```
 
 PDFium 缺失时会在 CMake configure 阶段自动下载。固定版本会安装到 `third_party/pdfium`，该目录不会提交到 git。

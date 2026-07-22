@@ -148,6 +148,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         doclaynet_layout_eval.cpp
     )
 
+    add_executable(pubtables_table_eval
+        pubtables_table_eval.cpp
+    )
+
     target_link_libraries(paddle_ocr_onnx_baseline
         PRIVATE
             doc_parser_ocr
@@ -165,9 +169,16 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             nlohmann_json::nlohmann_json
     )
 
+    target_link_libraries(pubtables_table_eval
+        PRIVATE
+            doc_parser_table
+            nlohmann_json::nlohmann_json
+    )
+
     doc_parser_set_common_warnings(paddle_ocr_onnx_baseline)
     doc_parser_set_common_warnings(funsd_ocr_eval)
     doc_parser_set_common_warnings(doclaynet_layout_eval)
+    doc_parser_set_common_warnings(pubtables_table_eval)
 
     add_test(NAME paddle_ocr_onnx_baseline COMMAND paddle_ocr_onnx_baseline)
     set_tests_properties(paddle_ocr_onnx_baseline
@@ -214,6 +225,26 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             0.45
     )
     set_tests_properties(paddle_layout_benchmark
+        PROPERTIES
+            LABELS benchmark
+            SKIP_RETURN_CODE 77
+    )
+
+    set(PUBTABLES_TABLE_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/pubtables_table_predictions.json")
+    set(PUBTABLES_TABLE_REPORT "${CMAKE_CURRENT_BINARY_DIR}/pubtables_table_report.json")
+    add_test(
+        NAME pubtables_table_benchmark
+        COMMAND bash
+            ${CMAKE_CURRENT_SOURCE_DIR}/run_pubtables_table_benchmark.sh
+            $<TARGET_FILE:pubtables_table_eval>
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/table_pubtables/ground_truth.json
+            ${PUBTABLES_TABLE_PREDICTIONS}
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_table.py
+            ${PUBTABLES_TABLE_REPORT}
+            0.95
+    )
+    set_tests_properties(pubtables_table_benchmark
         PROPERTIES
             LABELS benchmark
             SKIP_RETURN_CODE 77

@@ -63,9 +63,9 @@ Important caveats:
 Goal: keep the foundation clean as more providers are added.
 
 - Pipeline orchestration.
-- Backend registry and factory boundaries.
+- [x] Typed backend registry and factory boundaries.
 - Backend capability negotiation.
-- Stage configuration from config files.
+- [x] Versioned backend auto-order configuration from JSON.
 - `Status` / `Result<T>` error propagation.
 - Trace and debug manifest.
 - Stable artifact schemas.

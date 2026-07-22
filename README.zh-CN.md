@@ -334,6 +334,31 @@ cmake --build build --config Release --target document_intelligence_engine --par
   --table-backend auto
 ```
 
+`auto` 选择由类型安全的 backend registry 驱动，无需重新编译即可调整优先级：
+
+```bash
+./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
+  --backend-config config/backends.json
+```
+
+版本化 JSON 配置控制各自动阶段的候选顺序：
+
+```json
+{
+  "version": 1,
+  "auto_order": {
+    "document": ["pdf"],
+    "ocr": ["paddle", "tesseract"],
+    "layout": ["doclaynet", "paddle-layout", "text"],
+    "table": ["table-transformer", "text"]
+  }
+}
+```
+
+配置只能引用已经编译并注册的 backend。未知名称、重复项、空链、错误 schema 和不支持的版本会在服务
+配置阶段直接失败。显式指定 `--ocr-backend`、`--layout-backend` 或 `--table-backend` 时仍采用严格模式，
+不会静默降级。也可以通过 `DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG` 指定同一配置文件。
+
 PDFium 缺失时会在 CMake configure 阶段自动下载。固定版本会安装到 `third_party/pdfium`，该目录不会提交到 git。
 
 如果本机没有 OpenCV，可以关闭图像预处理：

@@ -13,6 +13,7 @@ struct CliOptions {
     std::string ocr_backend = "auto";
     std::string layout_backend = "auto";
     std::string table_backend = "auto";
+    std::string backend_config;
 };
 
 } // namespace doc_parser::app

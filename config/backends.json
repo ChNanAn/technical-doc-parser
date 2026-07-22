@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "auto_order": {
+    "document": ["pdf"],
+    "ocr": ["paddle", "tesseract"],
+    "layout": ["doclaynet", "paddle-layout", "text"],
+    "table": ["table-transformer", "text"]
+  }
+}

@@ -3,6 +3,7 @@
 #include "document_source/document_source_factory.h"
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
+#include "pipeline/backend_registry.h"
 #include "pipeline/pipeline_context.h"
 #include "reading_order/reading_order_backend.h"
 #include "table/table_backend.h"
@@ -29,5 +30,6 @@ struct PipelineServiceCreationResult {
 };
 
 PipelineServiceCreationResult createPipelineServices(const BackendOptions& options);
+PipelineServiceCreationResult createPipelineServices(const BackendOptions& options, const BackendRegistry& registry);
 
 } // namespace doc_parser::pipeline

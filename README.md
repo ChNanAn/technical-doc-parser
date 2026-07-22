@@ -339,6 +339,32 @@ Backends can be selected explicitly while keeping the same pipeline contract:
   --table-backend auto
 ```
 
+`auto` selection is driven by the typed backend registry and can be reordered without recompiling:
+
+```bash
+./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
+  --backend-config config/backends.json
+```
+
+The versioned JSON config controls the ordered candidates for each automatic stage:
+
+```json
+{
+  "version": 1,
+  "auto_order": {
+    "document": ["pdf"],
+    "ocr": ["paddle", "tesseract"],
+    "layout": ["doclaynet", "paddle-layout", "text"],
+    "table": ["table-transformer", "text"]
+  }
+}
+```
+
+Only compiled, registered backend names are accepted. Unknown names, duplicates, empty chains, invalid schemas, and
+unsupported versions fail during service configuration. Explicit `--ocr-backend`, `--layout-backend`, and
+`--table-backend` selections remain strict and do not silently fall back. The same config path can be supplied with
+`DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG`.
+
 PDFium is downloaded automatically during CMake configure when it is missing. The pinned package is installed under `third_party/pdfium`, which is not committed to git.
 
 ## Development

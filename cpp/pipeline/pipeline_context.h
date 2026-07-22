@@ -23,6 +23,7 @@ struct BackendOptions {
     std::string ocr = "auto";
     std::string layout = "auto";
     std::string table = "auto";
+    std::filesystem::path registry_config;
 };
 
 struct PipelineContext {

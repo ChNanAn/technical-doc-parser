@@ -13,7 +13,8 @@ DEBUG_JSON_PATH="$DEBUG_OUT_DIR/document.json"
 rm -rf "$OUT_DIR"
 rm -rf "$DEBUG_OUT_DIR"
 "$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$OUT_DIR" --dpi 72
-"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$DEBUG_OUT_DIR" --dpi 72 --debug
+"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$DEBUG_OUT_DIR" --dpi 72 --debug \
+  --backend-config "$ROOT_DIR/config/backends.json"
 
 test -f "$PNG_PATH"
 test -f "$JSON_PATH"

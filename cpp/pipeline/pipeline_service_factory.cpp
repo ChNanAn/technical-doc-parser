@@ -1,14 +1,6 @@
 #include "pipeline/pipeline_service_factory.h"
 
-#include "document_source/document_source_factory.h"
-#include "layout/layout_backend.h"
-#include "ocr/ocr_backend.h"
-#if DOC_PARSER_ENABLE_ONNXRUNTIME
-#include "ocr/paddle_ocr_onnx_backend.h"
-#endif
-#include "ocr/tesseract_cli_ocr_backend.h"
 #include "reading_order/reading_order_backend.h"
-#include "table/table_backend.h"
 
 #include <memory>
 #include <spdlog/spdlog.h>
@@ -19,20 +11,15 @@
 namespace doc_parser::pipeline {
 namespace {
 
-struct AutoOcrSelection {
-    std::unique_ptr<ocr::IOcrBackend> backend;
+template <typename Interface> struct NamedBackend {
     std::string name;
-    bool available = false;
+    std::unique_ptr<Interface> backend;
 };
 
 class ChainedLayoutBackend final : public layout::ILayoutBackend {
 public:
-    struct Entry {
-        std::string name;
-        std::unique_ptr<layout::ILayoutBackend> backend;
-    };
-
-    explicit ChainedLayoutBackend(std::vector<Entry> backends) : backends_(std::move(backends)) {}
+    explicit ChainedLayoutBackend(std::vector<NamedBackend<layout::ILayoutBackend>> backends)
+        : backends_(std::move(backends)) {}
 
     bool analyze(const layout::LayoutRequest& request, layout::LayoutResult& result) const override {
         for (std::size_t index = 0; index < backends_.size(); ++index) {
@@ -50,221 +37,209 @@ public:
     }
 
 private:
-    std::vector<Entry> backends_;
+    std::vector<NamedBackend<layout::ILayoutBackend>> backends_;
 };
 
-class FallbackTableBackend final : public table::ITableBackend {
+class ChainedTableBackend final : public table::ITableBackend {
 public:
-    FallbackTableBackend(std::unique_ptr<table::ITableBackend> primary, std::unique_ptr<table::ITableBackend> fallback)
-        : primary_(std::move(primary)), fallback_(std::move(fallback)) {}
+    explicit ChainedTableBackend(std::vector<NamedBackend<table::ITableBackend>> backends)
+        : backends_(std::move(backends)) {}
 
     bool recognize(const table::TableRequest& request, table::TableResult& result) const override {
-        if (primary_->recognize(request, result)) {
-            return true;
+        for (std::size_t index = 0; index < backends_.size(); ++index) {
+            if (backends_[index].backend->recognize(request, result)) {
+                return true;
+            }
+            if (index + 1 < backends_.size()) {
+                spdlog::warn("table: {} inference failed for page {}; falling back to {}",
+                             backends_[index].name,
+                             request.page.page_number,
+                             backends_[index + 1].name);
+            }
         }
-        spdlog::warn("table: Table Transformer inference failed for page {}; using text-geometry fallback",
-                     request.page.page_number);
-        return fallback_->recognize(request, result);
+        return false;
     }
 
 private:
-    std::unique_ptr<table::ITableBackend> primary_;
-    std::unique_ptr<table::ITableBackend> fallback_;
+    std::vector<NamedBackend<table::ITableBackend>> backends_;
 };
 
-AutoOcrSelection createAutoOcrBackend() {
-#if DOC_PARSER_ENABLE_ONNXRUNTIME
-    auto paddle = std::make_unique<ocr::PaddleOcrOnnxBackend>();
-    if (paddle->isAvailable()) {
-        return {std::move(paddle), "paddle", true};
+std::string joinNames(const std::vector<std::string>& names) {
+    std::string joined;
+    for (const std::string& name : names) {
+        joined += (joined.empty() ? "" : "->") + name;
     }
-#endif
+    return joined;
+}
 
-    auto tesseract = std::make_unique<ocr::TesseractCliOcrBackend>();
-    if (tesseract->isAvailable()) {
-        return {std::move(tesseract), "tesseract", true};
-    }
-
-    return {
-        std::make_unique<ocr::UnavailableOcrBackend>("no OCR backend is available; install models or select "
-                                                     "--ocr-backend noop explicitly"),
-        "unavailable",
-        false,
-    };
+void setCreationError(PipelineServiceCreationResult& result,
+                      const std::string& stage,
+                      const std::string& backend,
+                      BackendCreationStatus status) {
+    result.error_stage = "configure_" + stage + "_backend";
+    result.error_message = status == BackendCreationStatus::Unknown ? "unknown " + stage + " backend: " + backend
+                                                                    : stage + " backend is unavailable: " + backend;
+    spdlog::error("{}: {}", result.error_stage, result.error_message);
 }
 
 } // namespace
 
 PipelineServiceCreationResult createPipelineServices(const BackendOptions& options) {
-    PipelineServiceCreationResult result;
+    const BackendRegistry registry = createDefaultBackendRegistry();
+    return createPipelineServices(options, registry);
+}
 
-    result.services.document = document_source::createDocumentSource(options.document);
-    if (result.services.document.source == nullptr) {
-        spdlog::error("configure_document_source: no matching document source is enabled: {}", options.document);
-        result.error_stage = "configure_document_source";
-        result.error_message = "no matching document source is enabled: " + options.document;
+PipelineServiceCreationResult createPipelineServices(const BackendOptions& options, const BackendRegistry& registry) {
+    PipelineServiceCreationResult result;
+    const BackendRegistryConfigResult config_result = loadBackendRegistryConfig(options.registry_config, registry);
+    if (!config_result.ok) {
+        result.error_stage = "configure_backend_registry";
+        result.error_message = config_result.error;
+        spdlog::error("configure_backend_registry: {}", result.error_message);
         return result;
     }
+    const BackendRegistryConfig& config = config_result.config;
+    const std::string config_source = options.registry_config.empty() ? "builtin" : options.registry_config.string();
+    spdlog::debug("backend registry: config={} document_auto={} ocr_auto={} layout_auto={} table_auto={}",
+                  config_source,
+                  joinNames(config.document_auto_order),
+                  joinNames(config.ocr_auto_order),
+                  joinNames(config.layout_auto_order),
+                  joinNames(config.table_auto_order));
+
+    std::string selected_document = options.document;
+    DocumentBackendCreationResult document;
+    if (options.document == "auto") {
+        for (const std::string& name : config.document_auto_order) {
+            DocumentBackendCreationResult candidate = registry.createDocument(name);
+            if (candidate.status == BackendCreationStatus::Created) {
+                selected_document = name;
+                document = std::move(candidate);
+                break;
+            }
+            spdlog::debug("backend registry: skipping unavailable document backend '{}'", name);
+        }
+        if (document.status != BackendCreationStatus::Created) {
+            result.error_stage = "configure_document_source_backend";
+            result.error_message = "no document backend from configured auto_order is available";
+            spdlog::error("{}: {}", result.error_stage, result.error_message);
+            return result;
+        }
+    } else {
+        document = registry.createDocument(options.document);
+        if (document.status != BackendCreationStatus::Created) {
+            setCreationError(result, "document_source", options.document, document.status);
+            return result;
+        }
+    }
+    result.services.document = std::move(document.backend);
 
     std::unique_ptr<ocr::IOcrBackend> ocr_backend;
     std::string selected_ocr = options.ocr;
-    if (options.ocr == "noop") {
-        ocr_backend = std::make_unique<ocr::NoopOcrBackend>();
-    } else if (options.ocr == "tesseract") {
-        auto tesseract = std::make_unique<ocr::TesseractCliOcrBackend>();
-        if (!tesseract->isAvailable()) {
-            spdlog::error("configure_ocr_backend: tesseract OCR backend is not available");
-            result.error_stage = "configure_ocr_backend";
-            result.error_message = "tesseract OCR backend is not available";
-            return result;
+    if (options.ocr == "auto") {
+        for (const std::string& name : config.ocr_auto_order) {
+            BackendCreationResult<ocr::IOcrBackend> candidate = registry.createOcr(name);
+            if (candidate.status == BackendCreationStatus::Created) {
+                selected_ocr = name;
+                ocr_backend = std::move(candidate.backend);
+                break;
+            }
+            spdlog::debug("backend registry: skipping unavailable OCR backend '{}'", name);
         }
-        ocr_backend = std::move(tesseract);
-#if DOC_PARSER_ENABLE_ONNXRUNTIME
-    } else if (options.ocr == "paddle") {
-        auto paddle = std::make_unique<ocr::PaddleOcrOnnxBackend>();
-        if (!paddle->isAvailable()) {
-            spdlog::error("configure_ocr_backend: PaddleOCR ONNX backend is not available");
-            result.error_stage = "configure_ocr_backend";
-            result.error_message = "PaddleOCR ONNX backend is not available";
-            return result;
-        }
-        ocr_backend = std::move(paddle);
-#else
-    } else if (options.ocr == "paddle") {
-        spdlog::error("configure_ocr_backend: PaddleOCR ONNX backend was not enabled at build time");
-        result.error_stage = "configure_ocr_backend";
-        result.error_message = "PaddleOCR ONNX backend was not enabled at build time";
-        return result;
-#endif
-    } else if (options.ocr == "auto") {
-        AutoOcrSelection selection = createAutoOcrBackend();
-        selected_ocr = selection.name;
-        if (!selection.available) {
-            spdlog::warn("configure_ocr_backend: auto mode found no usable OCR backend; native-text documents can "
+        if (ocr_backend == nullptr) {
+            selected_ocr = "unavailable";
+            spdlog::warn("configure_ocr_backend: auto order found no usable OCR backend; native-text documents can "
                          "still be processed, but pages requiring OCR will fail");
+            ocr_backend = std::make_unique<ocr::UnavailableOcrBackend>("no OCR backend from configured auto_order is "
+                                                                       "available; install a backend or select "
+                                                                       "--ocr-backend "
+                                                                       "noop explicitly");
         }
-        ocr_backend = std::move(selection.backend);
     } else {
-        spdlog::error("configure_ocr_backend: unknown OCR backend: {}", options.ocr);
-        result.error_stage = "configure_ocr_backend";
-        result.error_message = "unknown OCR backend: " + options.ocr;
-        return result;
+        BackendCreationResult<ocr::IOcrBackend> creation = registry.createOcr(options.ocr);
+        if (creation.status != BackendCreationStatus::Created) {
+            setCreationError(result, "ocr", options.ocr, creation.status);
+            return result;
+        }
+        ocr_backend = std::move(creation.backend);
     }
 
     std::unique_ptr<layout::ILayoutBackend> layout_backend;
     std::string selected_layout = options.layout;
-    if (options.layout == "text") {
-        layout_backend = std::make_unique<layout::TextLayoutModelBackend>();
-#if DOC_PARSER_ENABLE_ONNXRUNTIME
-    } else if (options.layout == "doclaynet") {
-        auto doclaynet = std::make_unique<layout::DocLayNetOnnxBackend>();
-        if (!doclaynet->isAvailable()) {
-            spdlog::error("configure_layout_backend: DocLayNet ONNX backend is not available");
-            result.error_stage = "configure_layout_backend";
-            result.error_message = "DocLayNet ONNX backend is not available";
-            return result;
-        }
-        layout_backend = std::move(doclaynet);
-    } else if (options.layout == "paddle-layout") {
-        auto paddle = std::make_unique<layout::PaddleDocLayoutOnnxBackend>();
-        if (!paddle->isAvailable()) {
-            spdlog::error("configure_layout_backend: Paddle PP-DocLayoutV3 ONNX backend is not available");
-            result.error_stage = "configure_layout_backend";
-            result.error_message = "Paddle PP-DocLayoutV3 ONNX backend is not available";
-            return result;
-        }
-        layout_backend = std::move(paddle);
-#else
-    } else if (options.layout == "doclaynet" || options.layout == "paddle-layout") {
-        spdlog::error("configure_layout_backend: requested ONNX layout backend was not enabled at build time");
-        result.error_stage = "configure_layout_backend";
-        result.error_message = "requested ONNX layout backend was not enabled at build time";
-        return result;
-#endif
-    } else if (options.layout == "auto") {
-#if DOC_PARSER_ENABLE_ONNXRUNTIME
-        std::vector<ChainedLayoutBackend::Entry> backends;
+    if (options.layout == "auto") {
+        std::vector<NamedBackend<layout::ILayoutBackend>> available;
         std::vector<std::string> selected_names;
-        auto doclaynet = std::make_unique<layout::DocLayNetOnnxBackend>();
-        if (doclaynet->isAvailable()) {
-            selected_names.emplace_back("doclaynet");
-            backends.push_back({"doclaynet", std::move(doclaynet)});
+        for (const std::string& name : config.layout_auto_order) {
+            BackendCreationResult<layout::ILayoutBackend> candidate = registry.createLayout(name);
+            if (candidate.status == BackendCreationStatus::Created) {
+                selected_names.push_back(name);
+                available.push_back({name, std::move(candidate.backend)});
+            } else {
+                spdlog::debug("backend registry: skipping unavailable layout backend '{}'", name);
+            }
         }
-        auto paddle = std::make_unique<layout::PaddleDocLayoutOnnxBackend>();
-        if (paddle->isAvailable()) {
-            selected_names.emplace_back("paddle-layout");
-            backends.push_back({"paddle-layout", std::move(paddle)});
+        if (available.empty()) {
+            result.error_stage = "configure_layout_backend";
+            result.error_message = "no layout backend from configured auto_order is available";
+            spdlog::error("{}: {}", result.error_stage, result.error_message);
+            return result;
         }
-        selected_names.emplace_back("text");
-        backends.push_back({"text", std::make_unique<layout::TextLayoutModelBackend>()});
-        selected_layout.clear();
-        for (const std::string& name : selected_names) {
-            selected_layout += (selected_layout.empty() ? "" : "->") + name;
+        selected_layout = joinNames(selected_names);
+        if (available.size() == 1) {
+            layout_backend = std::move(available.front().backend);
+        } else {
+            layout_backend = std::make_unique<ChainedLayoutBackend>(std::move(available));
         }
-        if (selected_names.size() == 1) {
-            spdlog::warn("configure_layout_backend: no ONNX layout model is available; using text-rule fallback");
-        }
-        layout_backend = std::make_unique<ChainedLayoutBackend>(std::move(backends));
-#else
-        selected_layout = "text(fallback:onnx-disabled)";
-        layout_backend = std::make_unique<layout::TextLayoutModelBackend>();
-#endif
     } else {
-        spdlog::error("configure_layout_backend: unknown layout backend: {}", options.layout);
-        result.error_stage = "configure_layout_backend";
-        result.error_message = "unknown layout backend: " + options.layout;
-        return result;
+        BackendCreationResult<layout::ILayoutBackend> creation = registry.createLayout(options.layout);
+        if (creation.status != BackendCreationStatus::Created) {
+            setCreationError(result, "layout", options.layout, creation.status);
+            return result;
+        }
+        layout_backend = std::move(creation.backend);
     }
 
     std::unique_ptr<table::ITableBackend> table_backend;
     std::string selected_table = options.table;
-    if (options.table == "text") {
-        table_backend = std::make_unique<table::TextTableStructureBackend>();
-#if DOC_PARSER_ENABLE_ONNXRUNTIME
-    } else if (options.table == "table-transformer") {
-        auto transformer = std::make_unique<table::TableTransformerOnnxBackend>();
-        if (!transformer->isAvailable()) {
-            spdlog::error("configure_table_backend: Table Transformer ONNX backend is not available");
+    if (options.table == "auto") {
+        std::vector<NamedBackend<table::ITableBackend>> available;
+        std::vector<std::string> selected_names;
+        for (const std::string& name : config.table_auto_order) {
+            BackendCreationResult<table::ITableBackend> candidate = registry.createTable(name);
+            if (candidate.status == BackendCreationStatus::Created) {
+                selected_names.push_back(name);
+                available.push_back({name, std::move(candidate.backend)});
+            } else {
+                spdlog::debug("backend registry: skipping unavailable table backend '{}'", name);
+            }
+        }
+        if (available.empty()) {
             result.error_stage = "configure_table_backend";
-            result.error_message = "Table Transformer ONNX backend is not available";
+            result.error_message = "no table backend from configured auto_order is available";
+            spdlog::error("{}: {}", result.error_stage, result.error_message);
             return result;
         }
-        table_backend = std::move(transformer);
-#else
-    } else if (options.table == "table-transformer") {
-        spdlog::error("configure_table_backend: Table Transformer was not enabled at build time");
-        result.error_stage = "configure_table_backend";
-        result.error_message = "Table Transformer was not enabled at build time";
-        return result;
-#endif
-    } else if (options.table == "auto") {
-#if DOC_PARSER_ENABLE_ONNXRUNTIME
-        auto transformer = std::make_unique<table::TableTransformerOnnxBackend>();
-        if (transformer->isAvailable()) {
-            selected_table = "table-transformer->text";
-            table_backend = std::make_unique<FallbackTableBackend>(
-                std::move(transformer), std::make_unique<table::TextTableStructureBackend>());
+        selected_table = joinNames(selected_names);
+        if (available.size() == 1) {
+            table_backend = std::move(available.front().backend);
         } else {
-            selected_table = "text(fallback:no-table-transformer-model)";
-            table_backend = std::make_unique<table::TextTableStructureBackend>();
+            table_backend = std::make_unique<ChainedTableBackend>(std::move(available));
         }
-#else
-        selected_table = "text(fallback:onnx-disabled)";
-        table_backend = std::make_unique<table::TextTableStructureBackend>();
-#endif
     } else {
-        spdlog::error("configure_table_backend: unknown table backend: {}", options.table);
-        result.error_stage = "configure_table_backend";
-        result.error_message = "unknown table backend: " + options.table;
-        return result;
+        BackendCreationResult<table::ITableBackend> creation = registry.createTable(options.table);
+        if (creation.status != BackendCreationStatus::Created) {
+            setCreationError(result, "table", options.table, creation.status);
+            return result;
+        }
+        table_backend = std::move(creation.backend);
     }
 
     result.services.ocr = std::move(ocr_backend);
     result.services.layout = std::move(layout_backend);
     result.services.reading_order = std::make_unique<reading_order::DoclingLikeReadingOrderBackend>();
     result.services.table = std::move(table_backend);
-    result.trace_message = "document=" + options.document + ", ocr=" + selected_ocr + ", layout=" + selected_layout +
-                           ", table=" + selected_table;
+    result.trace_message = "registry=" + config_source + ", document=" + selected_document + ", ocr=" + selected_ocr +
+                           ", layout=" + selected_layout + ", table=" + selected_table;
     result.ok = true;
     return result;
 }

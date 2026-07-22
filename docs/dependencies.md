@@ -361,6 +361,29 @@ debug/pipeline_trace.json
 The trace records backend selection plus stage success/failure events for open, render, text extraction, layout,
 table recognition, document assembly, and export.
 
+## Backend Registry Configuration
+
+Concrete implementations register typed constructors for document, OCR, layout, and table interfaces. Pipeline
+selection does not instantiate class names from JSON; configuration may only refer to names already present in the
+registry. This keeps external configuration flexible without turning it into an unsafe plugin loader.
+
+The built-in automatic orders are equivalent to `config/backends.json`. Override them with:
+
+```bash
+document_intelligence_engine input.pdf --backend-config /path/to/backends.json
+# or
+export DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG=/path/to/backends.json
+```
+
+Schema version `1` supports `auto_order.document`, `auto_order.ocr`, `auto_order.layout`, and `auto_order.table`.
+Each value is a non-empty array of unique registered names. Unavailable compiled backends are skipped in `auto`
+mode. Document and OCR select the first available candidate; Layout and Table retain the configured runtime fallback
+chain. Explicit backend CLI options use one registry entry and fail if it is unknown or unavailable.
+
+SDK users can create a `BackendRegistry`, call the typed `registerDocument`, `registerOcr`, `registerLayout`, and
+`registerTable` methods, and pass it to the `createPipelineServices` overload. Duplicate names and the reserved
+`auto` name are rejected.
+
 ## nlohmann/json
 
 Structured parser output is written with [`nlohmann/json`](https://github.com/nlohmann/json), pulled by CMake `FetchContent`.

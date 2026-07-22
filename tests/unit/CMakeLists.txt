@@ -1,6 +1,7 @@
 include(GoogleTest)
 
 add_executable(domain_unit_tests
+    backend_registry_test.cpp
     document_assembler_test.cpp
     json_document_exporter_test.cpp
     layout_backend_test.cpp

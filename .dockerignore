@@ -1,0 +1,15 @@
+.git
+.github
+build
+build-*
+data
+models
+runtime
+third_party/*
+!third_party/stb/
+!third_party/stb/**
+platform/api/.venv
+platform/api/*.egg-info
+platform/web/node_modules
+platform/web/dist
+**/__pycache__

@@ -361,6 +361,20 @@ cmake --build build --config Release --target document_intelligence_engine --par
 
 PDFium 缺失时会在 CMake configure 阶段自动下载。固定版本会安装到 `third_party/pdfium`，该目录不会提交到 git。
 
+## 可选解析工作台
+
+默认交付物仍是独立 C++ 引擎。可选的 FastAPI、Redis Streams、PostgreSQL、常驻 C++ Worker 和 React
+工作台全部位于 [`platform/`](platform/README.md)，支持上传 PDF、为每个 Run 独立组合后端、实时查看
+Stage 事件和中间/最终产物，同时不会给默认引擎构建引入 Python、Redis 或 Web 依赖。
+
+只有构建平台 Worker 时才使用显式的 `platform-release` preset：
+
+```bash
+cmake --preset platform-release
+cmake --build --preset platform-release --target document_intelligence_worker --parallel
+docker compose -f platform/deploy/docker-compose.yml up --build
+```
+
 如果本机没有 OpenCV，可以关闭图像预处理：
 
 ```bash

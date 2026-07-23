@@ -30,7 +30,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON -DDOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -40,6 +40,9 @@ jobs:
 
       - name: Show help
         run: ./build/cpp/app/document_intelligence_engine --help
+
+      - name: Check optional platform worker
+        run: test -x ./build/platform/worker/document_intelligence_worker
 
       - name: Check argument validation
         run: |

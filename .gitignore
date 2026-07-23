@@ -13,6 +13,10 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+node_modules/
+dist/
+*.egg-info/
+*.tsbuildinfo
 
 # Editor and OS noise.
 .DS_Store
@@ -20,3 +24,4 @@ venv/
 .vscode/
 
 output/
+runtime/

@@ -83,6 +83,11 @@ public:
     bool hasLayout(const std::string& name) const;
     bool hasTable(const std::string& name) const;
 
+    std::vector<std::string> documentNames() const;
+    std::vector<std::string> ocrNames() const;
+    std::vector<std::string> layoutNames() const;
+    std::vector<std::string> tableNames() const;
+
     DocumentBackendCreationResult createDocument(const std::string& name) const;
     BackendCreationResult<ocr::IOcrBackend> createOcr(const std::string& name) const;
     BackendCreationResult<layout::ILayoutBackend> createLayout(const std::string& name) const;

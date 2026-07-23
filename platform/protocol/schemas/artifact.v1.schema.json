@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://document-intelligence-engine.local/protocol/artifact.v1.schema.json",
+  "title": "Document Intelligence Artifact v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifact_id", "job_id", "run_id", "attempt_id", "stage", "kind", "uri", "media_type", "created_at"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "job_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "attempt_id": {"type": "string", "minLength": 1},
+    "stage": {"enum": ["render", "text", "layout", "table", "reading_order", "assembly", "export"]},
+    "kind": {
+      "enum": ["page_image", "native_text_json", "ocr_json", "layout_json", "table_json", "reading_order_json", "document_json", "document_markdown", "document_html", "debug_log"]
+    },
+    "page_number": {"type": "integer", "minimum": 1},
+    "uri": {"type": "string", "pattern": "^(file|s3)://"},
+    "media_type": {"type": "string", "minLength": 1},
+    "size_bytes": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "coordinate_space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "bbox_format", "origin", "width", "height"],
+      "properties": {
+        "type": {"const": "page_pixels"},
+        "bbox_format": {"const": "xyxy"},
+        "origin": {"const": "top_left"},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "dpi": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

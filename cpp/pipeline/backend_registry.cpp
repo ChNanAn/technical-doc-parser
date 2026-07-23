@@ -96,6 +96,22 @@ bool BackendRegistry::hasLayout(const std::string& name) const { return layout_.
 
 bool BackendRegistry::hasTable(const std::string& name) const { return table_.contains(name); }
 
+std::vector<std::string> BackendRegistry::documentNames() const {
+    std::vector<std::string> result;
+    result.reserve(document_factories_.size());
+    for (const auto& [name, factory] : document_factories_) {
+        (void)factory;
+        result.push_back(name);
+    }
+    return result;
+}
+
+std::vector<std::string> BackendRegistry::ocrNames() const { return ocr_.names(); }
+
+std::vector<std::string> BackendRegistry::layoutNames() const { return layout_.names(); }
+
+std::vector<std::string> BackendRegistry::tableNames() const { return table_.names(); }
+
 DocumentBackendCreationResult BackendRegistry::createDocument(const std::string& name) const {
     const auto factory = document_factories_.find(name);
     if (factory == document_factories_.end()) {

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "job_id": "job_example",
+  "document_id": "doc_example",
+  "run_id": "run_example",
+  "attempt_id": "attempt_1",
+  "created_at": "2026-07-22T12:00:00Z",
+  "input": {
+    "uri": "file:///runtime/documents/doc_example/input.pdf",
+    "filename": "input.pdf",
+    "media_type": "application/pdf",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "size_bytes": 1
+  },
+  "output_directory": "/runtime/runs/run_example/output",
+  "pipeline": {
+    "dpi": 200,
+    "debug": true,
+    "backends": {
+      "document": "pdf",
+      "ocr": "paddle",
+      "layout": "doclaynet",
+      "table": "table-transformer",
+      "registry_config": ""
+    }
+  },
+  "limits": {
+    "timeout_seconds": 600,
+    "maximum_pages": 100
+  }
+}

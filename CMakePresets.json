@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {"major": 3, "minor": 20, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "core-release",
+      "displayName": "Core engine release",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/core-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER": "OFF"
+      }
+    },
+    {
+      "name": "platform-release",
+      "displayName": "Platform worker release",
+      "inherits": "core-release",
+      "binaryDir": "${sourceDir}/build/platform-release",
+      "cacheVariables": {
+        "DOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {"name": "core-release", "configurePreset": "core-release"},
+    {"name": "platform-release", "configurePreset": "platform-release"}
+  ],
+  "testPresets": [
+    {"name": "core-release", "configurePreset": "core-release", "output": {"outputOnFailure": true}},
+    {"name": "platform-release", "configurePreset": "platform-release", "output": {"outputOnFailure": true}}
+  ]
+}

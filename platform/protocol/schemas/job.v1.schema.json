@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://document-intelligence-engine.local/protocol/job.v1.schema.json",
+  "title": "Document Intelligence Job v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "job_id", "document_id", "run_id", "attempt_id", "input", "output_directory", "pipeline", "limits"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "job_id": {"type": "string", "minLength": 1},
+    "document_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "attempt_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri", "filename", "media_type", "sha256"],
+      "properties": {
+        "uri": {"type": "string", "pattern": "^(file|s3)://"},
+        "filename": {"type": "string", "minLength": 1},
+        "media_type": {"const": "application/pdf"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "output_directory": {"type": "string", "minLength": 1},
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dpi", "debug", "backends"],
+      "properties": {
+        "dpi": {"type": "integer", "minimum": 36, "maximum": 600},
+        "debug": {"type": "boolean"},
+        "backends": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["document", "ocr", "layout", "table"],
+          "properties": {
+            "document": {"type": "string", "minLength": 1},
+            "ocr": {"type": "string", "minLength": 1},
+            "layout": {"type": "string", "minLength": 1},
+            "table": {"type": "string", "minLength": 1},
+            "registry_config": {"type": "string"}
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds", "maximum_pages"],
+      "properties": {
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 86400},
+        "maximum_pages": {"type": "integer", "minimum": 1, "maximum": 10000}
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+version: "2.4"
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_DB: document
+      POSTGRES_USER: document
+      POSTGRES_PASSWORD: document
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U document"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: platform/deploy/api.Dockerfile
+    environment:
+      DIE_DATABASE_URL: postgresql://document:document@postgres:5432/document
+      DIE_REDIS_URL: redis://redis:6379/0
+      DIE_RUNTIME_ROOT: /runtime
+      DIE_CORS_ORIGINS: http://localhost:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - runtime-data:/runtime
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: platform/deploy/worker.Dockerfile
+    user: "10001:10001"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JOB_STREAM: document-jobs
+      JOB_CONSUMER_GROUP: document-workers
+      WORKER_ID: worker-cpu-1
+      WORKER_RUNTIME_ROOT: /runtime
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - runtime-data:/runtime
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../..
+      dockerfile: platform/deploy/web.Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres-data:
+  redis-data:
+  runtime-data:

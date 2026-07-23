@@ -27,6 +27,15 @@ TEST(BackendRegistryTest, RejectsDuplicateRegistrationAndReportsUnknownBackend) 
     EXPECT_EQ(registry.createOcr("noop").status, doc_parser::pipeline::BackendCreationStatus::Created);
 }
 
+TEST(BackendRegistryTest, ListsRegisteredBackendsForCapabilityDiscovery) {
+    const doc_parser::pipeline::BackendRegistry registry = doc_parser::pipeline::createDefaultBackendRegistry();
+
+    EXPECT_FALSE(registry.documentNames().empty());
+    EXPECT_FALSE(registry.ocrNames().empty());
+    EXPECT_FALSE(registry.layoutNames().empty());
+    EXPECT_FALSE(registry.tableNames().empty());
+}
+
 TEST(BackendRegistryTest, LoadsValidatedAutoOrderAndDrivesServiceSelection) {
     const std::filesystem::path config_path =
         writeConfig("tdp_backend_registry_valid.json",

@@ -367,6 +367,21 @@ unsupported versions fail during service configuration. Explicit `--ocr-backend`
 
 PDFium is downloaded automatically during CMake configure when it is missing. The pinned package is installed under `third_party/pdfium`, which is not committed to git.
 
+## Optional inspection platform
+
+The default deliverable remains the standalone C++ engine. An optional FastAPI, Redis Streams, PostgreSQL, persistent
+C++ Worker, and React inspection platform lives entirely under [`platform/`](platform/README.md). It supports PDF
+upload, independent backend selection per Run, live stage events, and intermediate/final artifact inspection without
+adding Python, Redis, or Web dependencies to the default engine build.
+
+Use the explicit `platform-release` CMake preset when building its Worker:
+
+```bash
+cmake --preset platform-release
+cmake --build --preset platform-release --target document_intelligence_worker --parallel
+docker compose -f platform/deploy/docker-compose.yml up --build
+```
+
 ## Development
 
 - Dependency setup notes: [docs/dependencies.md](docs/dependencies.md)

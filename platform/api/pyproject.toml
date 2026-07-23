@@ -1,0 +1,23 @@
+[project]
+name = "document-intelligence-platform-api"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "asyncpg==0.30.0",
+  "fastapi==0.115.6",
+  "pydantic-settings==2.7.1",
+  "python-multipart==0.0.20",
+  "redis==5.2.1",
+  "uvicorn[standard]==0.34.0"
+]
+
+[project.optional-dependencies]
+test = [
+  "httpx==0.28.1",
+  "jsonschema==4.23.0",
+  "pytest==8.3.4"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

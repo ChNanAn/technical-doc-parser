@@ -1,35 +1,74 @@
 # Document Intelligence Engine
 
-[中文文档](README.zh-CN.md)
+[中文](README.zh-CN.md)
 
-Document Intelligence Engine is a C++ native, backend-agnostic engine for document intelligence pipelines.
+A C++ native, backend-agnostic document intelligence engine for structured document parsing, starting with technical and table-heavy PDFs.
 
-It is not positioned as another model-centric PDF-to-Markdown application. Its long-term value is the infrastructure around document parsing: a typed document model, stable pipeline boundaries, pluggable backends, traceable intermediate artifacts, reproducible C++ builds, and an SDK-friendly core that can be embedded into production systems.
+The project combines native text extraction, OCR, layout analysis, reading order, table structure recognition, and document assembly behind typed, replaceable backend interfaces. It produces JSON, Markdown, HTML, page images, and optional debug artifacts for downstream applications.
 
-AI models such as OCR engines, layout detectors, table recognizers, ONNX models, and vision-language models are treated as replaceable capabilities. The engine normalizes their outputs into one internal document model and keeps the rest of the pipeline stable.
+> This is an early, runnable, and measurable engine, not a finished enterprise document product. The current public benchmarks are small regression sets and should not be interpreted as production accuracy claims.
 
-Technical and table-heavy PDFs are the first proving ground. They keep the project grounded in real extraction requirements: source coordinates, section hierarchy, table structure, parameter/value/unit relationships, debug artifacts, and RAG-ready structured output.
+## Why This Project
 
-## Goal
+- **C++ native**: designed for offline, private, and embedded deployment.
+- **Backend-agnostic**: PDF, OCR, layout, and table providers can evolve without rewriting the pipeline.
+- **Structured output**: text, blocks, tables, reading order, page numbers, bounding boxes, and confidence are represented as typed data.
+- **Inspectable and measurable**: intermediate artifacts, public fixtures, metrics, smoke tests, and CI are part of the engine.
+- **SDK-oriented**: the CLI is available today; a stable C++ library and SDK facade remain active roadmap work.
 
-Build a production-oriented C++ document parsing infrastructure that can:
+## Pipeline
 
-- Open and render documents through backend adapters.
-- Normalize PDF text layers, OCR results, layout blocks, tables, and model outputs into typed internal models.
-- Compose those models through a staged, inspectable pipeline.
-- Export stable JSON/Markdown outputs for downstream applications.
-- Preserve source traceability through page numbers, bounding boxes, confidence scores, and debug artifacts.
-- Support CLI usage today and a C++ SDK/library boundary over time.
-
-The current CLI shape is:
-
-Input:
-
-```bash
-document_intelligence_engine input.pdf --out output/
+```text
+Document
+  -> Render
+  -> Native Text / OCR
+  -> Layout
+  -> Table Structure
+  -> Reading Order
+  -> Document Assembly
+  -> JSON / Markdown / HTML
 ```
 
-Output:
+Current backends include:
+
+- PDFium for PDF access, rendering, and native text extraction.
+- PaddleOCR ONNX and Tesseract for OCR.
+- RF-DETR DocLayNet, Paddle PP-DocLayoutV3, and a deterministic text-layout fallback.
+- Table Transformer and a deterministic text-table fallback.
+- A Docling-like reading-order baseline.
+
+Models and providers are adapters. The long-lived project boundary is the normalized document model and staged pipeline.
+
+## Quick Start
+
+The reference environment is Ubuntu 24.04. Install system dependencies, then configure the release preset:
+
+```bash
+bash scripts/setup_ubuntu_dependencies.sh
+cmake --preset core-release
+cmake --build --preset core-release --parallel
+ctest --preset core-release
+```
+
+PDFium, ONNX Runtime, and pinned baseline models are downloaded and verified during configuration when missing. See [Dependency Setup](docs/dependencies.md) for custom paths, optional downloads, and lightweight build options.
+
+Parse a document:
+
+```bash
+./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/
+```
+
+Select backends explicitly or use the versioned registry configuration:
+
+```bash
+./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/ \
+  --ocr-backend auto \
+  --layout-backend auto \
+  --table-backend auto \
+  --backend-config config/backends.json
+```
+
+## Output
 
 ```text
 output/
@@ -39,342 +78,47 @@ output/
   pages/
     page_1.png
     page_2.png
-  debug/
+  debug/                 # with --debug
 ```
 
-Example JSON:
+The normal JSON output contains assembled document blocks and page artifacts. `--debug` additionally includes normalized text, layout blocks, reading order, table structures, and preprocessing artifacts.
 
 ```json
 {
-  "pages": [
+  "source": {"path": "input.pdf", "type": "pdf"},
+  "render": {"dpi": 200},
+  "blocks": [
     {
-      "page": 1,
-      "blocks": [
-        {
-          "type": "title",
-          "text": "Technical Specification",
-          "bbox": [80, 40, 700, 90]
-        },
-        {
-          "type": "table",
-          "bbox": [90, 180, 760, 520],
-          "data": [
-            ["Parameter", "Value", "Unit"],
-            ["Pressure", "1.6", "MPa"]
-          ]
-        }
-      ]
+      "id": "doc_page_1_block_1",
+      "type": "paragraph",
+      "page_number": 1,
+      "bbox": {"x0": 84.0, "y0": 132.0, "x1": 742.0, "y1": 168.0},
+      "confidence": 0.92,
+      "text": "Technical specification"
     }
   ]
 }
 ```
 
-## Scope
+The versioned public document contract, complete backend provenance, and source-grounded RAG chunk schema are being designed for the first stable API release.
 
-The project scope is infrastructure-first:
+## Evaluation
 
-- **Core engine**: C++17/CMake, RAII wrappers for native dependencies, stable typed models, pipeline orchestration, export contracts, tests, and CI.
-- **Backend adapters**: PDFium, OCR engines, layout/table models, ONNX Runtime, vision-language models, and external parsers can be integrated behind narrow interfaces.
-- **First domain focus**: technical and table-heavy PDFs, especially specifications, parameter tables, reports, standards, manuals, and structured tabular documents.
-- **Reproducible evaluation**: public datasets and small curated technical fixtures should drive development before any domain-specific fine-tuning.
+The repository contains redistributable OCR, layout, and table fixtures with backend-independent evaluators. The full model build includes real PaddleOCR, DocLayNet, Paddle Layout, and Table Transformer inference regressions.
 
-Model fine-tuning is a downstream option, not the center of the project. The first objective is to make the parsing pipeline reliable, extensible, testable, and deployable.
+The committed model datasets are intentionally small. They protect preprocessing, inference, label mapping, and postprocessing from regressions; broader technical-document validation is still required.
 
-## Project Value
+See [Evaluation](docs/evaluation.md) and the [Benchmark Guide](tests/benchmark/README.md) for datasets, metrics, commands, and current limitations.
 
-Many open-source document parsers focus on end-user conversion quality: turning documents into Markdown, HTML, JSON, or model-ready chunks. This project focuses on the lower-level parsing engine that makes those outputs reliable and extensible in C++ applications.
+## Optional Inspection Platform
 
-The project should optimize for:
+The standalone C++ engine is the default deliverable. An optional platform under [`platform/`](platform/README.md) adds:
 
-- **Unified document model**: one typed representation for PDF text, OCR text, layout blocks, tables, reading order, source references, and final document structure.
-- **Backend neutrality**: PDFium, OCR, layout detectors, table recognizers, external parsers, and VLMs should be replaceable without rewriting the pipeline.
-- **C++ native deployment**: the core should work as a CLI, library, and future SDK for private/offline deployment.
-- **Traceability**: extracted content must retain page number, bounding box, source backend, confidence, and debug artifacts.
-- **Engineering quality**: reproducible builds, small module boundaries, RAII ownership, unit tests, smoke tests, and stable schemas matter as much as model accuracy.
-- **Technical document depth**: technical/table-heavy PDFs are the first benchmark because they stress the engine with dense tables, coordinates, hierarchy, units, and structured extraction needs.
-
-## Non-Goals
-
-The project should avoid competing head-on as a broad, model-centric document parsing platform.
-
-It does not aim to:
-
-- Replace mature end-user document parsing applications.
-- Own every OCR, layout, table, or VLM model.
-- Become a Python-first training framework.
-- Treat Markdown conversion as the main product.
-- Hide intermediate decisions inside an opaque model-only pipeline.
-
-Instead, it should be able to consume model/application outputs through adapters, normalize them, and provide a stable C++ engine for downstream products.
-
-## Pipeline Boundaries
-
-The parser is organized as a staged pipeline. Each stage should have a narrow responsibility and pass typed intermediate data to the next stage. Implementation details can evolve, but stage boundaries should stay stable.
-
-The pipeline is intentionally backend-agnostic. PDFium, OCR engines, layout models, table recognizers, external parsers, and VLM services should enter the system through adapters and normalize their outputs into the same document models.
-
-```text
-document input
-  -> source ingestion
-  -> page rendering / page artifacts
-  -> text extraction
-  -> layout analysis
-  -> table structure recovery
-  -> document assembly
-  -> export / SDK result
-```
-
-### Stage Responsibilities
-
-**Source ingestion**
-
-Owns document source setup and document access. The current implementation opens PDF files through PDFium, manages PDFium lifetime, reads page count and page metadata, and hides PDFium-specific resource management from the rest of the pipeline. Future source adapters can target other document formats or external parser outputs.
-
-**Page rendering**
-
-Converts PDF pages into page images with stable output paths and render settings. It does not perform OCR, layout detection, or table reconstruction.
-
-Current output:
-
-```text
-pages/page_1.png
-pages/page_2.png
-```
-
-**Text extraction**
-
-Provides a unified text extraction interface. The pipeline should call one text extraction stage, not branch directly between PDFium, OCR, or future model-based extractors.
-
-Current strategy:
-
-```text
-if PDF text layer is complete and usable:
-  use PDF text layer
-else if PDF text layer is usable but sparse:
-  merge non-overlapping OCR lines by coordinates
-else:
-  use OCR
-```
-
-Both PDF text layer and OCR must normalize into the same internal text model:
-
-```text
-TextSpan -> TextLine -> PageText
-```
-
-This stage only provides text, coordinates, confidence, and source information. It does not decide whether a region is a title, paragraph, table, or figure.
-
-**Layout analysis**
-
-Classifies page regions into semantic block types such as:
-
-```text
-title
-text
-table
-figure
-header
-footer
-```
-
-Layout consumes page images and normalized text. It should output layout blocks with bounding boxes and confidence scores. It should not reconstruct table cells or export Markdown.
-
-**Table structure recovery**
-
-Consumes table layout blocks and the text tokens that fall inside those blocks. This stage is responsible for rows, columns, cells, merged cells, and table reading order.
-
-It should not care whether text came from the PDF text layer or OCR. It only consumes normalized text tokens and coordinates.
-
-**Document assembly**
-
-Combines layout blocks, text tokens, table structures, page metadata, and reading order into a structured document tree.
-
-This is the first stage that should create user-facing document structure:
-
-```text
-pages
-  blocks
-    title/text/table/figure
-```
-
-**Export / SDK result**
-
-Writes the final consumer-facing outputs:
-
-```text
-document.json
-document.md
-```
-
-Export should not expose raw intermediate data by default. Intermediate values such as `PageText`, OCR boxes, layout proposals, and table debug cells should be preserved only in debug mode or explicit diagnostic outputs.
-
-### Intermediate Data Policy
-
-Intermediate models are for communication between stages, not the public output contract.
-
-Examples:
-
-```text
-PageText      text extraction -> layout/table
-LayoutBlock   layout -> document assembly/table
-TableCell     table recovery -> document assembly/export
-```
-
-Normal output should be the assembled document result. Debug output can include intermediate data to support inspection and regression tests.
-
-### Module Layout
-
-Planned module layout:
-
-```text
-cpp/
-  app/          CLI entrypoint
-  pipeline/     pipeline orchestration and stage interfaces
-  document/     shared internal document models
-  document_source/
-    pdf/        PDF source facades for document access, rendering, and text extraction
-      pdfium/   PDFium-specific adapter and native resource handling
-  image/        OpenCV preprocessing
-  ocr/          OCR adapters and text normalization
-  layout/       layout block detection
-  table/        table structure recovery
-  inference/    ONNX Runtime inference wrappers
-  export/       JSON and Markdown writers
-
-python/
-  ocr_train/     OCR experiments and fine-tuning
-  layout_train/  layout model training
-  export_onnx/   model export scripts
-
-data/          dataset adapters and small samples
-models/        local model files, not committed
-docs/          design notes and evaluation reports
-docker/        deployment assets
-tests/         unit and integration tests
-```
-
-## Public Datasets
-
-The project is designed around public datasets so the work can be reproduced:
-
-- [DocLayNet](https://github.com/DS4SD/DocLayNet): layout detection dataset with document categories such as manuals, patents, tenders, financial reports, laws, and scientific articles.
-- [PubTables-1M](https://github.com/microsoft/table-transformer): large-scale table detection and table structure recognition dataset.
-- [FUNSD](https://guillaumejaume.github.io/FUNSD/): small scanned form understanding dataset for OCR, entities, and relations.
-
-For demos and targeted evaluation, the project can also use a small curated set of public technical PDFs.
-
-The default OCR baseline is PaddleOCR ONNX. Layout provides two real ONNX backends: an RF-DETR model trained on
-DocLayNet and Paddle PP-DocLayoutV3. Runnable evaluations report layered FUNSD OCR metrics and class-aware
-DocLayNet layout F1. See [docs/evaluation.md](docs/evaluation.md).
-
-### Layout baseline comparison
-
-Both layout backends are tested on the same five committed DocLayNet pages with class-aware one-to-one matching at
-IoU `0.5`; each model uses its official confidence threshold `0.5` and preprocessing. These are regression results,
-not a production model ranking:
-
-| Backend | Taxonomy evaluated | Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| RF-DETR DocLayNet | Native DocLayNet 11-class | 0.880 | 0.682 | 0.769 | 0.839 | 0.873 |
-| Paddle PP-DocLayoutV3 | Paddle 25-class mapped to DocLayNet | 0.479 | 0.523 | 0.500 | 0.590 | 0.826 |
-
-RF-DETR is the better fit for this particular benchmark because its labels are native DocLayNet labels. Paddle has
-no `List-item` equivalent, so its mapped list recall is `0` on the 47 list objects in this subset. The result does
-not establish that Paddle is worse on Chinese documents, photographed or curved pages, or its other target
-scenarios. Five pages are intentionally small and only protect inference, preprocessing, mapping, and
-postprocessing from regressions.
-
-Run both measured backends with:
-
-```bash
-ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)$' --output-on-failure
-```
-
-## Roadmap
-
-The current implementation has an end-to-end engine skeleton, not finished OCR/Layout/Table intelligence. See [docs/roadmap.md](docs/roadmap.md) for the active roadmap covering OCR, layout analysis, table understanding, reading order, document assembly, RAG output, model backends, evaluation, and performance.
-
-## Current Status
-
-Early implementation. The project currently has a C++17/CMake CLI, pinned PDFium setup, backend-separated PDF access, page rendering, an internal text model, PDF text layer extraction, a default PaddleOCR ONNX baseline, an optional Tesseract OCR fallback, measured DocLayNet RF-DETR and Paddle PP-DocLayoutV3 ONNX layout backends with chained rule fallback, multi-column reading order, caption association, repeated header/footer removal, measured Table Transformer region/structure recognition, merged and cross-page table metadata, JSON/Markdown/HTML output, and regression tests for the main pipeline pieces.
-
-The current pipeline skeleton is running:
-
-```text
-PDF -> Render -> Text/OCR -> Layout -> Table -> Reading Order -> Assembly -> JSON/Markdown/HTML
-```
-
-OCR, layout analysis, reading order, and table recognition are measurable baseline implementations. Broader multilingual, borderless, photographed, and cross-page datasets are still required before production claims.
-
-### Table structure baseline
-
-The pinned Table Transformer backend runs table region detection followed by row/column/header/spanning-cell
-structure recognition. On the five committed PubTables-1M images it matches all 130 annotated objects at IoU `0.5`:
-
-| Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
-| ---: | ---: | ---: | ---: | ---: |
-| 1.000 | 1.000 | 1.000 | 1.000 | 0.9746 |
-
-This is a small in-domain regression result, not a production accuracy claim. Install the pinned models and run it
-with `bash scripts/setup_table_transformer.sh` and
-`ctest --test-dir build -R pubtables_table_benchmark --output-on-failure`.
-
-## Build
-
-Configure and build:
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release --target document_intelligence_engine --parallel
-./build/cpp/app/document_intelligence_engine input.pdf --out output/
-```
-
-Backends can be selected explicitly while keeping the same pipeline contract:
-
-```bash
-./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
-  --document-backend pdf \
-  --ocr-backend auto \
-  --layout-backend auto \
-  --table-backend auto
-```
-
-`auto` selection is driven by the typed backend registry and can be reordered without recompiling:
-
-```bash
-./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
-  --backend-config config/backends.json
-```
-
-The versioned JSON config controls the ordered candidates for each automatic stage:
-
-```json
-{
-  "version": 1,
-  "auto_order": {
-    "document": ["pdf"],
-    "ocr": ["paddle", "tesseract"],
-    "layout": ["doclaynet", "paddle-layout", "text"],
-    "table": ["table-transformer", "text"]
-  }
-}
-```
-
-Only compiled, registered backend names are accepted. Unknown names, duplicates, empty chains, invalid schemas, and
-unsupported versions fail during service configuration. Explicit `--ocr-backend`, `--layout-backend`, and
-`--table-backend` selections remain strict and do not silently fall back. The same config path can be supplied with
-`DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG`.
-
-PDFium is downloaded automatically during CMake configure when it is missing. The pinned package is installed under `third_party/pdfium`, which is not committed to git.
-
-## Optional inspection platform
-
-The default deliverable remains the standalone C++ engine. An optional FastAPI, Redis Streams, PostgreSQL, persistent
-C++ Worker, and React inspection platform lives entirely under [`platform/`](platform/README.md). It supports PDF
-upload, independent backend selection per Run, live stage events, and intermediate/final artifact inspection without
-adding Python, Redis, or Web dependencies to the default engine build.
-
-Use the explicit `platform-release` CMake preset when building its Worker:
+- FastAPI upload and run APIs.
+- Redis Streams job delivery.
+- A persistent C++ worker with stage events.
+- PostgreSQL run metadata.
+- A React interface for backend selection and artifact inspection.
 
 ```bash
 cmake --preset platform-release
@@ -382,14 +126,32 @@ cmake --build --preset platform-release --target document_intelligence_worker --
 docker compose -f platform/deploy/docker-compose.yml up --build
 ```
 
-## Development
+The platform is also early-stage. Pending-job recovery, strict timeout enforcement, cancellation, and atomic retry publication remain roadmap work.
 
-- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Bug reports and contribution proposals: [GitHub Issues](https://github.com/ChNanAn/technical-doc-parser/issues)
-- Dependency setup notes: [docs/dependencies.md](docs/dependencies.md)
-- Commit message convention: [docs/commit-convention.md](docs/commit-convention.md)
-- Development plan: [docs/roadmap.md](docs/roadmap.md)
+## Project Status
+
+The end-to-end pipeline is running. The current focus is:
+
+1. A stable, versioned, traceable document contract.
+2. Recoverable and idempotent worker execution.
+3. End-to-end evaluation on representative technical documents.
+4. OCR, reading order, document assembly, and source-grounded RAG output.
+5. A reusable `DocumentEngine` C++ SDK facade and model-session reuse.
+
+Additional input formats, more interchangeable models, multi-tenant SaaS features, and large-scale orchestration are not current priorities.
+
+## Get Started and Resources
+
+- [Roadmap](docs/roadmap.md)
+- [Dependency Setup](docs/dependencies.md)
+- [Evaluation](docs/evaluation.md)
+- [Text Model](docs/text-model.md)
+- [Optional Platform](platform/README.md)
+- [Contribution Guide](CONTRIBUTING.md)
+- [GitHub Issues](https://github.com/ChNanAn/technical-doc-parser/issues)
+
+Contributions are welcome. Small, focused changes with reproducible fixtures, tests, and measurable evidence are preferred over broad rewrites or unmeasured backend additions.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+Licensed under the [MIT License](LICENSE).

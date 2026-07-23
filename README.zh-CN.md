@@ -2,32 +2,73 @@
 
 [English](README.md)
 
-Document Intelligence Engine 是一个面向 C++ 原生部署、backend-agnostic 的文档智能引擎。
+一个 C++ 原生、后端无关的文档智能引擎，面向结构化文档解析，当前优先处理技术文档和表格密集型 PDF。
 
-它的目标不是再做一个以模型效果为中心的“PDF 转 Markdown 应用”，而是沉淀文档解析背后的工程基础设施：统一的数据模型、稳定的 Pipeline 边界、可插拔的后端适配、可追溯的中间产物、可复现的 C++ 构建，以及适合被业务系统嵌入的 SDK 内核。
+项目通过类型化、可替换的 Backend 接口组合原生文本提取、OCR、版面分析、阅读顺序、表格结构识别和文档组装，输出 JSON、Markdown、HTML、页面图像及可选调试产物，供下游业务系统使用。
 
-OCR、版面分析、表格识别、ONNX 模型、视觉大模型、外部解析器都应该被视为可替换能力。项目真正长期稳定的部分，是把这些能力的输出归一化为统一的文档模型，并通过可测试、可调试、可扩展的流水线持续加工。
+> 这是一个已经能够运行和评测的早期引擎，还不是成熟的企业级文档产品。当前公开 Benchmark 主要用于回归保护，不应被理解为生产准确率结论。
 
-技术文档和表格密集型 PDF 是当前第一阶段的主战场。它们能逼出真实的工程需求：页码、坐标、章节层级、表格结构、参数/数值/单位关系、置信度、调试产物，以及面向 RAG 和业务系统的结构化输出。
+## 为什么做这个项目
 
-## 项目目标
+- **C++ 原生**：面向离线、私有化和嵌入式部署。
+- **后端无关**：PDF、OCR、Layout、Table 提供方可以演进，不需要重写 Pipeline。
+- **结构化输出**：文本、版面块、表格、阅读顺序、页码、bbox 和置信度进入统一类型模型。
+- **可检查、可评测**：中间产物、公开 Fixture、指标、冒烟测试和 CI 都是引擎的一部分。
+- **面向 SDK 演进**：当前提供 CLI，稳定 C++ Library/SDK facade 仍在路线图中。
 
-构建一个生产导向的 C++ 文档解析引擎，能够：
+## Pipeline
 
-- 通过后端适配器打开和渲染文档。
-- 将 PDF 文本层、OCR 结果、版面块、表格结构和模型输出归一化为统一的内部模型。
-- 通过分阶段、可检查的 Pipeline 组合这些模型。
-- 输出稳定的 JSON/Markdown，供下游系统消费。
-- 保留页码、bbox、来源后端、置信度和 debug artifacts，保证结果可追溯。
-- 先支持 CLI，长期形成稳定的 C++ SDK/library 边界。
-
-当前 CLI 形态：
-
-```bash
-document_intelligence_engine input.pdf --out output/
+```text
+Document
+  -> Render
+  -> Native Text / OCR
+  -> Layout
+  -> Table Structure
+  -> Reading Order
+  -> Document Assembly
+  -> JSON / Markdown / HTML
 ```
 
-输出目录示例：
+当前 Backend 包括：
+
+- PDFium：PDF 访问、页面渲染和原生文本提取。
+- PaddleOCR ONNX、Tesseract：OCR。
+- RF-DETR DocLayNet、Paddle PP-DocLayoutV3 和确定性的 Text Layout fallback。
+- Table Transformer 和确定性的 Text Table fallback。
+- Docling-like Reading Order baseline。
+
+模型和提供方都是适配器。项目希望长期稳定的是归一化文档模型和分阶段 Pipeline。
+
+## 快速开始
+
+参考环境为 Ubuntu 24.04。先安装系统依赖，再使用 Release Preset 构建：
+
+```bash
+bash scripts/setup_ubuntu_dependencies.sh
+cmake --preset core-release
+cmake --build --preset core-release --parallel
+ctest --preset core-release
+```
+
+配置期间会在缺失时下载并校验 PDFium、ONNX Runtime 和固定版本的 baseline 模型。自定义路径、关闭自动下载和轻量构建方式见[依赖说明](docs/dependencies.md)。
+
+解析文档：
+
+```bash
+./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/
+```
+
+可以显式选择 Backend，也可以使用版本化 Registry 配置：
+
+```bash
+./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/ \
+  --ocr-backend auto \
+  --layout-backend auto \
+  --table-backend auto \
+  --backend-config config/backends.json
+```
+
+## 输出
 
 ```text
 output/
@@ -37,337 +78,47 @@ output/
   pages/
     page_1.png
     page_2.png
-  debug/
+  debug/                 # 使用 --debug 时生成
 ```
 
-目标 JSON 形态示例：
+普通 JSON 输出包含组装后的文档块和页面产物。启用 `--debug` 后，还会包含归一化文本、Layout Blocks、Reading Order、表格结构和图像预处理产物。
 
 ```json
 {
-  "pages": [
+  "source": {"path": "input.pdf", "type": "pdf"},
+  "render": {"dpi": 200},
+  "blocks": [
     {
-      "page": 1,
-      "blocks": [
-        {
-          "type": "title",
-          "text": "Technical Specification",
-          "bbox": [80, 40, 700, 90]
-        },
-        {
-          "type": "table",
-          "bbox": [90, 180, 760, 520],
-          "data": [
-            ["Parameter", "Value", "Unit"],
-            ["Pressure", "1.6", "MPa"]
-          ]
-        }
-      ]
+      "id": "doc_page_1_block_1",
+      "type": "paragraph",
+      "page_number": 1,
+      "bbox": {"x0": 84.0, "y0": 132.0, "x1": 742.0, "y1": 168.0},
+      "confidence": 0.92,
+      "text": "Technical specification"
     }
   ]
 }
 ```
 
-## 项目范围
+版本化公共文档契约、完整 Backend provenance 和带来源引用的 RAG Chunk Schema 正在为第一个稳定 API 版本设计。
 
-这个项目优先做基础设施，而不是优先堆模型能力。
+## 评测
 
-- **核心引擎**：C++17/CMake、原生依赖 RAII 封装、稳定领域模型、Pipeline 编排、导出契约、测试和 CI。
-- **后端适配**：PDFium、OCR 引擎、Layout/Table 模型、ONNX Runtime、视觉大模型、外部文档解析器都可以通过窄接口接入。
-- **第一阶段场景**：技术文档和表格密集型 PDF，包括规格书、参数表、检测报告、标准、手册和结构化表格文档。
-- **可复现评估**：优先使用公开数据集和小规模精选技术文档样例，而不是一开始依赖大规模私有行业数据。
+仓库包含可再分发的 OCR、Layout 和 Table Fixture，以及与具体 Backend 无关的 Evaluator。完整模型构建包含真实 PaddleOCR、DocLayNet、Paddle Layout 和 Table Transformer 推理回归。
 
-模型微调是后续选项，不是项目中心。当前最重要的是让解析流水线可靠、可扩展、可测试、可部署。
+已提交的模型评测集规模有意保持较小，主要用于防止预处理、推理、标签映射和后处理发生回退；项目仍需要更广泛的技术文档验证。
 
-## 项目价值
+数据集、指标、运行命令和当前限制见[评测说明](docs/evaluation.md)与 [Benchmark 指南](tests/benchmark/README.md)。
 
-很多开源文档解析项目更关注最终转换效果：把文档转成 Markdown、HTML、JSON 或适合大模型/RAG 的 chunks。Document Intelligence Engine 更关注底层解析引擎本身，让这些输出在 C++ 应用里稳定、可控、可扩展。
+## 可选检查平台
 
-项目应该优先沉淀：
+默认交付物仍然是独立 C++ 引擎。[`platform/`](platform/README.md) 下的可选平台提供：
 
-- **统一文档模型**：PDF 文本、OCR 文本、版面块、表格、阅读顺序、来源引用和最终文档结构，都进入同一套 typed model。
-- **后端无关**：PDFium、OCR、Layout Detector、Table Recognizer、外部 Parser、VLM 都应该可替换，不应绑死 Pipeline。
-- **C++ 原生部署**：核心能力可以作为 CLI、library 和未来 SDK，在私有化、离线、嵌入式场景中使用。
-- **结果可追溯**：每个抽取结果都应该能回到页码、bbox、来源后端、置信度和 debug artifact。
-- **工程质量**：可复现构建、清晰模块边界、RAII 所有权、单元测试、冒烟测试、稳定 schema 和 CI，与模型效果同等重要。
-- **技术文档深度**：技术/表格文档是第一阶段 benchmark，因为它们天然要求坐标、表格结构、章节层级、单位和结构化抽取。
-
-## 非目标
-
-这个项目不应该正面竞争成一个大而全的模型型文档解析平台。
-
-它不追求：
-
-- 替代成熟的终端用户文档解析应用。
-- 自己拥有所有 OCR、Layout、Table、VLM 模型。
-- 成为 Python-first 的训练框架。
-- 把 Markdown 转换当作唯一核心产品。
-- 把所有中间决策隐藏在不可解释的模型黑盒里。
-
-更合理的方向是：可以消费这些模型或应用的输出，通过 adapter 归一化到统一模型，再提供稳定的 C++ 文档解析引擎给下游产品使用。
-
-## Pipeline 边界
-
-解析器按阶段组织。每个阶段只承担窄职责，并通过 typed intermediate data 传递给下一阶段。具体实现可以演进，但阶段边界应保持稳定。
-
-Pipeline 应该保持 backend-agnostic。PDFium、OCR 引擎、Layout 模型、Table 模型、外部 Parser 和 VLM 服务，都通过 adapter 进入系统，并归一化为同一套 document model。
-
-```text
-document input
-  -> source ingestion
-  -> page rendering / page artifacts
-  -> text extraction
-  -> layout analysis
-  -> table structure recovery
-  -> document assembly
-  -> export / SDK result
-```
-
-### 阶段职责
-
-**Source ingestion**
-
-负责文档源初始化和文档访问。当前实现通过 PDFium 打开 PDF，管理 PDFium 生命周期，读取页数和页级元数据，并把 PDFium 资源管理细节隔离在 PDFium source 模块内部。未来可以增加其他文档格式或外部解析器输出适配器。
-
-**Page rendering**
-
-将页面渲染为图像和页面 artifact。它不做 OCR、不做版面分析、不做表格重建。
-
-当前输出：
-
-```text
-pages/page_1.png
-pages/page_2.png
-```
-
-**Text extraction**
-
-提供统一文本提取接口。Pipeline 应该调用一个 text extraction stage，而不是在业务层直接判断 PDFium、OCR 或其他模型。
-
-当前策略：
-
-```text
-if PDF text layer is complete and usable:
-  use PDF text layer
-else if PDF text layer is usable but sparse:
-  merge non-overlapping OCR lines by coordinates
-else:
-  use OCR
-```
-
-PDF 文本层和 OCR 都必须归一化到相同的内部文本模型：
-
-```text
-TextSpan -> TextLine -> PageText
-```
-
-这个阶段只提供文本、坐标、置信度和来源信息，不判断标题、段落、表格或图片语义。
-
-**Layout analysis**
-
-将页面区域分类为语义块，例如：
-
-```text
-title
-text
-table
-figure
-header
-footer
-```
-
-Layout 消费页面图像和归一化文本，输出带 bbox 和 confidence 的 layout blocks。它不负责重建表格单元格，也不负责导出 Markdown。
-
-**Table structure recovery**
-
-消费 table layout block 以及落在表格区域内的文本 token，负责恢复行、列、单元格、合并单元格和表格阅读顺序。
-
-它不应该关心文本来自 PDF text layer 还是 OCR，只消费归一化后的文本和坐标。
-
-**Document assembly**
-
-组合 layout blocks、text tokens、table structures、page metadata 和 reading order，生成结构化文档树。
-
-这是第一个创建面向用户文档结构的阶段：
-
-```text
-pages
-  blocks
-    title/text/table/figure
-```
-
-**Export / SDK result**
-
-负责输出最终给消费者使用的结果：
-
-```text
-document.json
-document.md
-```
-
-普通输出不应默认暴露原始中间数据。`PageText`、OCR boxes、layout proposals、table debug cells 等中间信息应该只在 debug 模式或显式诊断输出中保留。
-
-## 中间数据策略
-
-中间模型用于阶段之间通信，不是公开输出契约。
-
-例如：
-
-```text
-PageText      text extraction -> layout/table
-LayoutBlock   layout -> document assembly/table
-TableCell     table recovery -> document assembly/export
-```
-
-普通输出应该是 assembled document result。debug 输出可以包含中间数据，用于检查、调试和回归测试。
-
-## 模块布局
-
-规划中的模块布局：
-
-```text
-cpp/
-  app/          CLI entrypoint
-  pipeline/     Pipeline 编排和 stage interfaces
-  document/     共享内部文档模型
-  document_source/
-    pdf/        PDF source facade，负责文档访问、渲染、文本提取
-      pdfium/   PDFium-specific adapter 和 native 资源管理
-  image/        OpenCV preprocessing
-  ocr/          OCR adapters and text normalization
-  layout/       Layout block detection
-  table/        Table structure recovery
-  inference/    ONNX Runtime inference wrappers
-  export/       JSON and Markdown writers
-
-python/
-  ocr_train/     OCR experiments and fine-tuning
-  layout_train/  Layout model training
-  export_onnx/   Model export scripts
-
-data/          Dataset adapters and small samples
-models/        Local model files, not committed
-docs/          Design notes and evaluation reports
-docker/        Deployment assets
-tests/         Unit and integration tests
-```
-
-## 公开数据集
-
-项目应尽量围绕公开数据集构建，保证工作可复现：
-
-- [DocLayNet](https://github.com/DS4SD/DocLayNet)：版面检测数据集，覆盖 manuals、patents、tenders、financial reports、laws、scientific articles 等文档类别。
-- [PubTables-1M](https://github.com/microsoft/table-transformer)：大规模表格检测和表格结构识别数据集。
-- [FUNSD](https://guillaumejaume.github.io/FUNSD/)：小规模扫描表单理解数据集，可用于 OCR、实体和关系实验。
-
-Demo 和针对性评估可以使用一小组公开技术 PDF。
-
-默认 OCR baseline 是 PaddleOCR ONNX。Layout 提供两个真实 ONNX 后端：基于 DocLayNet 训练的 RF-DETR 和
-Paddle PP-DocLayoutV3。现有评测会计算分层 FUNSD OCR 指标和按类别匹配的 DocLayNet Layout F1，见
-[docs/evaluation.md](docs/evaluation.md)。
-
-### Layout 基线对比
-
-两个后端使用仓库内同一组 5 页 DocLayNet 图片测试，采用按类别一对一匹配和 IoU `0.5`；两个模型均使用
-官方预处理和 `0.5` 置信度阈值。以下数字用于持续回归，不是生产模型排名：
-
-| 后端 | 评测标签体系 | Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| RF-DETR DocLayNet | 原生 DocLayNet 11 类 | 0.880 | 0.682 | 0.769 | 0.839 | 0.873 |
-| Paddle PP-DocLayoutV3 | Paddle 25 类映射到 DocLayNet | 0.479 | 0.523 | 0.500 | 0.590 | 0.826 |
-
-RF-DETR 在这项测试上更合适，因为它原生使用 DocLayNet 标签。Paddle 没有 `List-item` 等价类，因此映射后
-无法命中这个子集中的 47 个 list 真值，list recall 为 `0`。这不能推导出 Paddle 在中文文档、拍照/曲面
-页面或它面向的其他场景中更差。5 页小集合只用于防止推理、预处理、标签映射和后处理发生回归。
-
-可以一次运行两个真实模型基准：
-
-```bash
-ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)$' --output-on-failure
-```
-
-## 路线图
-
-当前实现已经跑通端到端引擎骨架，但 OCR/Layout/Table 还不是完成态智能能力。最新路线图见 [docs/roadmap.md](docs/roadmap.md)，覆盖 OCR、layout analysis、table understanding、reading order、document assembly、RAG output、model backends、evaluation 和 performance。
-
-## 当前状态
-
-项目仍处于早期实现阶段。当前已经具备 C++17/CMake CLI、pinned PDFium setup、backend-separated PDF access、页面渲染、内部文本模型、PDF text layer 提取、OpenCV 图像预处理、默认 PaddleOCR ONNX baseline、可选 Tesseract OCR fallback、可评测的 DocLayNet RF-DETR 与 Paddle PP-DocLayoutV3 ONNX Layout 后端和链式规则降级、多栏阅读顺序、caption 关联、重复页眉页脚清理、可评测的 Table Transformer 区域与结构识别、合并/跨页表格元数据、JSON/Markdown/HTML 输出和主流程回归测试。
-
-当前 pipeline 骨架已经跑通：
-
-```text
-PDF -> Render -> Text/OCR -> Layout -> Table -> Reading Order -> Assembly -> JSON/Markdown/HTML
-```
-
-OCR、layout analysis、reading order、table recognition 已经具备可评测 baseline。达到生产标准前仍需扩充多语言、无框、拍照和跨页数据集。
-
-### Table 结构基线
-
-固定版本的 Table Transformer 后端先检测表格区域，再识别 row、column、header 和 spanning cell。在仓库内
-5 张 PubTables-1M 图片上，以 IoU `0.5` 匹配全部 130 个标注对象：
-
-| Precision | Recall | Micro F1 | Macro F1 | Mean IoU |
-| ---: | ---: | ---: | ---: | ---: |
-| 1.000 | 1.000 | 1.000 | 1.000 | 0.9746 |
-
-这是同分布小集合的持续回归结果，不代表生产准确率。运行方式：
-`bash scripts/setup_table_transformer.sh`，然后执行
-`ctest --test-dir build -R pubtables_table_benchmark --output-on-failure`。
-
-## 构建
-
-配置和编译：
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release --target document_intelligence_engine --parallel
-./build/cpp/app/document_intelligence_engine input.pdf --out output/
-```
-
-可以显式选择各阶段 backend，同时保持统一 pipeline 输出契约：
-
-```bash
-./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
-  --document-backend pdf \
-  --ocr-backend auto \
-  --layout-backend auto \
-  --table-backend auto
-```
-
-`auto` 选择由类型安全的 backend registry 驱动，无需重新编译即可调整优先级：
-
-```bash
-./build/cpp/app/document_intelligence_engine input.pdf --out output/ \
-  --backend-config config/backends.json
-```
-
-版本化 JSON 配置控制各自动阶段的候选顺序：
-
-```json
-{
-  "version": 1,
-  "auto_order": {
-    "document": ["pdf"],
-    "ocr": ["paddle", "tesseract"],
-    "layout": ["doclaynet", "paddle-layout", "text"],
-    "table": ["table-transformer", "text"]
-  }
-}
-```
-
-配置只能引用已经编译并注册的 backend。未知名称、重复项、空链、错误 schema 和不支持的版本会在服务
-配置阶段直接失败。显式指定 `--ocr-backend`、`--layout-backend` 或 `--table-backend` 时仍采用严格模式，
-不会静默降级。也可以通过 `DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG` 指定同一配置文件。
-
-PDFium 缺失时会在 CMake configure 阶段自动下载。固定版本会安装到 `third_party/pdfium`，该目录不会提交到 git。
-
-## 可选解析工作台
-
-默认交付物仍是独立 C++ 引擎。可选的 FastAPI、Redis Streams、PostgreSQL、常驻 C++ Worker 和 React
-工作台全部位于 [`platform/`](platform/README.md)，支持上传 PDF、为每个 Run 独立组合后端、实时查看
-Stage 事件和中间/最终产物，同时不会给默认引擎构建引入 Python、Redis 或 Web 依赖。
-
-只有构建平台 Worker 时才使用显式的 `platform-release` preset：
+- FastAPI 文档上传和 Run API。
+- Redis Streams 任务投递。
+- 带 Stage Event 的常驻 C++ Worker。
+- PostgreSQL Run 元数据。
+- 用于选择 Backend 和检查 Artifact 的 React 界面。
 
 ```bash
 cmake --preset platform-release
@@ -375,19 +126,31 @@ cmake --build --preset platform-release --target document_intelligence_worker --
 docker compose -f platform/deploy/docker-compose.yml up --build
 ```
 
-如果本机没有 OpenCV，可以关闭图像预处理：
+平台同样处于早期阶段。Pending Job 恢复、严格超时、任务取消和重试原子发布仍属于路线图工作。
 
-```bash
-cmake -S . -B build -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_OPENCV=OFF
-```
+## 当前状态
 
-## 开发文档
+端到端 Pipeline 已经运行。当前重点是：
 
-- 中文贡献指南：[docs/community/contributing.zh-CN.md](docs/community/contributing.zh-CN.md)
-- Bug 报告和贡献提案：[GitHub Issues](https://github.com/ChNanAn/technical-doc-parser/issues)
-- Dependency setup notes: [docs/dependencies.md](docs/dependencies.md)
-- Commit message convention: [docs/commit-convention.md](docs/commit-convention.md)
-- Development plan: [docs/roadmap.md](docs/roadmap.md)
+1. 稳定、版本化、可追溯的文档契约。
+2. 可恢复、幂等的 Worker 执行。
+3. 面向代表性技术文档的端到端评测。
+4. OCR、Reading Order、Document Assembly 和带来源引用的 RAG 输出。
+5. 可复用的 `DocumentEngine` C++ SDK facade 和模型 Session 复用。
+
+更多输入格式、继续增加同类模型、多租户 SaaS 和大规模编排暂时不是当前优先级。
+
+## 开始使用与相关资源
+
+- [Roadmap](docs/roadmap.md)
+- [依赖说明](docs/dependencies.md)
+- [评测说明](docs/evaluation.md)
+- [文本模型](docs/text-model.md)
+- [可选平台](platform/README.md)
+- [贡献指南](docs/community/contributing.zh-CN.md)
+- [GitHub Issues](https://github.com/ChNanAn/technical-doc-parser/issues)
+
+欢迎参与贡献。相比大范围重写或没有评测的新 Backend，项目更欢迎范围清晰、带可复现 Fixture、测试和指标证据的改进。
 
 ## License
 

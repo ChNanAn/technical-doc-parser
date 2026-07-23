@@ -1,0 +1,50 @@
+name: Contribution proposal
+description: Propose a scoped task you are willing to help implement
+title: "[Proposal]: "
+labels: ["status:needs-design"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user-visible or measurable problem, not only a preferred library or model.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and acceptance metric
+      description: Provide a public fixture, failing test, benchmark, or clearly observable acceptance condition.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: What will this contribution change, and what will it intentionally leave out?
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Suggested design
+      description: Mention affected interfaces/modules and compatibility considerations.
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you willing to implement it?
+      options:
+        - Yes, after design agreement
+        - Yes, with mentoring
+        - No, this is a design discussion
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Project boundaries
+      options:
+        - label: I understand that new backends require reproducible evaluation and dependency/license documentation.
+          required: true
+        - label: I understand that maintainers may defer work outside the current roadmap.
+          required: true

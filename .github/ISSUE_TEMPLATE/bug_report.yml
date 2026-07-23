@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible engine, backend, evaluation, or platform defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please remove confidential information and use a redistributable minimal document whenever possible.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core pipeline
+        - PDF/rendering
+        - OCR
+        - Layout
+        - Table
+        - Reading order/assembly/export
+        - Evaluation
+        - Platform API/Worker/Web
+        - Build/dependencies
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include the exact error, wrong output, or metric regression.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include commands, backend selections, configuration, and the smallest permitted fixture.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, compiler, CMake, commit, CPU/GPU, Execution Provider, model/profile versions.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and diagnostic output
+      render: shell
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Data safety
+      options:
+        - label: I have removed confidential information and may legally share any attached document or annotation.
+          required: true

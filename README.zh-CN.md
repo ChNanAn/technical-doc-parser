@@ -383,6 +383,8 @@ cmake -S . -B build -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_OPENCV=OFF
 
 ## 开发文档
 
+- 中文贡献指南：[docs/community/contributing.zh-CN.md](docs/community/contributing.zh-CN.md)
+- Bug 报告和贡献提案：[GitHub Issues](https://github.com/ChNanAn/technical-doc-parser/issues)
 - Dependency setup notes: [docs/dependencies.md](docs/dependencies.md)
 - Commit message convention: [docs/commit-convention.md](docs/commit-convention.md)
 - Development plan: [docs/roadmap.md](docs/roadmap.md)

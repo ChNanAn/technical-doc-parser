@@ -384,6 +384,8 @@ docker compose -f platform/deploy/docker-compose.yml up --build
 
 ## Development
 
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Bug reports and contribution proposals: [GitHub Issues](https://github.com/ChNanAn/technical-doc-parser/issues)
 - Dependency setup notes: [docs/dependencies.md](docs/dependencies.md)
 - Commit message convention: [docs/commit-convention.md](docs/commit-convention.md)
 - Development plan: [docs/roadmap.md](docs/roadmap.md)

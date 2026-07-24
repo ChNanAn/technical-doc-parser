@@ -100,7 +100,7 @@ output/
 }
 ```
 
-版本化公共文档契约、完整 Backend provenance 和带来源引用的 RAG Chunk Schema 正在为第一个稳定 API 版本设计。
+第一版公共文档契约已提供 release candidate：[Document Contract v1](docs/document-contract-v1.zh-CN.md)。它只冻结可扩展输出外壳和坐标语义，实际结果质量由独立的三层评测持续约束；现有 exporter 尚未迁移到它。
 
 ## 评测
 
@@ -108,7 +108,7 @@ output/
 
 已提交的模型评测集规模有意保持较小，主要用于防止预处理、推理、标签映射和后处理发生回退；项目仍需要更广泛的技术文档验证。
 
-数据集、指标、运行命令和当前限制见[评测说明](docs/evaluation.md)与 [Benchmark 指南](tests/benchmark/README.md)。
+数据集、指标、运行命令和当前限制见[评测说明](docs/evaluation.zh-CN.md)与 [Benchmark 指南](tests/benchmark/README.md)。
 
 ## 可选检查平台
 
@@ -144,7 +144,9 @@ docker compose -f platform/deploy/docker-compose.yml up --build
 
 - [Roadmap](docs/roadmap.md)
 - [依赖说明](docs/dependencies.md)
-- [评测说明](docs/evaluation.md)
+- [评测说明](docs/evaluation.zh-CN.md)
+- [Document Contract v1](docs/document-contract-v1.zh-CN.md)
+- [Quality Report v1](schemas/quality-report.v1.schema.json)
 - [文本模型](docs/text-model.md)
 - [可选平台](platform/README.md)
 - [贡献指南](docs/community/contributing.zh-CN.md)

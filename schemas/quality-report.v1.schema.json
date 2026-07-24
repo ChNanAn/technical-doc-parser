@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ChNanAn/technical-doc-parser/schemas/quality-report.v1.schema.json",
+  "title": "Document Engine Quality Report v1",
+  "description": "A traceable report for backend, pipeline, and product quality metrics.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_version",
+    "report_id",
+    "generated_at",
+    "status",
+    "subject",
+    "corpus",
+    "layers"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://github.com/ChNanAn/technical-doc-parser/schemas/quality-report.v1.schema.json"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "report_id": {
+      "$ref": "#/$defs/id"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": ["passed", "failed", "incomplete"]
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "corpus": {
+      "$ref": "#/$defs/corpus"
+    },
+    "layers": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "backend": {
+          "$ref": "#/$defs/metricSet"
+        },
+        "pipeline": {
+          "$ref": "#/$defs/metricSet"
+        },
+        "product": {
+          "$ref": "#/$defs/metricSet"
+        }
+      },
+      "additionalProperties": false
+    },
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "report_id": {
+          "$ref": "#/$defs/id"
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "subject": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_revision": {
+          "type": "string",
+          "minLength": 7
+        },
+        "configuration_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "configuration_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": true
+    },
+    "corpus": {
+      "type": "object",
+      "required": ["name", "version", "sample_count"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "split": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": true
+    },
+    "threshold": {
+      "type": "object",
+      "required": ["operator", "value"],
+      "properties": {
+        "operator": {
+          "enum": ["gte", "lte", "eq"]
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metric": {
+      "type": "object",
+      "required": ["name", "value", "unit", "direction"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "enum": ["higher_is_better", "lower_is_better", "target"]
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "numerator": {
+          "type": "number"
+        },
+        "denominator": {
+          "type": "number",
+          "minimum": 0
+        },
+        "threshold": {
+          "$ref": "#/$defs/threshold"
+        },
+        "description": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "metricSet": {
+      "type": "object",
+      "required": ["metrics"],
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["name", "uri"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 3
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -100,7 +100,7 @@ The normal JSON output contains assembled document blocks and page artifacts. `-
 }
 ```
 
-The versioned public document contract, complete backend provenance, and source-grounded RAG chunk schema are being designed for the first stable API release.
+The first public document contract is available as a release candidate: [Document Contract v1](docs/document-contract-v1.md). It freezes an extensible result envelope and coordinate semantics; actual output quality is governed separately by three-layer evaluation. The existing exporter has not migrated to it yet.
 
 ## Evaluation
 
@@ -145,6 +145,8 @@ Additional input formats, more interchangeable models, multi-tenant SaaS feature
 - [Roadmap](docs/roadmap.md)
 - [Dependency Setup](docs/dependencies.md)
 - [Evaluation](docs/evaluation.md)
+- [Document Contract v1](docs/document-contract-v1.md)
+- [Quality Report v1](schemas/quality-report.v1.schema.json)
 - [Text Model](docs/text-model.md)
 - [Optional Platform](platform/README.md)
 - [Contribution Guide](CONTRIBUTING.md)

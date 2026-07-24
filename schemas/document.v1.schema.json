@@ -1,0 +1,466 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json",
+  "title": "Technical Document Result v1",
+  "description": "A stable, extensible envelope for consumer-facing document results. Quality requirements are defined by evaluation reports, not by making every inferred field mandatory.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_version",
+    "document_id",
+    "status",
+    "source",
+    "producer",
+    "coordinate_space",
+    "pages",
+    "blocks",
+    "warnings"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "document_id": {
+      "$ref": "#/$defs/id"
+    },
+    "status": {
+      "enum": ["complete", "partial"]
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "coordinate_space": {
+      "$ref": "#/$defs/coordinateSpace"
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    },
+    "blocks": {
+      "description": "Final document blocks in reading order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/block"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/warning"
+      }
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "extensions": {
+      "description": "Namespaced experimental or provider-specific output.",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {"const": "partial"}
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "warnings": {"minItems": 1}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "required": ["media_type"],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^[^/\\\\]+$"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 3,
+          "pattern": "^[^/\\s]+/[^/\\s]+$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": true
+    },
+    "producer": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_revision": {
+          "type": "string",
+          "minLength": 7
+        },
+        "run_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "additionalProperties": true
+    },
+    "coordinateSpace": {
+      "type": "object",
+      "required": ["unit", "origin", "bbox_format"],
+      "properties": {
+        "unit": {
+          "const": "pixel"
+        },
+        "origin": {
+          "const": "top_left"
+        },
+        "bbox_format": {
+          "const": "xyxy"
+        }
+      },
+      "additionalProperties": true
+    },
+    "bbox": {
+      "description": "Page-local [x0, y0, x1, y1] coordinates in the declared coordinate space.",
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {"type": "number", "minimum": 0},
+        {"type": "number", "minimum": 0},
+        {"type": "number", "minimum": 0},
+        {"type": "number", "minimum": 0}
+      ],
+      "items": false
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 3
+        }
+      },
+      "additionalProperties": true
+    },
+    "page": {
+      "type": "object",
+      "required": ["id", "number", "width", "height"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotation_degrees": {
+          "type": "number"
+        },
+        "image": {
+          "$ref": "#/$defs/artifact"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "score": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": ["page_id"],
+      "properties": {
+        "page_id": {
+          "$ref": "#/$defs/id"
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "text": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tableCell": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "row_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "row_span": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "column_span": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "is_header": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "score": {
+          "$ref": "#/$defs/score"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceRef"
+          }
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tableRow": {
+      "type": "object",
+      "required": ["cells"],
+      "properties": {
+        "row_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "is_header": {
+          "type": "boolean"
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tableCell"
+          }
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "table": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tableRow"
+          }
+        },
+        "continuation_group_id": {
+          "$ref": "#/$defs/id"
+        },
+        "continues_from_previous_page": {
+          "type": "boolean"
+        },
+        "continues_on_next_page": {
+          "type": "boolean"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "block": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "description": "Open vocabulary. Consumers must tolerate unfamiliar values.",
+          "type": "string",
+          "minLength": 1
+        },
+        "page_id": {
+          "$ref": "#/$defs/id"
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "text": {
+          "type": "string"
+        },
+        "score": {
+          "$ref": "#/$defs/score"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceRef"
+          }
+        },
+        "table": {
+          "$ref": "#/$defs/table"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "dependentRequired": {
+        "bbox": ["page_id"]
+      },
+      "additionalProperties": true
+    },
+    "relation": {
+      "type": "object",
+      "required": ["type", "from_block_id", "to_block_id"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "description": "Open relationship vocabulary.",
+          "type": "string",
+          "minLength": 1
+        },
+        "from_block_id": {
+          "$ref": "#/$defs/id"
+        },
+        "to_block_id": {
+          "$ref": "#/$defs/id"
+        },
+        "score": {
+          "$ref": "#/$defs/score"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "warning": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "page_id": {
+          "$ref": "#/$defs/id"
+        },
+        "block_id": {
+          "$ref": "#/$defs/id"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

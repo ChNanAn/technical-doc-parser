@@ -1,0 +1,142 @@
+{
+  "$schema": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json",
+  "schema_version": 1,
+  "document_id": "doc_7ad8c8f2",
+  "status": "complete",
+  "source": {
+    "filename": "pump-specification.pdf",
+    "media_type": "application/pdf",
+    "size_bytes": 482731,
+    "sha256": "7ad8c8f2f7e54e2a7ad8c8f2f7e54e2a7ad8c8f2f7e54e2a7ad8c8f2f7e54e2a"
+  },
+  "producer": {
+    "name": "technical-doc-parser",
+    "version": "0.1.0",
+    "git_revision": "0123456789abcdef0123456789abcdef01234567",
+    "run_id": "run_example"
+  },
+  "coordinate_space": {
+    "unit": "pixel",
+    "origin": "top_left",
+    "bbox_format": "xyxy",
+    "dpi": 200
+  },
+  "pages": [
+    {
+      "id": "page_1",
+      "number": 1,
+      "width": 1654,
+      "height": 2339,
+      "image": {
+        "id": "page_image_1",
+        "uri": "pages/page_1.png",
+        "media_type": "image/png"
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "id": "block_heading_1",
+      "type": "heading",
+      "page_id": "page_1",
+      "bbox": [110, 120, 910, 186],
+      "text": "3.2 Technical parameters",
+      "score": {
+        "value": 0.94,
+        "kind": "model_score"
+      },
+      "source_refs": [
+        {
+          "page_id": "page_1",
+          "bbox": [110, 120, 910, 186],
+          "kind": "pdf_text_layer"
+        }
+      ],
+      "metadata": {
+        "heading_level": 2
+      }
+    },
+    {
+      "id": "block_paragraph_1",
+      "type": "paragraph",
+      "page_id": "page_1",
+      "bbox": [110, 220, 1510, 310],
+      "text": "The pump shall operate within the following rated conditions."
+    },
+    {
+      "id": "block_table_1",
+      "type": "table",
+      "page_id": "page_1",
+      "bbox": [110, 370, 1510, 620],
+      "text": "Parameter\tValue\tUnit\nPressure\t1.6\tMPa",
+      "table": {
+        "id": "table_1",
+        "rows": [
+          {
+            "row_index": 0,
+            "is_header": true,
+            "cells": [
+              {
+                "row_index": 0,
+                "column_index": 0,
+                "is_header": true,
+                "text": "Parameter",
+                "bbox": [110, 370, 700, 430]
+              },
+              {
+                "row_index": 0,
+                "column_index": 1,
+                "is_header": true,
+                "text": "Value",
+                "bbox": [700, 370, 1120, 430]
+              },
+              {
+                "row_index": 0,
+                "column_index": 2,
+                "is_header": true,
+                "text": "Unit",
+                "bbox": [1120, 370, 1510, 430]
+              }
+            ]
+          },
+          {
+            "row_index": 1,
+            "cells": [
+              {
+                "row_index": 1,
+                "column_index": 0,
+                "text": "Pressure",
+                "bbox": [110, 430, 700, 490]
+              },
+              {
+                "row_index": 1,
+                "column_index": 1,
+                "text": "1.6",
+                "bbox": [700, 430, 1120, 490]
+              },
+              {
+                "row_index": 1,
+                "column_index": 2,
+                "text": "MPa",
+                "bbox": [1120, 430, 1510, 490]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "relations": [],
+  "warnings": [],
+  "metadata": {
+    "language": "en"
+  },
+  "extensions": {
+    "org.technical-doc-parser": {
+      "requested_backends": {
+        "layout": "auto",
+        "table": "auto"
+      }
+    }
+  }
+}

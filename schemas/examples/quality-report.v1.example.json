@@ -1,0 +1,140 @@
+{
+  "$schema": "https://github.com/ChNanAn/technical-doc-parser/schemas/quality-report.v1.schema.json",
+  "schema_version": 1,
+  "report_id": "quality_2026_07_24_main",
+  "generated_at": "2026-07-24T08:00:00Z",
+  "status": "incomplete",
+  "subject": {
+    "name": "technical-doc-parser",
+    "version": "0.1.0",
+    "git_revision": "0123456789abcdef0123456789abcdef01234567",
+    "configuration_id": "cpu-default"
+  },
+  "corpus": {
+    "name": "technical-baseline",
+    "version": "v1",
+    "split": "regression",
+    "sample_count": 100,
+    "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "layers": {
+    "backend": {
+      "metrics": [
+        {
+          "name": "ocr_cer",
+          "value": 0.081,
+          "unit": "ratio",
+          "direction": "lower_is_better",
+          "sample_count": 30
+        },
+        {
+          "name": "layout_micro_f1",
+          "value": 0.77,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": 30,
+          "threshold": {
+            "operator": "gte",
+            "value": 0.70
+          }
+        },
+        {
+          "name": "table_structure_micro_f1",
+          "value": 0.95,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": 20
+        }
+      ]
+    },
+    "pipeline": {
+      "metrics": [
+        {
+          "name": "text_completeness",
+          "value": 0.96,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": 100
+        },
+        {
+          "name": "text_duplication_rate",
+          "value": 0.02,
+          "unit": "ratio",
+          "direction": "lower_is_better",
+          "sample_count": 100
+        },
+        {
+          "name": "block_type_micro_f1",
+          "value": 0.84,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": 100
+        },
+        {
+          "name": "reading_order_score",
+          "value": 0.91,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": 100
+        },
+        {
+          "name": "table_text_cer",
+          "value": 0.06,
+          "unit": "ratio",
+          "direction": "lower_is_better",
+          "sample_count": 20
+        }
+      ]
+    },
+    "product": {
+      "metrics": [
+        {
+          "name": "document_success_rate",
+          "value": 0.98,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "numerator": 98,
+          "denominator": 100
+        },
+        {
+          "name": "json_contract_valid_rate",
+          "value": 1.0,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "numerator": 98,
+          "denominator": 98
+        },
+        {
+          "name": "rag_citation_completeness",
+          "value": 0.97,
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": 100
+        },
+        {
+          "name": "latency_ms_per_page_p95",
+          "value": 1840,
+          "unit": "ms/page",
+          "direction": "lower_is_better",
+          "sample_count": 100
+        },
+        {
+          "name": "peak_rss_mib_p95",
+          "value": 1320,
+          "unit": "MiB",
+          "direction": "lower_is_better",
+          "sample_count": 100
+        }
+      ]
+    }
+  },
+  "artifacts": [
+    {
+      "name": "per-document-results",
+      "uri": "reports/quality_2026_07_24_main.items.json",
+      "media_type": "application/json"
+    }
+  ],
+  "metadata": {},
+  "extensions": {}
+}

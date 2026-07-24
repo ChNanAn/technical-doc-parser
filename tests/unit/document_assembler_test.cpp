@@ -132,13 +132,27 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
         artifacts));
 
     EXPECT_EQ(document.source.path, "fixture.pdf");
+    EXPECT_EQ(document.source.filename, "fixture.pdf");
+    EXPECT_EQ(document.source.media_type, "application/pdf");
+    EXPECT_FALSE(document.document_id.empty());
+    EXPECT_EQ(document.producer.name, "technical-doc-parser");
+    EXPECT_EQ(document.producer.version, "0.1.0");
     EXPECT_EQ(document.dpi, 144);
+    ASSERT_EQ(document.pages.size(), 1U);
+    EXPECT_EQ(document.pages[0].id, "page_1");
+    EXPECT_EQ(document.pages[0].number, 1);
+    EXPECT_EQ(document.pages[0].width, 1000.0);
+    EXPECT_EQ(document.pages[0].height, 1400.0);
     ASSERT_EQ(artifacts.pages.size(), 1U);
     ASSERT_EQ(document.blocks.size(), 2U);
 
     EXPECT_EQ(document.blocks[0].type, doc_parser::document::DocumentBlockType::Title);
     EXPECT_EQ(document.blocks[0].text, "Overview");
     EXPECT_EQ(document.blocks[0].page_number, 1);
+    EXPECT_EQ(document.blocks[0].page_id, "page_1");
+    ASSERT_EQ(document.blocks[0].source_refs.size(), 1U);
+    EXPECT_EQ(document.blocks[0].source_refs[0].page_id, "page_1");
+    EXPECT_EQ(document.blocks[0].source_refs[0].source, doc_parser::document::TextSource::PdfTextLayer);
 
     EXPECT_EQ(document.blocks[1].type, doc_parser::document::DocumentBlockType::Table);
     EXPECT_EQ(document.blocks[1].table_id, "page_1_table_1");
@@ -146,6 +160,8 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
     ASSERT_EQ(document.blocks[1].table_rows.size(), 1U);
     ASSERT_EQ(document.blocks[1].table_rows[0].cells.size(), 2U);
     EXPECT_EQ(document.blocks[1].table_rows[0].cells[0].text, "Chapter 1");
+    ASSERT_EQ(document.blocks[1].table_rows[0].cells[0].source_refs.size(), 1U);
+    EXPECT_EQ(document.blocks[1].table_rows[0].cells[0].source_refs[0].page_id, "page_1");
 }
 
 TEST(DocumentAssemblerTest, RejectsMismatchedPageCounts) {
@@ -316,4 +332,8 @@ TEST(DocumentAssemblerTest, TranslatesCaptionRelationToDocumentBlockId) {
     EXPECT_EQ(document.blocks[0].source_label, "Picture");
     EXPECT_EQ(document.blocks[1].source_label, "Caption");
     EXPECT_EQ(document.blocks[1].related_block_id, document.blocks[0].id);
+    ASSERT_EQ(document.relations.size(), 1U);
+    EXPECT_EQ(document.relations[0].type, "caption_of");
+    EXPECT_EQ(document.relations[0].from_block_id, document.blocks[1].id);
+    EXPECT_EQ(document.relations[0].to_block_id, document.blocks[0].id);
 }

@@ -6,8 +6,9 @@ Document v1 是引擎面向下游消费者的结果契约。机器可读 Schema 
 [`schemas/document.v1.schema.json`](../schemas/document.v1.schema.json)，示例位于
 [`schemas/examples/document.v1.example.json`](../schemas/examples/document.v1.example.json)。
 
-当前状态是 release candidate。现有 `document.json` exporter 仍使用旧格式；后续应让公共 C++ 模型和
-exporter 一起迁移，确保 JSON 与未来 SDK 使用同一套语义。
+当前状态是 release candidate。公共 C++ 模型和 `document.json` exporter 已共享 Page、Block、Relation、
+Warning 和 Source Reference 语义；仅用于调试的 Pipeline Artifacts 位于命名空间 `extensions` 字段，不进入
+稳定核心。
 
 ## 核心原则
 
@@ -148,6 +149,8 @@ JSON Schema 负责公共格式，Semantic Tests 额外验证：
 
 Contract Fixtures 至少覆盖原生文本、扫描 OCR、复杂表格和多栏阅读顺序。Snapshot 用于保护公共输出的有意
 变更；Quality Corpus 用于判断内容是否真的进步。
+四类已评审 Snapshot 位于
+[`tests/contract/snapshots/document-v1`](../tests/contract/snapshots/document-v1)。
 
 ## 落地顺序
 
@@ -156,4 +159,3 @@ Contract Fixtures 至少覆盖原生文本、扫描 OCR、复杂表格和多栏�
 3. 让 JSON、Markdown、HTML 和未来 RAG Exporter 消费同一个组装结果。
 4. 单独建立 Pipeline Trace v1，记录 Backend 选择、fallback、耗时和失败。
 5. 使用版本化 Quality Report 作为发布门槛，而不是不断增加 Schema 必填项。
-

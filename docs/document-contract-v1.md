@@ -6,8 +6,9 @@ Document v1 is the consumer-facing result contract for the engine. Its machine-r
 [`schemas/document.v1.schema.json`](../schemas/document.v1.schema.json), with an example at
 [`schemas/examples/document.v1.example.json`](../schemas/examples/document.v1.example.json).
 
-The contract is a release candidate. The current `document.json` exporter still uses the legacy shape; the public
-C++ model and exporter should migrate together so JSON and future SDK consumers share the same semantics.
+The contract is a release candidate. The public C++ model and `document.json` exporter use the same page, block,
+relation, warning, and source-reference semantics. Debug-only pipeline artifacts remain outside the stable core in a
+namespaced `extensions` field.
 
 ## Design Principle
 
@@ -155,6 +156,8 @@ JSON Schema checks the public shape. Semantic tests additionally verify:
 
 Contract fixtures should cover at least native text, scanned OCR, complex tables, and multi-column reading order.
 Snapshots protect intentional public output changes; the quality corpus determines whether the content improved.
+The four reviewed snapshots live in
+[`tests/contract/snapshots/document-v1`](../tests/contract/snapshots/document-v1).
 
 ## Adoption Plan
 
@@ -163,4 +166,3 @@ Snapshots protect intentional public output changes; the quality corpus determin
 3. Make JSON, Markdown, HTML, and future RAG exporters consume the same assembled document.
 4. Add Pipeline Trace v1 for backend selection, fallback, timings, and failures.
 5. Gate releases with the versioned Quality Report instead of expanding required Schema fields.
-

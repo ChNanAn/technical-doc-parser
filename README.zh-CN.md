@@ -98,26 +98,35 @@ output/
   debug/                 # 使用 --debug 时生成
 ```
 
-普通 JSON 输出包含组装后的文档块和页面产物。启用 `--debug` 后，还会包含归一化文本、Layout Blocks、Reading Order、表格结构和图像预处理产物。
+普通 JSON 输出遵循 Document Contract v1，包含按最终阅读顺序排列、可定位到页面的 Blocks。启用 `--debug`
+后，归一化文本、Layout Blocks、Reading Order、表格结构和图像预处理产物会写入页面的命名空间
+`extensions` 字段。
 
 ```json
 {
-  "source": {"path": "input.pdf", "type": "pdf"},
-  "render": {"dpi": 200},
+  "$schema": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json",
+  "schema_version": 1,
+  "document_id": "doc_...",
+  "status": "complete",
+  "source": {"filename": "input.pdf", "media_type": "application/pdf"},
+  "producer": {"name": "technical-doc-parser", "version": "0.1.0"},
+  "coordinate_space": {"unit": "pixel", "origin": "top_left", "bbox_format": "xyxy", "dpi": 200},
+  "pages": [{"id": "page_1", "number": 1, "width": 1654, "height": 2339}],
   "blocks": [
     {
       "id": "doc_page_1_block_1",
       "type": "paragraph",
-      "page_number": 1,
-      "bbox": {"x0": 84.0, "y0": 132.0, "x1": 742.0, "y1": 168.0},
-      "confidence": 0.92,
+      "page_id": "page_1",
+      "bbox": [84.0, 132.0, 742.0, 168.0],
       "text": "Technical specification"
     }
-  ]
+  ],
+  "warnings": []
 }
 ```
 
-第一版公共文档契约已提供 release candidate：[Document Contract v1](docs/document-contract-v1.zh-CN.md)。它只冻结可扩展输出外壳和坐标语义，实际结果质量由独立的三层评测持续约束；现有 exporter 尚未迁移到它。
+第一版公共文档契约已提供 release candidate：[Document Contract v1](docs/document-contract-v1.zh-CN.md)。它只冻结
+可扩展输出外壳和坐标语义，实际结果质量由独立的三层评测持续约束。
 
 ## 评测
 

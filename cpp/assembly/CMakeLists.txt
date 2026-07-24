@@ -9,4 +9,9 @@ target_link_libraries(doc_parser_assembly
         doc_parser_document
 )
 
+target_compile_definitions(doc_parser_assembly
+    PRIVATE
+        DOC_PARSER_ENGINE_VERSION="${PROJECT_VERSION}"
+)
+
 doc_parser_set_common_warnings(doc_parser_assembly)

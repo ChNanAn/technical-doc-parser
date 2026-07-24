@@ -99,26 +99,36 @@ output/
   debug/                 # with --debug
 ```
 
-The normal JSON output contains assembled document blocks and page artifacts. `--debug` additionally includes normalized text, layout blocks, reading order, table structures, and preprocessing artifacts.
+The normal JSON output follows Document Contract v1 and contains page-grounded blocks in final reading order.
+`--debug` adds normalized text, layout blocks, reading order, table structures, and preprocessing artifacts under a
+namespaced page `extensions` field.
 
 ```json
 {
-  "source": {"path": "input.pdf", "type": "pdf"},
-  "render": {"dpi": 200},
+  "$schema": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json",
+  "schema_version": 1,
+  "document_id": "doc_...",
+  "status": "complete",
+  "source": {"filename": "input.pdf", "media_type": "application/pdf"},
+  "producer": {"name": "technical-doc-parser", "version": "0.1.0"},
+  "coordinate_space": {"unit": "pixel", "origin": "top_left", "bbox_format": "xyxy", "dpi": 200},
+  "pages": [{"id": "page_1", "number": 1, "width": 1654, "height": 2339}],
   "blocks": [
     {
       "id": "doc_page_1_block_1",
       "type": "paragraph",
-      "page_number": 1,
-      "bbox": {"x0": 84.0, "y0": 132.0, "x1": 742.0, "y1": 168.0},
-      "confidence": 0.92,
+      "page_id": "page_1",
+      "bbox": [84.0, 132.0, 742.0, 168.0],
       "text": "Technical specification"
     }
-  ]
+  ],
+  "warnings": []
 }
 ```
 
-The first public document contract is available as a release candidate: [Document Contract v1](docs/document-contract-v1.md). It freezes an extensible result envelope and coordinate semantics; actual output quality is governed separately by three-layer evaluation. The existing exporter has not migrated to it yet.
+The first public document contract is available as a release candidate: [Document Contract v1](docs/document-contract-v1.md).
+It freezes an extensible result envelope and coordinate semantics; actual output quality is governed separately by
+three-layer evaluation.
 
 ## Evaluation
 

@@ -42,4 +42,11 @@ struct PageText {
     std::vector<TextLine> lines;
 };
 
+struct SourceReference {
+    std::string page_id;
+    BBox bbox;
+    std::string text;
+    TextSource source = TextSource::Unknown;
+};
+
 } // namespace doc_parser::document

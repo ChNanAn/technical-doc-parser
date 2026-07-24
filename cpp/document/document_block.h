@@ -35,6 +35,8 @@ struct DocumentBlock {
     bool table_continues_from_previous_page = false;
     bool table_continues_on_next_page = false;
     std::vector<TableRow> table_rows;
+    std::string page_id;
+    std::vector<SourceReference> source_refs;
 };
 
 } // namespace doc_parser::document

@@ -16,6 +16,7 @@ struct TableCell {
     std::string text;
     BBox bbox;
     double confidence = 1.0;
+    std::vector<SourceReference> source_refs;
 };
 
 struct TableRow {

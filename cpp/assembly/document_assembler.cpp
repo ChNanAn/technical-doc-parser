@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
+#include <filesystem>
+#include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
@@ -10,6 +13,10 @@
 
 namespace doc_parser::assembly {
 namespace {
+
+#ifndef DOC_PARSER_ENGINE_VERSION
+#define DOC_PARSER_ENGINE_VERSION "unknown"
+#endif
 
 document::DocumentBlockType toDocumentBlockType(document::LayoutBlockType type) {
     switch (type) {
@@ -37,6 +44,74 @@ std::string blockId(int page_number, std::size_t block_index) {
     std::ostringstream stream;
     stream << "doc_page_" << page_number << "_block_" << block_index + 1;
     return stream.str();
+}
+
+std::string pageId(int page_number) { return "page_" + std::to_string(page_number); }
+
+std::string sourceScopedDocumentId(const std::string& source_path) {
+    std::uint64_t hash = 14695981039346656037ULL;
+    for (const unsigned char value : source_path) {
+        hash ^= value;
+        hash *= 1099511628211ULL;
+    }
+
+    std::ostringstream stream;
+    stream << "doc_" << std::hex << std::setw(16) << std::setfill('0') << hash;
+    return stream.str();
+}
+
+std::string sourceMediaType(const std::string& source_type) {
+    if (source_type.find('/') != std::string::npos) {
+        return source_type;
+    }
+    if (source_type == "pdf") {
+        return "application/pdf";
+    }
+    if (source_type == "png") {
+        return "image/png";
+    }
+    if (source_type == "jpg" || source_type == "jpeg") {
+        return "image/jpeg";
+    }
+    if (source_type == "tif" || source_type == "tiff") {
+        return "image/tiff";
+    }
+    return "application/octet-stream";
+}
+
+std::string imageMediaType(const std::string& image_uri) {
+    std::string extension = std::filesystem::path(image_uri).extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char value) {
+        return static_cast<char>(std::tolower(value));
+    });
+    if (extension == ".png") {
+        return "image/png";
+    }
+    if (extension == ".jpg" || extension == ".jpeg") {
+        return "image/jpeg";
+    }
+    if (extension == ".tif" || extension == ".tiff") {
+        return "image/tiff";
+    }
+    return "application/octet-stream";
+}
+
+document::TextSource blockTextSource(const document::PageText& page_text, const document::LayoutBlock& layout_block) {
+    document::TextSource source = document::TextSource::Unknown;
+    for (const int line_index : layout_block.text_line_indices) {
+        if (line_index < 0 || static_cast<std::size_t>(line_index) >= page_text.lines.size()) {
+            continue;
+        }
+        const document::TextSource line_source = page_text.lines[static_cast<std::size_t>(line_index)].source;
+        if (line_source == document::TextSource::Unknown) {
+            continue;
+        }
+        if (source != document::TextSource::Unknown && source != line_source) {
+            return document::TextSource::Mixed;
+        }
+        source = line_source;
+    }
+    return source == document::TextSource::Unknown ? page_text.preferred_source : source;
 }
 
 std::string joinLayoutBlockText(const document::PageText& page_text, const document::LayoutBlock& layout_block) {
@@ -98,10 +173,12 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
     }
     block.page_index = page.page_index;
     block.page_number = page.page_number;
+    block.page_id = pageId(page.page_number);
     block.bbox = layout_block.bbox;
     block.confidence = layout_block.confidence;
     block.text_line_indices = layout_block.text_line_indices;
     block.text = joinLayoutBlockText(page.text, layout_block);
+    block.source_refs.push_back({block.page_id, block.bbox, block.text, blockTextSource(page.text, layout_block)});
 
     if (block.type == document::DocumentBlockType::Table) {
         const document::Table* table = findTableForLayoutBlock(page.tables, layout_block.id);
@@ -111,6 +188,12 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
             block.table_continues_from_previous_page = table->continues_from_previous_page;
             block.table_continues_on_next_page = table->continues_on_next_page;
             block.table_rows = table->rows;
+            for (document::TableRow& row : block.table_rows) {
+                for (document::TableCell& cell : row.cells) {
+                    cell.source_refs.push_back(
+                        {block.page_id, cell.bbox, cell.text, blockTextSource(page.text, layout_block)});
+                }
+            }
             block.text = tableText(*table);
             block.confidence = std::min(block.confidence, table->confidence);
         }
@@ -225,12 +308,27 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
 
     document = {};
     artifacts = {};
+    document.document_id = sourceScopedDocumentId(request.source_path);
     document.source.path = request.source_path;
     document.source.type = request.source_type;
+    document.source.filename = std::filesystem::path(request.source_path).filename().string();
+    document.source.media_type = sourceMediaType(request.source_type);
+    document.producer.version = DOC_PARSER_ENGINE_VERSION;
     document.dpi = request.dpi;
+    document.pages.reserve(request.pages.size());
     artifacts.pages.reserve(request.pages.size());
 
     for (std::size_t index = 0; index < request.pages.size(); ++index) {
+        const document::PageArtifact& page = request.pages[index];
+        document.pages.push_back({
+            pageId(page.page_number),
+            page.page_number,
+            static_cast<double>(page.width),
+            static_cast<double>(page.height),
+            pageId(page.page_number) + "_image",
+            page.relative_image,
+            imageMediaType(page.relative_image),
+        });
         artifacts.pages.push_back({
             request.pages[index].page_index,
             request.pages[index].page_number,
@@ -265,6 +363,18 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
             document.blocks.push_back(
                 makeDocumentBlock(parsed_page, layout_block, related_block_ids[layout_block.id], related_block_ids));
         }
+    }
+
+    for (const document::DocumentBlock& block : document.blocks) {
+        if (block.related_block_id.empty()) {
+            continue;
+        }
+        document.relations.push_back({
+            "relation_" + std::to_string(document.relations.size() + 1),
+            block.source_label == "Caption" || block.source_label == "caption" ? "caption_of" : "related_to",
+            block.id,
+            block.related_block_id,
+        });
     }
 
     return true;

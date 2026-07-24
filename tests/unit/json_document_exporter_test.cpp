@@ -96,6 +96,7 @@ DocumentFixture makeDocumentFixture() {
     cell.text = "Table";
     cell.bbox = line.bbox;
     cell.confidence = 0.9;
+    cell.source_refs.push_back({"page_1", cell.bbox, cell.text, TextSource::PdfTextLayer});
 
     TableRow row;
     row.row_index = 0;
@@ -116,17 +117,33 @@ DocumentFixture makeDocumentFixture() {
     tables.tables.push_back(table);
 
     ParsedDocument document;
-    document.source.path = "fixture.pdf";
+    document.document_id = "fixture_document";
+    document.source.path = "/private/input/fixture.pdf";
     document.source.type = "pdf";
+    document.source.filename = "fixture.pdf";
+    document.source.media_type = "application/pdf";
+    document.producer.version = "test";
     document.dpi = 144;
+    document.pages.push_back({
+        "page_1",
+        1,
+        100.0,
+        200.0,
+        "page_1_image",
+        "pages/page_1.png",
+        "image/png",
+    });
     DocumentBlock document_block;
     document_block.id = "doc_page_1_block_1";
     document_block.type = DocumentBlockType::Paragraph;
     document_block.page_index = 0;
     document_block.page_number = 1;
+    document_block.page_id = "page_1";
     document_block.bbox = line.bbox;
     document_block.confidence = 0.75;
     document_block.text = "Table";
+    document_block.source_refs.push_back(
+        {document_block.page_id, document_block.bbox, document_block.text, TextSource::PdfTextLayer});
     document_block.text_line_indices.push_back(0);
     document.blocks.push_back(document_block);
 
@@ -135,13 +152,22 @@ DocumentFixture makeDocumentFixture() {
     table_block.type = DocumentBlockType::Table;
     table_block.page_index = 0;
     table_block.page_number = 1;
+    table_block.page_id = "page_1";
     table_block.bbox = table.bbox;
     table_block.confidence = table.confidence;
     table_block.text = "Table";
+    table_block.source_refs.push_back(
+        {table_block.page_id, table_block.bbox, table_block.text, TextSource::PdfTextLayer});
     table_block.table_id = table.id;
     table_block.table_rows = table.rows;
     table_block.text_line_indices.push_back(0);
     document.blocks.push_back(table_block);
+    document.relations.push_back({
+        "relation_1",
+        "related_to",
+        document_block.id,
+        table_block.id,
+    });
 
     PipelineArtifacts artifacts;
     artifacts.pages.push_back(PipelinePageArtifacts{
@@ -179,25 +205,46 @@ TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
     }));
 
     const auto manifest = readJson(output_path);
-    EXPECT_EQ(manifest["source"]["path"], "fixture.pdf");
-    EXPECT_EQ(manifest["source"]["type"], "pdf");
-    EXPECT_EQ(manifest["render"]["dpi"], 144);
+    EXPECT_EQ(manifest["$schema"], "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json");
+    EXPECT_EQ(manifest["schema_version"], 1);
+    EXPECT_EQ(manifest["document_id"], "fixture_document");
+    EXPECT_EQ(manifest["status"], "complete");
+    EXPECT_EQ(manifest["source"]["filename"], "fixture.pdf");
+    EXPECT_EQ(manifest["source"]["media_type"], "application/pdf");
+    EXPECT_EQ(manifest["producer"]["name"], "technical-doc-parser");
+    EXPECT_EQ(manifest["producer"]["version"], "test");
+    EXPECT_EQ(manifest["coordinate_space"]["unit"], "pixel");
+    EXPECT_EQ(manifest["coordinate_space"]["origin"], "top_left");
+    EXPECT_EQ(manifest["coordinate_space"]["bbox_format"], "xyxy");
+    EXPECT_EQ(manifest["coordinate_space"]["dpi"], 144);
+    EXPECT_EQ(manifest.dump().find("/private/input"), std::string::npos);
     ASSERT_EQ(manifest["blocks"].size(), 2U);
     EXPECT_EQ(manifest["blocks"][0]["id"], "doc_page_1_block_1");
     EXPECT_EQ(manifest["blocks"][0]["type"], "paragraph");
     EXPECT_EQ(manifest["blocks"][0]["text"], "Table");
-    EXPECT_FALSE(manifest["blocks"][0].contains("rows"));
+    EXPECT_EQ(manifest["blocks"][0]["page_id"], "page_1");
+    EXPECT_EQ(manifest["blocks"][0]["bbox"], nlohmann::json::array({0.0, 1.0, 2.0, 3.0}));
+    EXPECT_EQ(manifest["blocks"][0]["score"]["value"], 0.75);
+    EXPECT_EQ(manifest["blocks"][0]["source_refs"][0]["kind"], "pdf_text_layer");
+    EXPECT_FALSE(manifest["blocks"][0].contains("table"));
     EXPECT_EQ(manifest["blocks"][1]["id"], "doc_page_1_block_2");
     EXPECT_EQ(manifest["blocks"][1]["type"], "table");
-    EXPECT_EQ(manifest["blocks"][1]["table_id"], "page_1_table_1");
-    ASSERT_EQ(manifest["blocks"][1]["rows"].size(), 1U);
-    ASSERT_EQ(manifest["blocks"][1]["rows"][0]["cells"].size(), 1U);
-    EXPECT_EQ(manifest["blocks"][1]["rows"][0]["cells"][0]["text"], "Table");
+    EXPECT_EQ(manifest["blocks"][1]["table"]["id"], "page_1_table_1");
+    ASSERT_EQ(manifest["blocks"][1]["table"]["rows"].size(), 1U);
+    ASSERT_EQ(manifest["blocks"][1]["table"]["rows"][0]["cells"].size(), 1U);
+    EXPECT_EQ(manifest["blocks"][1]["table"]["rows"][0]["cells"][0]["text"], "Table");
+    EXPECT_EQ(manifest["blocks"][1]["table"]["rows"][0]["cells"][0]["source_refs"][0]["page_id"], "page_1");
     ASSERT_EQ(manifest["pages"].size(), 1U);
-    EXPECT_EQ(manifest["pages"][0]["page_index"], 0);
-    EXPECT_EQ(manifest["pages"][0]["page_number"], 1);
-    EXPECT_EQ(manifest["pages"][0]["image"], "pages/page_1.png");
-    EXPECT_FALSE(manifest["pages"][0].contains("debug"));
+    EXPECT_EQ(manifest["pages"][0]["id"], "page_1");
+    EXPECT_EQ(manifest["pages"][0]["number"], 1);
+    EXPECT_EQ(manifest["pages"][0]["width"], 100.0);
+    EXPECT_EQ(manifest["pages"][0]["height"], 200.0);
+    EXPECT_EQ(manifest["pages"][0]["image"]["uri"], "pages/page_1.png");
+    EXPECT_FALSE(manifest["pages"][0].contains("extensions"));
+    EXPECT_TRUE(manifest["warnings"].empty());
+    ASSERT_EQ(manifest["relations"].size(), 1U);
+    EXPECT_EQ(manifest["relations"][0]["from_block_id"], "doc_page_1_block_1");
+    EXPECT_EQ(manifest["relations"][0]["to_block_id"], "doc_page_1_block_2");
 
     std::filesystem::remove(output_path);
 }
@@ -215,7 +262,7 @@ TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     }));
 
     const auto manifest = readJson(output_path);
-    const auto& debug = manifest["pages"][0]["debug"];
+    const auto& debug = manifest["pages"][0]["extensions"]["io.github.chnanan.technical-doc-parser.pipeline_debug"];
     EXPECT_TRUE(debug["text"]["has_text"]);
     EXPECT_EQ(debug["text"]["preferred_source"], "pdf_text_layer");
     ASSERT_EQ(debug["text"]["lines"].size(), 1U);
@@ -258,7 +305,8 @@ TEST(JsonDocumentExporterTest, WritesMixedPreferredTextSource) {
     }));
 
     const auto manifest = readJson(output_path);
-    EXPECT_EQ(manifest["pages"][0]["debug"]["text"]["preferred_source"], "mixed");
+    const auto& debug = manifest["pages"][0]["extensions"]["io.github.chnanan.technical-doc-parser.pipeline_debug"];
+    EXPECT_EQ(debug["text"]["preferred_source"], "mixed");
 
     std::filesystem::remove(output_path);
 }
@@ -271,4 +319,70 @@ TEST(JsonDocumentExporterTest, RejectsMissingDocument) {
         output_path,
         nullptr,
     }));
+}
+
+TEST(JsonDocumentExporterTest, RejectsUnexplainedPartialDocument) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_partial_test.json");
+    std::filesystem::remove(output_path);
+    DocumentFixture fixture = makeDocumentFixture();
+    fixture.document.status = doc_parser::document::DocumentStatus::Partial;
+
+    EXPECT_FALSE(JsonDocumentExporter().write({
+        false,
+        output_path,
+        &fixture.document,
+        &fixture.artifacts,
+    }));
+}
+
+TEST(JsonDocumentExporterTest, WritesExplainedPartialDocument) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_explained_partial_test.json");
+    std::filesystem::remove(output_path);
+    DocumentFixture fixture = makeDocumentFixture();
+    fixture.document.status = doc_parser::document::DocumentStatus::Partial;
+    fixture.document.warnings.push_back({
+        "OCR_LOW_CONFIDENCE",
+        "One text region has low OCR confidence.",
+        "text",
+        "page_1",
+        "doc_page_1_block_1",
+    });
+
+    ASSERT_TRUE(JsonDocumentExporter().write({
+        false,
+        output_path,
+        &fixture.document,
+        &fixture.artifacts,
+    }));
+    const auto manifest = readJson(output_path);
+    EXPECT_EQ(manifest["status"], "partial");
+    ASSERT_EQ(manifest["warnings"].size(), 1U);
+    EXPECT_EQ(manifest["warnings"][0]["code"], "OCR_LOW_CONFIDENCE");
+    EXPECT_EQ(manifest["warnings"][0]["page_id"], "page_1");
+    EXPECT_EQ(manifest["warnings"][0]["block_id"], "doc_page_1_block_1");
+
+    std::filesystem::remove(output_path);
+}
+
+TEST(JsonDocumentExporterTest, OmitsUnsafeArtifactsAndOutOfPageCoordinates) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_sanitized_test.json");
+    std::filesystem::remove(output_path);
+    DocumentFixture fixture = makeDocumentFixture();
+    fixture.document.pages[0].image_uri = "/private/output/page_1.png";
+    fixture.document.blocks[0].bbox.x1 = 101.0;
+    fixture.document.blocks[0].source_refs[0].bbox.x1 = 101.0;
+
+    ASSERT_TRUE(JsonDocumentExporter().write({
+        false,
+        output_path,
+        &fixture.document,
+        &fixture.artifacts,
+    }));
+    const auto manifest = readJson(output_path);
+    EXPECT_FALSE(manifest["pages"][0].contains("image"));
+    EXPECT_FALSE(manifest["blocks"][0].contains("bbox"));
+    EXPECT_FALSE(manifest["blocks"][0]["source_refs"][0].contains("bbox"));
+    EXPECT_EQ(manifest.dump().find("/private/output"), std::string::npos);
+
+    std::filesystem::remove(output_path);
 }

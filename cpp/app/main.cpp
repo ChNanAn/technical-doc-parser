@@ -1,4 +1,5 @@
 #include "app/cli_options.h"
+#include "export/document_exporter.h"
 #include "pipeline/document_engine.h"
 
 #include <CLI/CLI.hpp>
@@ -62,9 +63,18 @@ int main(int argc, char** argv) {
         spdlog::error("failed to initialize document engine [{}]: {}", status.code(), status.message());
         return 2;
     }
-    const doc_parser::common::Status status = engine.parse(std::move(pipeline_options));
-    if (!status.okStatus()) {
+    doc_parser::pipeline::ParseResult result = engine.parse(pipeline_options);
+    if (!result.ok()) {
+        const doc_parser::common::Status& status = result.status;
         spdlog::error("document parsing failed at {} [{}]: {}", status.stage(), status.code(), status.message());
+        return 2;
+    }
+
+    const auto document_exporter = doc_parser::exporter::createDefaultDocumentExporter();
+    const std::filesystem::path output_path = pipeline_options.output_directory / "document.json";
+    if (document_exporter == nullptr ||
+        !document_exporter->write({pipeline_options.debug, output_path, &result.document, &result.artifacts})) {
+        spdlog::error("failed to export parsed document to {}", output_path.string());
         return 2;
     }
 

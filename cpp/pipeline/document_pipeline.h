@@ -2,6 +2,7 @@
 
 #include "common/status.h"
 
+#include "document/parsed_document.h"
 #include "pipeline/pipeline_options.h"
 #include "pipeline/stage_observer.h"
 
@@ -18,14 +19,22 @@ public:
 private:
     friend class DocumentEngine;
 
-    common::Status run(const PipelineRunOptions& options,
-                       PipelineServices& services,
-                       const std::string& service_trace,
-                       IStageObserver& observer) const;
-    common::Status runInternal(const PipelineRunOptions& options,
-                               PipelineServices* services,
-                               const std::string& service_trace,
-                               IStageObserver& observer) const;
+    common::Status parse(const PipelineRunOptions& options,
+                         PipelineServices& services,
+                         const std::string& service_trace,
+                         document::ParsedDocument& document,
+                         document::PipelineArtifacts& artifacts,
+                         IStageObserver& observer) const;
+    common::Status parseInternal(const PipelineRunOptions& options,
+                                 PipelineServices* services,
+                                 const std::string& service_trace,
+                                 document::ParsedDocument& document,
+                                 document::PipelineArtifacts& artifacts,
+                                 IStageObserver& observer) const;
+    common::Status exportResult(const PipelineRunOptions& options,
+                                const document::ParsedDocument& document,
+                                const document::PipelineArtifacts& artifacts,
+                                IStageObserver& observer) const;
 };
 
 } // namespace doc_parser::pipeline

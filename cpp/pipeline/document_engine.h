@@ -2,6 +2,7 @@
 
 #include "common/status.h"
 
+#include "document/parsed_document.h"
 #include "pipeline/engine_config.h"
 #include "pipeline/pipeline_options.h"
 #include "pipeline/stage_observer.h"
@@ -12,6 +13,14 @@
 namespace doc_parser::pipeline {
 
 class BackendRegistry;
+
+struct ParseResult {
+    common::Status status;
+    document::ParsedDocument document;
+    document::PipelineArtifacts artifacts;
+
+    bool ok() const { return status.okStatus(); }
+};
 
 // Reusable document engine. One instance owns its model backends and is intended
 // for sequential parsing; create one instance per concurrently parsing thread.
@@ -30,8 +39,8 @@ public:
     bool isReady() const;
     const common::Status& initializationStatus() const;
 
-    common::Status parse(PipelineRunOptions options);
-    common::Status parse(PipelineRunOptions options, IStageObserver& observer);
+    ParseResult parse(PipelineRunOptions options);
+    ParseResult parse(PipelineRunOptions options, IStageObserver& observer);
 
 private:
     struct Impl;

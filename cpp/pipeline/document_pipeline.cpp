@@ -97,20 +97,35 @@ common::Status DocumentPipeline::run(const PipelineRunOptions& options) const {
 }
 
 common::Status DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& observer) const {
-    return runInternal(options, nullptr, {}, observer);
+    const Clock::time_point run_started = Clock::now();
+    document::ParsedDocument document;
+    document::PipelineArtifacts artifacts;
+    common::Status status = parseInternal(options, nullptr, {}, document, artifacts, observer);
+    if (!status.okStatus()) {
+        return status;
+    }
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "export");
+        !deadline.okStatus()) {
+        return deadline;
+    }
+    return exportResult(options, document, artifacts, observer);
 }
 
-common::Status DocumentPipeline::run(const PipelineRunOptions& options,
-                                     PipelineServices& services,
-                                     const std::string& service_trace,
-                                     IStageObserver& observer) const {
-    return runInternal(options, &services, service_trace, observer);
+common::Status DocumentPipeline::parse(const PipelineRunOptions& options,
+                                       PipelineServices& services,
+                                       const std::string& service_trace,
+                                       document::ParsedDocument& document,
+                                       document::PipelineArtifacts& artifacts,
+                                       IStageObserver& observer) const {
+    return parseInternal(options, &services, service_trace, document, artifacts, observer);
 }
 
-common::Status DocumentPipeline::runInternal(const PipelineRunOptions& options,
-                                             PipelineServices* services,
-                                             const std::string& service_trace,
-                                             IStageObserver& observer) const {
+common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options,
+                                               PipelineServices* services,
+                                               const std::string& service_trace,
+                                               document::ParsedDocument& parsed_document,
+                                               document::PipelineArtifacts& artifacts,
+                                               IStageObserver& observer) const {
     const Clock::time_point run_started = Clock::now();
     const PipelineContext context = PipelineContext::fromOptions(options);
 
@@ -263,8 +278,6 @@ common::Status DocumentPipeline::runInternal(const PipelineRunOptions& options,
     }
     stage_started = Clock::now();
     observer.onStageStarted({"assembly", "document-assembler", 1});
-    document::ParsedDocument parsed_document;
-    document::PipelineArtifacts artifacts;
     const assembly::DocumentAssembler document_assembler;
     if (!document_assembler.assemble(
             {
@@ -301,12 +314,15 @@ common::Status DocumentPipeline::runInternal(const PipelineRunOptions& options,
     spdlog::debug("document_assembly: repeated_header_footer_removed={}",
                   detected_furniture >= emitted_furniture ? detected_furniture - emitted_furniture : 0U);
     spdlog::info("assembled document blocks: {}", parsed_document.blocks.size());
+    return common::Status::ok();
+}
 
-    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "export");
-        !deadline.okStatus()) {
-        return deadline;
-    }
-    stage_started = Clock::now();
+common::Status DocumentPipeline::exportResult(const PipelineRunOptions& options,
+                                              const document::ParsedDocument& document,
+                                              const document::PipelineArtifacts& artifacts,
+                                              IStageObserver& observer) const {
+    const PipelineContext context = PipelineContext::fromOptions(options);
+    const Clock::time_point stage_started = Clock::now();
     observer.onStageStarted({"export", "multi-format", 3});
     const auto document_exporter = exporter::createDefaultDocumentExporter();
     if (document_exporter == nullptr) {
@@ -317,7 +333,7 @@ common::Status DocumentPipeline::runInternal(const PipelineRunOptions& options,
     if (!document_exporter->write({
             context.debug,
             context.output.manifest_json,
-            &parsed_document,
+            &document,
             &artifacts,
         })) {
         spdlog::error("export: failed to write document manifest");

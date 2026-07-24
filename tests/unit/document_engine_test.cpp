@@ -1,4 +1,5 @@
 #include "document_source/document_source_factory.h"
+#include "export/document_exporter.h"
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/backend_registry.h"
@@ -24,7 +25,7 @@ struct FactoryCounts {
 
 } // namespace
 
-TEST(DocumentEngineTest, ReusesBackendInstancesAcrossDocuments) {
+TEST(DocumentEngineTest, ReusesBackendInstancesAndLeavesExportToCaller) {
     auto counts = std::make_shared<FactoryCounts>();
     doc_parser::pipeline::BackendRegistry registry;
     ASSERT_TRUE(registry.registerDocument("pdf", [counts] {
@@ -69,22 +70,30 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAcrossDocuments) {
     first.input_path = std::filesystem::path(DOC_PARSER_TEST_FIXTURE_DIR) / "pdfs" / "pdfjs-basicapi.pdf";
     first.output_directory = output_root / "first";
     first.render.dpi = 72;
-    ASSERT_TRUE(engine.parse(first).okStatus());
+    doc_parser::pipeline::ParseResult first_result = engine.parse(first);
+    ASSERT_TRUE(first_result.ok()) << first_result.status.message();
+    EXPECT_FALSE(std::filesystem::exists(first.output_directory / "document.json"));
+
+    const auto document_exporter = doc_parser::exporter::createDefaultDocumentExporter();
+    ASSERT_NE(document_exporter, nullptr);
+    ASSERT_TRUE(document_exporter->write(
+        {false, first.output_directory / "document.json", &first_result.document, &first_result.artifacts}));
+    EXPECT_TRUE(std::filesystem::is_regular_file(first.output_directory / "document.json"));
 
     doc_parser::pipeline::PipelineRunOptions second = first;
     second.output_directory = output_root / "second";
-    ASSERT_TRUE(engine.parse(second).okStatus());
+    const doc_parser::pipeline::ParseResult second_result = engine.parse(second);
+    ASSERT_TRUE(second_result.ok()) << second_result.status.message();
+    EXPECT_FALSE(std::filesystem::exists(second.output_directory / "document.json"));
 
     doc_parser::pipeline::PipelineRunOptions missing = first;
     missing.input_path = output_root / "missing.pdf";
     missing.output_directory = output_root / "missing";
-    const doc_parser::common::Status missing_status = engine.parse(missing);
-    EXPECT_FALSE(missing_status.okStatus());
-    EXPECT_EQ(missing_status.stage(), "open");
-    EXPECT_EQ(missing_status.code(), "open_document_failed");
+    const doc_parser::pipeline::ParseResult missing_result = engine.parse(missing);
+    EXPECT_FALSE(missing_result.ok());
+    EXPECT_EQ(missing_result.status.stage(), "open");
+    EXPECT_EQ(missing_result.status.code(), "open_document_failed");
 
-    EXPECT_TRUE(std::filesystem::is_regular_file(first.output_directory / "document.json"));
-    EXPECT_TRUE(std::filesystem::is_regular_file(second.output_directory / "document.json"));
     EXPECT_EQ(counts->document, 1);
     EXPECT_EQ(counts->ocr, 1);
     EXPECT_EQ(counts->layout, 1);

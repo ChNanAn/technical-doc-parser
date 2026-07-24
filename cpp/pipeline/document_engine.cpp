@@ -36,19 +36,23 @@ const common::Status& DocumentEngine::initializationStatus() const {
     return impl_ == nullptr ? moved_from : impl_->creation.status;
 }
 
-common::Status DocumentEngine::parse(PipelineRunOptions options) {
+ParseResult DocumentEngine::parse(PipelineRunOptions options) {
     NullStageObserver observer;
     return parse(std::move(options), observer);
 }
 
-common::Status DocumentEngine::parse(PipelineRunOptions options, IStageObserver& observer) {
+ParseResult DocumentEngine::parse(PipelineRunOptions options, IStageObserver& observer) {
+    ParseResult result;
     if (!isReady()) {
-        return initializationStatus();
+        result.status = initializationStatus();
+        return result;
     }
 
     options.backends = impl_->config.backends;
     const DocumentPipeline pipeline;
-    return pipeline.run(options, impl_->creation.services, impl_->creation.trace_message, observer);
+    result.status = pipeline.parse(
+        options, impl_->creation.services, impl_->creation.trace_message, result.document, result.artifacts, observer);
+    return result;
 }
 
 } // namespace doc_parser::pipeline

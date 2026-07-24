@@ -6,6 +6,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -59,6 +60,10 @@ const char* blockType(doc_parser::document::DocumentBlockType type) {
         return "unknown";
     }
     return "unknown";
+}
+
+const char* layoutLabel(doc_parser::document::DocumentBlockType type) {
+    return type == doc_parser::document::DocumentBlockType::Paragraph ? "text" : blockType(type);
 }
 
 nlohmann::json backendPolicy(const doc_parser::pipeline::EngineConfig& config,
@@ -137,6 +142,11 @@ int main(int argc, char** argv) {
         return 2;
     }
     const nlohmann::json manifest = nlohmann::json::parse(manifest_input);
+    const std::string task = manifest.value("task", "pipeline_text_order");
+    if (task != "pipeline_text_order" && task != "layout") {
+        std::cerr << "Unsupported prediction task: " << task << '\n';
+        return 2;
+    }
 
     doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
     config.backends.document = "pdf";
@@ -158,10 +168,11 @@ int main(int argc, char** argv) {
 
     nlohmann::json predictions;
     predictions["version"] = 1;
-    predictions["task"] = "pipeline_text_order";
-    predictions["dataset"] = "technical-doc-parser/quality-baseline-15";
+    predictions["task"] = task;
+    predictions["dataset"] = manifest.value("dataset", "technical-doc-parser/quality-baseline-15");
     predictions["metadata"] = {
         {"engine", "DocumentIntelligenceEngine"},
+        {"output_scope", task == "layout" ? "final_document_blocks" : "final_document_text"},
         {"dpi", manifest.value("dpi", 200)},
         {"backend_policy", backendPolicy(config, policy.config)},
         {"model_policy", modelPolicy(config)},
@@ -197,20 +208,29 @@ int main(int argc, char** argv) {
                 blocks.push_back({
                     {"id", block.id},
                     {"type", blockType(block.type)},
+                    {"mapped_label", layoutLabel(block.type)},
+                    {"bbox", {block.bbox.x0, block.bbox.y0, block.bbox.x1, block.bbox.y1}},
                     {"text", block.text},
                 });
             }
-            const std::string sample_id =
-                document_id + ":p" + (page_index + 1 < 10 ? "0" : "") + std::to_string(page_index + 1);
-            predictions["samples"].push_back({
+            const nlohmann::json sample_id =
+                pages[page_index].contains("sample_id")
+                    ? pages[page_index]["sample_id"]
+                    : nlohmann::json(document_id + ":p" + (page_index + 1 < 10 ? "0" : "") +
+                                     std::to_string(page_index + 1));
+            nlohmann::json prediction_sample = {
                 {"id", sample_id},
                 {"document_id", document_id},
                 {"page_number", page_index + 1},
                 {"image_sha256", pages[page_index].value("sha256", "")},
                 {"blocks", blocks},
-            });
+            };
+            if (task == "layout") {
+                prediction_sample["objects"] = blocks;
+            }
+            predictions["samples"].push_back(std::move(prediction_sample));
             ++parsed_pages;
-            std::cout << sample_id << " blocks=" << blocks.size() << '\n';
+            std::cout << sample_id.dump() << " blocks=" << blocks.size() << '\n';
         }
     }
 

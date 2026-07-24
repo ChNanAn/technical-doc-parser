@@ -169,6 +169,11 @@ Worksheet 页面目前只生成一个空 Header Block，文本完整率和 Ancho
 Corpus 和报告中，作为可见的改进目标。这些下限只保护固定语料和固定模型策略不发生回退，不是生产验收线。
 复现命令、指标范围和语料来源见 [Benchmark 指南](../tests/benchmark/README.md)。
 
+Pipeline Gate 还会把仓库中 5 张 DocLayNet 图片确定性封装成 200 DPI PDF，并在 IoU `0.5` 下评测最终组装的
+`DocumentBlock`。对照 151 个参考 Block，当前输出 118 个预测并命中 104 个：Precision `0.8814`、Recall
+`0.6887`、Micro-F1 `0.7732`、Mean Matched IoU `0.8740`；CI 要求 Micro-F1 `>= 0.75`。它与直接评测
+Layout Backend 不同，因为计分前实际经过了 OCR、Table Recognition 和 Document Assembly。
+
 ## 外部验证
 
 项目第一次完整运行独立的 1,403 页 olmOCR-Bench，在 8,413 条测试上得到 `44.2% +/- 0.9%`。Header/Footer
@@ -181,9 +186,8 @@ Table 和公式导出的改进可以沿同一条独立曲线比较。版本、�
 
 ## 接下来实施顺序
 
-1. 在现有 Completeness/Order/Duplication Evaluator 上增加 Block Type F1。
-2. 增加结构匹配后的 Table Text CER。
-3. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
-4. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
+1. 增加结构匹配后的 Table Text CER。
+2. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
+3. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
 
 只有当 Metric 和 Corpus 都稳定后才设置 Regression Floor。下限用于防止已知回退，不应自动被当作生产验收线。

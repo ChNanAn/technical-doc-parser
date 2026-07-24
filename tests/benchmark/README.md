@@ -10,7 +10,7 @@ The benchmark has two complementary local corpora. Large or externally licensed 
 
 ```bash
 bash scripts/download_quality_baseline.sh
-python3 -m pip install pypdf pillow
+python3 -m pip install pypdf==5.9.0 pillow==11.3.0
 python3 scripts/prepare_quality_baseline.py
 ```
 
@@ -193,7 +193,7 @@ cmake -S . -B build-ort -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PIPELINE_BENCHMARK
 cmake --build build-ort --target document_intelligence_engine pipeline_quality_eval --parallel
 bash scripts/download_quality_baseline.sh
 python3 scripts/prepare_quality_baseline.py --engine build-ort/cpp/app/document_intelligence_engine
-ctest --test-dir build-ort -R '^pipeline_quality_benchmark$' --output-on-failure
+ctest --test-dir build-ort -R '^pipeline_(quality|block_type)_benchmark$' --output-on-failure
 ```
 
 The pinned model policy resolves to PaddleOCR, `doclaynet -> paddle-layout -> text` for layout, and
@@ -212,6 +212,11 @@ of 130 comparable anchor pairs are ordered correctly. Across the 11 full-text re
 characters exceed the 35,742-character reference multiset. Companion full-text CER is `0.4608` and has no regression
 threshold yet. `irs_fw4_2024_selected:p02` currently emits only one empty header block and scores zero on completeness
 and anchor recall. This failure remains in the corpus and report so an aggregate score cannot hide it.
+
+The Pipeline gate also wraps the five committed DocLayNet images in deterministic 200 DPI PDFs and evaluates final
+assembled `DocumentBlock` objects, rather than calling the layout Backend directly. At IoU `0.5`, the baseline has
+104 true positives over 151 references and 118 predictions: precision `0.8814`, recall `0.6887`, micro-F1 `0.7732`,
+and mean matched IoU `0.8740`. CI enforces micro-F1 `>= 0.75`; the report retains per-class and per-page failures.
 
 ## External olmOCR-Bench
 

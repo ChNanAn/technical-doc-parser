@@ -275,6 +275,12 @@ and anchor recall. It is intentionally retained as a visible failure and improve
 regression under the pinned corpus and model policy; they are not production acceptance thresholds. Reproduction
 commands, metric scope, and corpus sources are in the [Benchmark Guide](../tests/benchmark/README.md).
 
+The Pipeline gate separately wraps the five committed DocLayNet images in deterministic 200 DPI PDFs and evaluates
+the final assembled `DocumentBlock` objects at IoU `0.5`. Against 151 reference blocks, the current output has 118
+predictions and 104 true positives: precision `0.8814`, recall `0.6887`, micro-F1 `0.7732`, and mean matched IoU
+`0.8740`. CI enforces micro-F1 `>= 0.75`. This is distinct from the direct layout-Backend benchmark because OCR,
+table recognition, and document assembly all run before scoring.
+
 ## External Validation
 
 The first complete run on the independent 1,403-PDF olmOCR-Bench scored `44.2% +/- 0.9%` over 8,413 tests. Strong
@@ -289,10 +295,9 @@ See the [full olmOCR-Bench report](benchmarks/olmocr-bench.md) for versions, cou
 
 The Backend baselines and sampled text/order Pipeline gate should remain in CI. The next evaluation work is:
 
-1. Add Block Type F1 to the existing completeness/order/duplication evaluator.
-2. Add structure-matched table text CER.
-3. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
-4. Emit `quality-report.v1` and compare it with a pinned baseline in CI.
+1. Add structure-matched table text CER.
+2. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
+3. Emit `quality-report.v1` and compare it with a pinned baseline in CI.
 
 Regression floors should be introduced only after the metric and corpus are stable. A floor prevents known regressions;
 it is not automatically a production acceptance target.

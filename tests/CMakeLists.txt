@@ -280,6 +280,26 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
                 0.16
         )
         set_tests_properties(pipeline_quality_benchmark PROPERTIES LABELS "benchmark;pipeline")
+
+        set(PIPELINE_BLOCK_TYPE_ROOT "${PIPELINE_QUALITY_ROOT}/pipeline_doclaynet")
+        set(PIPELINE_BLOCK_TYPE_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/pipeline_block_type_predictions.json")
+        set(PIPELINE_BLOCK_TYPE_REPORT "${CMAKE_CURRENT_BINARY_DIR}/pipeline_block_type_report.json")
+        add_test(
+            NAME pipeline_block_type_benchmark
+            COMMAND bash
+                ${CMAKE_CURRENT_SOURCE_DIR}/run_pipeline_block_type_benchmark.sh
+                $<TARGET_FILE:pipeline_quality_eval>
+                ${PIPELINE_BLOCK_TYPE_ROOT}/prepared_manifest.json
+                ${PIPELINE_BLOCK_TYPE_ROOT}
+                ${CMAKE_CURRENT_BINARY_DIR}/pipeline-block-type-work
+                ${PIPELINE_BLOCK_TYPE_PREDICTIONS}
+                ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_layout.py
+                ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/layout_doclaynet/ground_truth.json
+                ${PIPELINE_BLOCK_TYPE_REPORT}
+                0.75
+        )
+        set_tests_properties(pipeline_block_type_benchmark PROPERTIES LABELS "benchmark;pipeline")
     endif()
 
     set(DOCLAYNET_LAYOUT_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/doclaynet_layout_predictions.json")

@@ -23,6 +23,8 @@ SOURCE_DIR = RAW_ROOT / "sources"
 INPUT_DIR = RAW_ROOT / "inputs"
 PDF_DIR = INPUT_DIR / "pdf"
 IMAGE_DIR = INPUT_DIR / "images"
+PIPELINE_DOCLAYNET_DIR = INPUT_DIR / "pipeline_doclaynet"
+DOCLAYNET_GROUND_TRUTH = ROOT / "tests" / "benchmark" / "corpus" / "layout_doclaynet" / "ground_truth.json"
 
 
 PDF_SELECTIONS = [
@@ -84,6 +86,58 @@ def image_to_pdf(source_path: Path, output_path: Path) -> None:
         )
         with output_path.open("wb") as output:
             writer.write(output)
+
+
+def prepare_pipeline_doclaynet() -> Path:
+    ground_truth = json.loads(DOCLAYNET_GROUND_TRUTH.read_text(encoding="utf-8"))
+    pdf_dir = PIPELINE_DOCLAYNET_DIR / "pdf"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+    for path in pdf_dir.glob("*"):
+        path.unlink()
+
+    documents = []
+    for sample in ground_truth["samples"]:
+        sample_id = sample["id"]
+        image_path = DOCLAYNET_GROUND_TRUTH.parent / sample["image"]
+        if sha256(image_path) != sample["image_sha256"]:
+            raise RuntimeError(f"DocLayNet image SHA256 mismatch for sample {sample_id}")
+        output_name = f"doclaynet_{sample_id}.pdf"
+        output_path = pdf_dir / output_name
+        image_to_pdf(image_path, output_path)
+        documents.append(
+            {
+                "id": f"doclaynet_{sample_id}",
+                "source": sample["image"],
+                "source_pages": [1],
+                "pdf": output_name,
+                "sha256": sha256(output_path),
+                "pages": [
+                    {
+                        "page": 1,
+                        "sample_id": sample_id,
+                        "image": sample["image"],
+                        "width": sample["width"],
+                        "height": sample["height"],
+                        "sha256": sample["image_sha256"],
+                    }
+                ],
+            }
+        )
+
+    if len(documents) != 5:
+        raise RuntimeError(f"expected 5 Pipeline DocLayNet samples, found {len(documents)}")
+
+    manifest = {
+        "version": 1,
+        "task": "layout",
+        "dataset": ground_truth["dataset"],
+        "dpi": 200,
+        "page_count": len(documents),
+        "documents": documents,
+    }
+    manifest_path = PIPELINE_DOCLAYNET_DIR / "prepared_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return manifest_path
 
 
 def render_pdf(engine: Path, pdf_path: Path) -> list[dict]:
@@ -184,8 +238,10 @@ def main() -> int:
     }
     manifest_path = INPUT_DIR / "prepared_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    doclaynet_manifest_path = prepare_pipeline_doclaynet()
     print(f"Prepared {page_count} pages under {INPUT_DIR}")
     print(f"Manifest: {manifest_path}")
+    print(f"Pipeline DocLayNet manifest: {doclaynet_manifest_path}")
     return 0 if page_count == 15 else 1
 
 

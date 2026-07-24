@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   evaluate:
-    name: 15-page quality baseline
+    name: Pipeline quality baselines
     runs-on: ubuntu-24.04
 
     steps:
@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libopencv-dev
-          python3 -m pip install pypdf pillow
+          python3 -m pip install pypdf==5.9.0 pillow==11.3.0
 
       - name: Install PDFium
         run: bash scripts/setup_pdfium.sh
@@ -36,13 +36,13 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --target document_intelligence_engine pipeline_quality_eval --parallel
 
-      - name: Prepare 15-page corpus
+      - name: Prepare pipeline corpora
         run: |
           bash scripts/download_quality_baseline.sh
           python3 scripts/prepare_quality_baseline.py --engine build/cpp/app/document_intelligence_engine
 
       - name: Evaluate pipeline
-        run: ctest --test-dir build -R '^pipeline_quality_benchmark$' --output-on-failure
+        run: ctest --test-dir build -R '^pipeline_(quality|block_type)_benchmark$' --output-on-failure
 
       - name: Upload report
         if: always()
@@ -52,4 +52,6 @@ jobs:
           path: |
             build/tests/pipeline_quality_predictions.json
             build/tests/pipeline_quality_report.json
+            build/tests/pipeline_block_type_predictions.json
+            build/tests/pipeline_block_type_report.json
           if-no-files-found: warn

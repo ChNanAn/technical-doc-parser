@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "benchmark": {
+    "name": "olmOCR-Bench",
+    "source_revision": "f7cfe4c22098b154c76b6ec950d1c0a464eecf8d",
+    "source_version": "0.4.27",
+    "data_revision": "54a96a6fb6a2bd3b297e59869491db4d3625b711",
+    "bootstrap_samples": 1000,
+    "tests": 8413
+  },
+  "engine": {
+    "name": "DocumentIntelligenceEngine",
+    "revision": "27e2676",
+    "dpi": 200,
+    "inference": "cpu",
+    "onnx_runtime": "1.18.1",
+    "backends": {
+      "document": "pdf",
+      "ocr": "paddle",
+      "layout": ["doclaynet", "paddle-layout", "text"],
+      "table": ["table-transformer", "text"]
+    }
+  },
+  "hardware": {
+    "cpu": "Intel Core Ultra 7 265",
+    "cpu_cores": 20,
+    "memory_gib": 19,
+    "gpu": null
+  },
+  "candidate_generation": {
+    "pdfs": 1403,
+    "candidate_files": 1403,
+    "parse_or_export_failures": 0,
+    "empty_candidates": 42,
+    "invalid_utf8_candidates": 0
+  },
+  "result": {
+    "overall_percent": 44.2,
+    "confidence_interval_95_percent": {
+      "lower": 43.3,
+      "upper": 45.2
+    },
+    "suites": {
+      "arxiv_math": {"percent": 0.0, "passed": 0, "tests": 2927},
+      "baseline": {"percent": 92.4, "passed": 1288, "tests": 1394},
+      "headers_footers": {"percent": 94.5, "passed": 718, "tests": 760},
+      "long_tiny_text": {"percent": 47.7, "passed": 211, "tests": 442},
+      "multi_column": {"percent": 52.3, "passed": 462, "tests": 884},
+      "old_scans": {"percent": 16.3, "passed": 86, "tests": 526},
+      "old_scans_math": {"percent": 0.0, "passed": 0, "tests": 458},
+      "table_tests": {"percent": 50.7, "passed": 518, "tests": 1022}
+    },
+    "test_types": {
+      "absent": {"percent": 93.8, "tests": 823},
+      "baseline": {"percent": 92.4, "tests": 1403},
+      "math": {"percent": 0.0, "tests": 3385},
+      "order": {"percent": 44.0, "tests": 1061},
+      "present": {"percent": 32.0, "tests": 721},
+      "table": {"percent": 50.6, "tests": 1020}
+    }
+  }
+}

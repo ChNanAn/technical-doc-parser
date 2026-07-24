@@ -6,7 +6,8 @@
 
 项目通过类型化、可替换的 Backend 接口组合原生文本提取、OCR、版面分析、阅读顺序、表格结构识别和文档组装，输出 JSON、Markdown、HTML、页面图像及可选调试产物，供下游业务系统使用。
 
-> 这是一个已经能够运行和评测的早期引擎，还不是成熟的企业级文档产品。当前公开 Benchmark 主要用于回归保护，不应被理解为生产准确率结论。
+> 这是一个已经能够运行和评测的早期引擎，还不是成熟的企业级文档产品。仓库内提交的数据主要用于回归保护，
+> 外部 Benchmark 分数也不应被理解为生产准确率结论。
 
 ## 为什么做这个项目
 
@@ -123,6 +124,9 @@ output/
 仓库包含可再分发的 OCR、Layout 和 Table Fixture，以及与具体 Backend 无关的 Evaluator。完整模型构建包含真实 PaddleOCR、DocLayNet、Paddle Layout 和 Table Transformer 推理回归。
 
 已提交的模型评测集规模有意保持较小，主要用于防止预处理、推理、标签映射和后处理发生回退；项目仍需要更广泛的技术文档验证。
+
+第一次完整外部评测在 1,403 页 [olmOCR-Bench](docs/benchmarks/olmocr-bench.md) 上得到
+`44.2% +/- 0.9%`，各类别的优势和失败均已公开。
 
 数据集、指标、运行命令和当前限制见[评测说明](docs/evaluation.zh-CN.md)与 [Benchmark 指南](tests/benchmark/README.md)。
 

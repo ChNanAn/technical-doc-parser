@@ -198,6 +198,17 @@ of 130 comparable anchor pairs are ordered correctly. `irs_fw4_2024_selected:p02
 header block and scores zero on completeness and anchor recall. This failure remains in the corpus and report so an
 aggregate score cannot hide it.
 
+## External olmOCR-Bench
+
+`olmocr_bench_runner` converts the independent 1,403-PDF olmOCR-Bench corpus to its required candidate layout while
+reusing model sessions across documents. It supports `--category`, `--limit`, and `--resume`; parse failures are
+represented by empty Markdown so the official scorer penalizes them instead of silently dropping samples.
+
+The first full run scored `44.2% +/- 0.9%` over 8,413 official tests. The complete result, exact upstream revisions,
+hardware, commands, and interpretation are published in the
+[olmOCR-Bench baseline report](../../docs/benchmarks/olmocr-bench.md). The external corpus and generated candidates
+remain under ignored `data/raw/`; they are not CI dependencies or repository fixtures.
+
 DocLayNet is read with HTTP Range requests, so only its test annotation JSON and five PNG files are transferred
 from the 30 GB archive. PubTables images are streamed only until the five fixed entries are found; the multi-GB
 image archive is not downloaded in full. Source versions, IDs, checksums, and license notes are recorded in

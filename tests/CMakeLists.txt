@@ -168,6 +168,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         pipeline_quality_eval.cpp
     )
 
+    add_executable(olmocr_bench_runner
+        olmocr_bench_runner.cpp
+    )
+
     add_executable(funsd_ocr_eval
         funsd_ocr_eval.cpp
     )
@@ -197,6 +201,13 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             nlohmann_json::nlohmann_json
     )
 
+    target_link_libraries(olmocr_bench_runner
+        PRIVATE
+            doc_parser_export
+            doc_parser_pipeline
+            nlohmann_json::nlohmann_json
+    )
+
     target_link_libraries(funsd_ocr_eval
         PRIVATE
             doc_parser_ocr
@@ -218,6 +229,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     doc_parser_set_common_warnings(paddle_ocr_onnx_baseline)
     doc_parser_set_common_warnings(paddle_ocr_eval)
     doc_parser_set_common_warnings(pipeline_quality_eval)
+    doc_parser_set_common_warnings(olmocr_bench_runner)
     doc_parser_set_common_warnings(funsd_ocr_eval)
     doc_parser_set_common_warnings(doclaynet_layout_eval)
     doc_parser_set_common_warnings(pubtables_table_eval)

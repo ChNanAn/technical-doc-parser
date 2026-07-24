@@ -164,6 +164,16 @@ Worksheet 页面目前只生成一个空 Header Block，文本完整率和 Ancho
 Corpus 和报告中，作为可见的改进目标。这些下限只保护固定语料和固定模型策略不发生回退，不是生产验收线。
 复现命令、指标范围和语料来源见 [Benchmark 指南](../tests/benchmark/README.md)。
 
+## 外部验证
+
+项目第一次完整运行独立的 1,403 页 olmOCR-Bench，在 8,413 条测试上得到 `44.2% +/- 0.9%`。Header/Footer
+过滤（`94.5%`）和基础输出健康度（`92.4%`）相对可靠；Table（`50.7%`）和 Multi-column Order（`52.3%`）
+仍处于早期，Old Scans 只有 `16.3%`，结构化公式输出为 `0%`。
+
+项目有意公开这个并不漂亮的分数：它是可复现的外部起点，不是生产准确率声明。后续 OCR、Reading Order、
+Table 和公式导出的改进可以沿同一条独立曲线比较。版本、计数、命令和局限见
+[完整 olmOCR-Bench 报告](benchmarks/olmocr-bench.md)。
+
 ## 接下来实施顺序
 
 1. 建立四类 Contract Fixtures 和版本化 Technical Document Manifest。

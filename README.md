@@ -6,7 +6,8 @@ A C++ native, backend-agnostic document intelligence engine for structured docum
 
 The project combines native text extraction, OCR, layout analysis, reading order, table structure recognition, and document assembly behind typed, replaceable backend interfaces. It produces JSON, Markdown, HTML, page images, and optional debug artifacts for downstream applications.
 
-> This is an early, runnable, and measurable engine, not a finished enterprise document product. The current public benchmarks are small regression sets and should not be interpreted as production accuracy claims.
+> This is an early, runnable, and measurable engine, not a finished enterprise document product. Committed datasets
+> are small regression sets, and external benchmark scores should not be interpreted as production accuracy claims.
 
 ## Why This Project
 
@@ -124,6 +125,9 @@ The first public document contract is available as a release candidate: [Documen
 The repository contains redistributable OCR, layout, and table fixtures with backend-independent evaluators. The full model build includes real PaddleOCR, DocLayNet, Paddle Layout, and Table Transformer inference regressions.
 
 The committed model datasets are intentionally small. They protect preprocessing, inference, label mapping, and postprocessing from regressions; broader technical-document validation is still required.
+
+The first full external run scores `44.2% +/- 0.9%` on 1,403-page
+[olmOCR-Bench](docs/benchmarks/olmocr-bench.md), with all strengths and failures published by category.
 
 See [Evaluation](docs/evaluation.md) and the [Benchmark Guide](tests/benchmark/README.md) for datasets, metrics, commands, and current limitations.
 

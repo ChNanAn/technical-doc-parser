@@ -269,6 +269,16 @@ and anchor recall. It is intentionally retained as a visible failure and improve
 regression under the pinned corpus and model policy; they are not production acceptance thresholds. Reproduction
 commands, metric scope, and corpus sources are in the [Benchmark Guide](../tests/benchmark/README.md).
 
+## External Validation
+
+The first complete run on the independent 1,403-PDF olmOCR-Bench scored `44.2% +/- 0.9%` over 8,413 tests. Strong
+header/footer suppression (`94.5%`) and baseline output health (`92.4%`) coexist with early table (`50.7%`) and
+multi-column order (`52.3%`) performance, weak old-scan results (`16.3%`), and no structure-aware math output (`0%`).
+
+This is intentionally published despite the low overall score. It is a reproducible external starting point, not a
+production claim, and it gives future OCR, reading-order, table, and formula-export changes an independent trend line.
+See the [full olmOCR-Bench report](benchmarks/olmocr-bench.md) for versions, counts, commands, and limitations.
+
 ## Implementation Priority
 
 The Backend baselines and sampled text/order Pipeline gate should remain in CI. The next evaluation work is:

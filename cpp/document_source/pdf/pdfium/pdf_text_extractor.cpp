@@ -1,9 +1,12 @@
 #include "document_source/pdf/pdfium/pdf_text_extractor.h"
 
+#include "common/utf8.h"
+
 #include "document/text_normalizer.h"
 #include "document_source/pdf/pdfium/pdfium_runtime.h"
 #include "document_source/pdf/pdfium/pdfium_scoped_handles.h"
 
+#include <algorithm>
 #include <fpdf_text.h>
 #include <mutex>
 #include <string>
@@ -11,26 +14,6 @@
 
 namespace doc_parser::pdf {
 namespace {
-
-std::string toUtf8(unsigned int codepoint) {
-    std::string result;
-    if (codepoint <= 0x7F) {
-        result.push_back(static_cast<char>(codepoint));
-    } else if (codepoint <= 0x7FF) {
-        result.push_back(static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F)));
-        result.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-    } else if (codepoint <= 0xFFFF) {
-        result.push_back(static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F)));
-        result.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
-        result.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-    } else if (codepoint <= 0x10FFFF) {
-        result.push_back(static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07)));
-        result.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
-        result.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
-        result.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-    }
-    return result;
-}
 
 document::BBox toRenderedBBox(double left, double right, double bottom, double top, double page_height, double scale) {
     return {
@@ -80,8 +63,13 @@ bool PdfTextExtractor::extractPageText(const PdfReader& reader,
 
     std::vector<document::TextToken> tokens;
     tokens.reserve(static_cast<std::size_t>(char_count));
-    for (int index = 0; index < char_count; ++index) {
-        const unsigned int codepoint = FPDFText_GetUnicode(text_page.get(), index);
+    for (int index = 0; index < char_count;) {
+        const unsigned int first = FPDFText_GetUnicode(text_page.get(), index);
+        const unsigned int following = index + 1 < char_count ? FPDFText_GetUnicode(text_page.get(), index + 1) : 0;
+        const common::DecodedUtf16CodePoint decoded = common::decodeUtf16CodePoint(first, following);
+        const int first_index = index;
+        index += decoded.code_units;
+        const std::uint32_t codepoint = decoded.value;
         if (codepoint == 0) {
             continue;
         }
@@ -96,8 +84,21 @@ bool PdfTextExtractor::extractPageText(const PdfReader& reader,
         double right = 0.0;
         double bottom = 0.0;
         double top = 0.0;
-        if (!FPDFText_GetCharBox(text_page.get(), index, &left, &right, &bottom, &top)) {
+        if (!FPDFText_GetCharBox(text_page.get(), first_index, &left, &right, &bottom, &top)) {
             continue;
+        }
+        if (decoded.code_units == 2) {
+            double pair_left = 0.0;
+            double pair_right = 0.0;
+            double pair_bottom = 0.0;
+            double pair_top = 0.0;
+            if (FPDFText_GetCharBox(
+                    text_page.get(), first_index + 1, &pair_left, &pair_right, &pair_bottom, &pair_top)) {
+                left = std::min(left, pair_left);
+                right = std::max(right, pair_right);
+                bottom = std::min(bottom, pair_bottom);
+                top = std::max(top, pair_top);
+            }
         }
         if (right < left || top < bottom) {
             continue;
@@ -105,7 +106,7 @@ bool PdfTextExtractor::extractPageText(const PdfReader& reader,
 
         tokens.push_back({
             document::TextTokenKind::Glyph,
-            toUtf8(codepoint),
+            common::encodeUtf8(codepoint),
             toRenderedBBox(left, right, bottom, top, page_height, scale),
             document::TextSource::PdfTextLayer,
             1.0,

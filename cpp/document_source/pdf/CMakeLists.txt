@@ -22,6 +22,8 @@ target_link_libraries(doc_parser_document_source_pdf
     PUBLIC
         doc_parser_document
         pdfium
+    PRIVATE
+        doc_parser_common
 )
 
 doc_parser_set_common_warnings(doc_parser_document_source_pdf)

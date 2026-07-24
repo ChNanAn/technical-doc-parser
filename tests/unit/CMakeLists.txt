@@ -12,11 +12,13 @@ add_executable(domain_unit_tests
     table_recognition_stage_test.cpp
     text_normalizer_test.cpp
     text_extraction_stage_test.cpp
+    utf8_test.cpp
 )
 
 target_link_libraries(domain_unit_tests
     PRIVATE
         doc_parser_assembly
+        doc_parser_common
         doc_parser_document
         doc_parser_export
         doc_parser_layout

@@ -97,21 +97,39 @@ bool DocumentPipeline::run(const PipelineRunOptions& options) const {
 }
 
 bool DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& observer) const {
+    return runInternal(options, nullptr, {}, observer);
+}
+
+bool DocumentPipeline::run(const PipelineRunOptions& options,
+                           PipelineServices& services,
+                           const std::string& service_trace,
+                           IStageObserver& observer) const {
+    return runInternal(options, &services, service_trace, observer);
+}
+
+bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
+                                   PipelineServices* services,
+                                   const std::string& service_trace,
+                                   IStageObserver& observer) const {
     const Clock::time_point run_started = Clock::now();
     const PipelineContext context = PipelineContext::fromOptions(options);
 
     Clock::time_point stage_started = Clock::now();
     observer.onStageStarted({"configure", "registry", 1});
-    PipelineServiceCreationResult service_creation = createPipelineServices(context.backends);
-    if (!service_creation.ok) {
-        stageFailed(observer, "configure", service_creation.error_stage, service_creation.error_message);
-        return false;
+    PipelineServiceCreationResult service_creation;
+    if (services == nullptr) {
+        service_creation = createPipelineServices(context.backends);
+        if (!service_creation.ok) {
+            stageFailed(observer, "configure", service_creation.error_stage, service_creation.error_message);
+            return false;
+        }
+        services = &service_creation.services;
     }
     observer.onStageProgress({"configure", 1, 1});
     observer.onStageCompleted({"configure", elapsedMilliseconds(stage_started)});
-    spdlog::info("configured services: {}", service_creation.trace_message);
+    spdlog::info("configured services: {}", service_trace.empty() ? service_creation.trace_message : service_trace);
 
-    auto& document = service_creation.services.document;
+    auto& document = services->document;
 
     stage_started = Clock::now();
     observer.onStageStarted({"open", context.backends.document, 1});
@@ -176,7 +194,7 @@ bool DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& ob
     }
     stage_started = Clock::now();
     observer.onStageStarted({"text", context.backends.ocr, static_cast<int>(rendered_pages.size())});
-    const TextExtractionStage text_extraction(document.native_text_extractor, *service_creation.services.ocr);
+    const TextExtractionStage text_extraction(document.native_text_extractor, *services->ocr);
     std::vector<document::PageText> page_texts;
     common::Status stage_status = text_extraction.extract(context, rendered_pages, page_texts);
     if (!stage_status.okStatus()) {
@@ -193,7 +211,7 @@ bool DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& ob
     }
     stage_started = Clock::now();
     observer.onStageStarted({"layout", context.backends.layout, static_cast<int>(rendered_pages.size())});
-    const LayoutAnalysisStage layout_analysis(*service_creation.services.layout);
+    const LayoutAnalysisStage layout_analysis(*services->layout);
     std::vector<document::PageLayout> page_layouts;
     stage_status = layout_analysis.analyze(context, rendered_pages, page_texts, page_layouts);
     if (!stage_status.okStatus()) {
@@ -211,7 +229,7 @@ bool DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& ob
     }
     stage_started = Clock::now();
     observer.onStageStarted({"table", context.backends.table, static_cast<int>(rendered_pages.size())});
-    const TableRecognitionStage table_recognition(*service_creation.services.table);
+    const TableRecognitionStage table_recognition(*services->table);
     std::vector<document::PageTables> page_tables;
     stage_status = table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables);
     if (!stage_status.okStatus()) {
@@ -228,7 +246,7 @@ bool DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& ob
     }
     stage_started = Clock::now();
     observer.onStageStarted({"reading_order", "docling-like", static_cast<int>(rendered_pages.size())});
-    const ReadingOrderStage reading_order(*service_creation.services.reading_order);
+    const ReadingOrderStage reading_order(*services->reading_order);
     std::vector<document::PageReadingOrder> page_reading_orders;
     stage_status = reading_order.order(context, rendered_pages, page_layouts, page_reading_orders);
     if (!stage_status.okStatus()) {

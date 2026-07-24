@@ -1,9 +1,10 @@
 #include "app/cli_options.h"
-#include "pipeline/document_pipeline.h"
+#include "pipeline/document_engine.h"
 
 #include <CLI/CLI.hpp>
 #include <cstdlib>
 #include <spdlog/spdlog.h>
+#include <utility>
 
 namespace {
 
@@ -53,8 +54,13 @@ int main(int argc, char** argv) {
 
     configureLogging(options);
 
-    const doc_parser::pipeline::DocumentPipeline pipeline;
-    if (!pipeline.run(pipelineOptions(options))) {
+    doc_parser::pipeline::PipelineRunOptions pipeline_options = pipelineOptions(options);
+    doc_parser::pipeline::DocumentEngine engine(pipeline_options.backends);
+    if (!engine.isReady()) {
+        spdlog::error("failed to initialize document engine: {}", engine.initializationError());
+        return 2;
+    }
+    if (!engine.parse(std::move(pipeline_options))) {
         return 2;
     }
 

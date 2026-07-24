@@ -3,6 +3,7 @@ include(GoogleTest)
 add_executable(domain_unit_tests
     backend_registry_test.cpp
     document_assembler_test.cpp
+    document_engine_test.cpp
     json_document_exporter_test.cpp
     layout_backend_test.cpp
     reading_order_backend_test.cpp
@@ -25,6 +26,11 @@ target_link_libraries(domain_unit_tests
         doc_parser_table
         GTest::gtest_main
         nlohmann_json::nlohmann_json
+)
+
+target_compile_definitions(domain_unit_tests
+    PRIVATE
+        DOC_PARSER_TEST_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/fixtures"
 )
 
 doc_parser_set_common_warnings(domain_unit_tests)

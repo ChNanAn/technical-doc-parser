@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import json
 import unittest
+from pathlib import Path
 
 from benchmark_common import EvaluationError, levenshtein_distance, maximum_iou_matching
 from evaluate_layout import evaluate_layout
 from evaluate_ocr import evaluate_ocr
+from evaluate_pipeline import evaluate_pipeline
 from evaluate_table import evaluate_table
 
 
@@ -103,6 +106,47 @@ class LayoutEvaluatorTest(unittest.TestCase):
         }
         with self.assertRaises(EvaluationError):
             evaluate_layout(ground_truth, predictions)
+
+
+class PipelineEvaluatorTest(unittest.TestCase):
+    def test_reports_completeness_anchor_recall_and_pairwise_order(self) -> None:
+        ground_truth = {
+            "task": "pipeline_text_order",
+            "samples": [
+                {
+                    "id": "page",
+                    "anchors": [{"id": "a", "text": "alpha"}, {"id": "b", "text": "bravo"}],
+                    "reading_order": ["a", "b"],
+                }
+            ],
+        }
+        predictions = {
+            "task": "pipeline_text_order",
+            "samples": [{"id": "page", "blocks": [{"text": "bravo"}, {"text": "alpha"}]}],
+        }
+        report = evaluate_pipeline(ground_truth, predictions)
+        self.assertEqual(1.0, report["summary"]["text_completeness"])
+        self.assertEqual(1.0, report["summary"]["reading_order_anchor_recall"])
+        self.assertEqual(0.0, report["summary"]["reading_order_score"])
+
+    def test_validates_all_committed_reviewed_spans(self) -> None:
+        path = Path(__file__).resolve().parent / "corpus" / "pipeline_quality" / "ground_truth.json"
+        ground_truth = json.loads(path.read_text(encoding="utf-8"))
+        predictions = {
+            "task": "pipeline_text_order",
+            "dataset": ground_truth["dataset"],
+            "samples": [
+                {
+                    "id": sample["id"],
+                    "blocks": [{"text": anchor["text"]} for anchor in sample["anchors"]],
+                }
+                for sample in ground_truth["samples"]
+            ],
+        }
+        report = evaluate_pipeline(ground_truth, predictions)
+        self.assertEqual(15, report["summary"]["samples"])
+        self.assertEqual(1.0, report["summary"]["text_completeness"])
+        self.assertEqual(1.0, report["summary"]["reading_order_score"])
 
 
 class TableEvaluatorTest(unittest.TestCase):

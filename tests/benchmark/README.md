@@ -162,6 +162,16 @@ The fixed annotated subset contains:
 These 15 images and annotations are intentionally committed with the repository. Tesseract samples are
 Apache-2.0, DocLayNet is CDLA-Permissive-1.0, and PubTables-1M is CDLA-Permissive-2.0.
 
+## Pipeline reference spans
+
+`corpus/pipeline_quality/ground_truth.json` covers all 15 real-world pages in the prepared input baseline. Each page
+contains visually reviewed text spans and an explicit order for those spans. The spans come from independent PDF
+text layers where available and visual transcription for image-only samples; they are not copied from engine output.
+
+`text_completeness` is therefore a sampled reference-span metric, not a claim that every character on each page has
+been transcribed. `reading_order_score` compares all pairs among anchors matched at or above the configured threshold,
+and `reading_order_anchor_recall` prevents a high order score from hiding missing content.
+
 DocLayNet is read with HTTP Range requests, so only its test annotation JSON and five PNG files are transferred
 from the 30 GB archive. PubTables images are streamed only until the five fixed entries are found; the multi-GB
 image archive is not downloaded in full. Source versions, IDs, checksums, and license notes are recorded in

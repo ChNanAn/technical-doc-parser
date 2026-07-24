@@ -1,0 +1,225 @@
+{
+  "version": 1,
+  "task": "pipeline_text_order",
+  "dataset": "technical-doc-parser/quality-baseline-15",
+  "annotation": {
+    "revision": "2026-07-24",
+    "reference_scope": "reviewed_spans",
+    "method": "Independent PDF text layers plus visual review of the rendered pages",
+    "notes": "Text completeness is sampled over the listed spans. Reading order compares all pairs in each explicit order list."
+  },
+  "samples": [
+    {
+      "id": "irs_f1040_2024_selected:p01",
+      "document_id": "irs_f1040_2024_selected",
+      "page_number": 1,
+      "image_sha256": "74fc7d6d31e3a0b10b6101815ab06a8346e73fede40026216fdd968c4ec2b4b1",
+      "anchors": [
+        {"id": "title", "text": "U.S. Individual Income Tax Return"},
+        {"id": "digital_assets", "text": "At any time during 2024, did you"},
+        {"id": "dependents", "text": "Dependents (see instructions)"},
+        {"id": "income", "text": "Total amount from Form(s) W-2, box 1"}
+      ],
+      "reading_order": ["title", "digital_assets", "dependents", "income"]
+    },
+    {
+      "id": "irs_f1040_2024_selected:p02",
+      "document_id": "irs_f1040_2024_selected",
+      "page_number": 2,
+      "image_sha256": "1694dc37c7b27660cc7bbc196dd0b56368cdc2ab69d7f34ad6c180f02e0efd94",
+      "anchors": [
+        {"id": "tax", "text": "Tax and Credits"},
+        {"id": "payments", "text": "Federal income tax withheld from"},
+        {"id": "refund", "text": "This is the amount you overpaid"},
+        {"id": "amount_owed", "text": "This is the amount you owe"},
+        {"id": "signature", "text": "Under penalties of perjury"}
+      ],
+      "reading_order": ["tax", "payments", "refund", "amount_owed", "signature"]
+    },
+    {
+      "id": "irs_fw4_2024_selected:p01",
+      "document_id": "irs_fw4_2024_selected",
+      "page_number": 1,
+      "image_sha256": "93fb46cc35dff94aaf7d45adf0cf229059c1db1e20d6292bac21bae92a3cd221",
+      "anchors": [
+        {"id": "title", "text": "Employee's Withholding Certificate"},
+        {"id": "step_1", "text": "Step 1: Enter Personal Information"},
+        {"id": "step_2", "text": "Step 2: Multiple Jobs or Spouse Works"},
+        {"id": "step_3", "text": "Step 3: Claim Dependent and Other Credits"},
+        {"id": "step_4", "text": "Step 4 (optional): Other Adjustments"},
+        {"id": "step_5", "text": "Step 5: Sign Here"}
+      ],
+      "reading_order": ["title", "step_1", "step_2", "step_3", "step_4", "step_5"]
+    },
+    {
+      "id": "irs_fw4_2024_selected:p02",
+      "document_id": "irs_fw4_2024_selected",
+      "page_number": 2,
+      "image_sha256": "a15132d3a6ba6649567f5c3ba2fad422666eb144c1ee07b29d7b45ccb0e8ff3d",
+      "anchors": [
+        {"id": "title", "text": "Step 2(b)-Multiple Jobs Worksheet"},
+        {"id": "two_jobs", "text": "Two jobs. If you have two jobs"},
+        {"id": "three_jobs", "text": "Three jobs. If you and/or your spouse have three jobs"},
+        {"id": "pay_periods", "text": "Enter the number of pay periods per year"},
+        {"id": "deductions", "text": "Step 4(b)-Deductions Worksheet"}
+      ],
+      "reading_order": ["title", "two_jobs", "three_jobs", "pay_periods", "deductions"]
+    },
+    {
+      "id": "nist_sp800_53r5_selected:p01",
+      "document_id": "nist_sp800_53r5_selected",
+      "page_number": 1,
+      "image_sha256": "9bd816c575afe212b6eeb38789f6ceae36cd359f9b81a25cb10839317e6f5941",
+      "anchors": [
+        {"id": "publication", "text": "NIST Special Publication 800-53"},
+        {"id": "revision", "text": "Revision 5"},
+        {"id": "title", "text": "Security and Privacy Controls for Information Systems and Organizations"},
+        {"id": "author", "text": "JOINT TASK FORCE"},
+        {"id": "doi", "text": "https://doi.org/10.6028/NIST.SP.800-53r5"}
+      ],
+      "reading_order": ["publication", "revision", "title", "author", "doi"]
+    },
+    {
+      "id": "nist_sp800_53r5_selected:p02",
+      "document_id": "nist_sp800_53r5_selected",
+      "page_number": 2,
+      "image_sha256": "8cc91ab720760424adf9db658680137ab8bd67dc50367435f5b101792575b0fd",
+      "anchors": [
+        {"id": "title", "text": "Table of Contents"},
+        {"id": "chapter_1", "text": "CHAPTER ONE INTRODUCTION"},
+        {"id": "chapter_2", "text": "CHAPTER TWO THE FUNDAMENTALS"},
+        {"id": "chapter_3", "text": "CHAPTER THREE THE CONTROLS"},
+        {"id": "references", "text": "REFERENCES"},
+        {"id": "appendix", "text": "APPENDIX C CONTROL SUMMARIES"}
+      ],
+      "reading_order": ["title", "chapter_1", "chapter_2", "chapter_3", "references", "appendix"]
+    },
+    {
+      "id": "nist_sp800_53r5_selected:p03",
+      "document_id": "nist_sp800_53r5_selected",
+      "page_number": 3,
+      "image_sha256": "bb20087204e8d1eb5d18d197e413ad3c6f0e9d22ef527f16f5c9ded090390ee9",
+      "anchors": [
+        {"id": "opening", "text": "Controls can be viewed as descriptions of the safeguards"},
+        {"id": "section", "text": "CONTROL STRUCTURE AND ORGANIZATION"},
+        {"id": "families", "text": "controls are organized into 20 families"},
+        {"id": "table", "text": "SECURITY AND PRIVACY CONTROL FAMILIES"},
+        {"id": "closing", "text": "Families of controls contain base controls and control enhancements"}
+      ],
+      "reading_order": ["opening", "section", "families", "table", "closing"]
+    },
+    {
+      "id": "nist_sp800_53r5_selected:p04",
+      "document_id": "nist_sp800_53r5_selected",
+      "page_number": 4,
+      "image_sha256": "5339dec83aa770fe31dfb96e8e0546c0c8c687209aa146a3a47b71022281c2df",
+      "anchors": [
+        {"id": "opening", "text": "selection and implementation of control enhancements"},
+        {"id": "structure", "text": "Security and privacy controls have the following structure"},
+        {"id": "figure", "text": "FIGURE 1: CONTROL STRUCTURE"},
+        {"id": "control", "text": "The control section prescribes a security or privacy capability"}
+      ],
+      "reading_order": ["opening", "structure", "figure", "control"]
+    },
+    {
+      "id": "nasa_space_shuttle_selected:p01",
+      "document_id": "nasa_space_shuttle_selected",
+      "page_number": 1,
+      "image_sha256": "63f5294670798612bf3f3950f3814b7f0c7b6e592ec04d4ecde891cf2498b9f9",
+      "anchors": [
+        {"id": "title", "text": "CONTENTS"},
+        {"id": "propulsion", "text": "SPACE TRANSPORTATION SYSTEM PROPULSION"},
+        {"id": "orbiter", "text": "ORBITER SYSTEMS"},
+        {"id": "operations", "text": "MISSION OPERATIONS AND SUPPORT"},
+        {"id": "appendixes", "text": "APPENDIXES"}
+      ],
+      "reading_order": ["title", "propulsion", "orbiter", "operations", "appendixes"]
+    },
+    {
+      "id": "nasa_space_shuttle_selected:p02",
+      "document_id": "nasa_space_shuttle_selected",
+      "page_number": 2,
+      "image_sha256": "dd7288850acbd8a79745b352809f575a4ffdc6e636a4aa4d5fee64de25c1fed2",
+      "anchors": [
+        {"id": "front", "text": "FRONT VIEW"},
+        {"id": "payload", "text": "PAYLOAD BAY DOORS"},
+        {"id": "dimensions", "text": "DIMENSIONS AND WEIGHT"},
+        {"id": "caption", "text": "The Space Shuttle Orbiter"}
+      ],
+      "reading_order": ["front", "payload", "dimensions", "caption"]
+    },
+    {
+      "id": "nasa_space_shuttle_selected:p03",
+      "document_id": "nasa_space_shuttle_selected",
+      "page_number": 3,
+      "image_sha256": "dfda854f224c2f8b0f02b5fab2c877931728d2d8b96aa0c543bc133d3a152388",
+      "anchors": [
+        {"id": "manifold", "text": "The hot-gas manifold conducts hot gas"},
+        {"id": "heat_exchanger", "text": "The heat exchanger is a single-pass coil pack"},
+        {"id": "oxygen", "text": "The oxygen is heated to a gas in the small tube"},
+        {"id": "thrust", "text": "Thrust Vectoring"},
+        {"id": "pneumatic", "text": "Pneumatic Subsystem"}
+      ],
+      "reading_order": ["manifold", "heat_exchanger", "oxygen", "thrust", "pneumatic"]
+    },
+    {
+      "id": "paddleocr_book_photo:p01",
+      "document_id": "paddleocr_book_photo",
+      "page_number": 1,
+      "image_sha256": "55b7060214c6305198cbfa64e6dd780d2828102195cd2f299d478a118cddfe51",
+      "anchors": [
+        {"id": "left_title", "text": "The disappearing Sum"},
+        {"id": "left_body", "text": "The lovely Veronica Gumfloss"},
+        {"id": "left_caption", "text": "How many choices has she got?"},
+        {"id": "right_top", "text": "ALWAYS CANCELS OUT!"},
+        {"id": "right_middle", "text": "Pow! That's already got rid of more than half the numbers"},
+        {"id": "right_end", "text": "Look! No bottom."}
+      ],
+      "reading_order": ["left_title", "left_body", "left_caption", "right_top", "right_middle", "right_end"]
+    },
+    {
+      "id": "paddleocr_formula_two_column:p01",
+      "document_id": "paddleocr_formula_two_column",
+      "page_number": 1,
+      "image_sha256": "77889a72a3b0b6e7c9a50c82caad4558ae46bafa7e669ad5a72fba5963c04d7f",
+      "anchors": [
+        {"id": "left_top", "text": "mass that is radiated as it falls into the black hole"},
+        {"id": "left_middle", "text": "Multiplying by the mass and integrating the equation"},
+        {"id": "left_bottom", "text": "SMBH growth from accretion can thus be modelled"},
+        {"id": "right_top", "text": "a compilation of various multi-wavelength observations"},
+        {"id": "right_middle", "text": "The present-day SMBH mass function can be estimated"},
+        {"id": "right_bottom", "text": "Using the galaxy velocity dispersion as our fiducial proxy"}
+      ],
+      "reading_order": ["left_top", "left_middle", "left_bottom", "right_top", "right_middle", "right_bottom"]
+    },
+    {
+      "id": "paddleocr_medal_table_zh:p01",
+      "document_id": "paddleocr_medal_table_zh",
+      "page_number": 1,
+      "image_sha256": "6004fb53287f7b0d8a008d9572dd28f0fbed737486cf5af0eae57a015a6ce713",
+      "anchors": [
+        {"id": "header", "text": "国家/地区"},
+        {"id": "china", "text": "中国 (CHN)"},
+        {"id": "usa", "text": "美国 (USA)"},
+        {"id": "russia", "text": "俄罗斯 (RUS)"},
+        {"id": "jamaica", "text": "牙买加 (JAM)"}
+      ],
+      "reading_order": ["header", "china", "usa", "russia", "jamaica"]
+    },
+    {
+      "id": "paddleocr_small_mixed_table:p01",
+      "document_id": "paddleocr_small_mixed_table",
+      "page_number": 1,
+      "image_sha256": "b6f0d602d29fd0bc7cd95e777aff2924863d26df5015956292e2da9df65363f0",
+      "anchors": [
+        {"id": "title", "text": "CRuncover"},
+        {"id": "row_1", "text": "Dres"},
+        {"id": "row_2", "text": "Abstr"},
+        {"id": "row_2_value", "text": "$709."},
+        {"id": "row_3", "text": "cludingGiv"},
+        {"id": "row_3_value", "text": "$744.78"}
+      ],
+      "reading_order": ["title", "row_1", "row_2", "row_2_value", "row_3", "row_3_value"]
+    }
+  ]
+}

@@ -12,8 +12,32 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DOCUMENT_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "document.v1.schema.json"
 DOCUMENT_EXAMPLE_PATH = PROJECT_ROOT / "schemas" / "examples" / "document.v1.example.json"
+DOCUMENT_SNAPSHOT_ROOT = PROJECT_ROOT / "tests" / "contract" / "snapshots" / "document-v1"
 QUALITY_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "quality-report.v1.schema.json"
 QUALITY_EXAMPLE_PATH = PROJECT_ROOT / "schemas" / "examples" / "quality-report.v1.example.json"
+
+DOCUMENT_SNAPSHOT_EXPECTATIONS = {
+    "native-text.json": {
+        "media_type": "application/pdf",
+        "status": "complete",
+        "block_ids": ["native_title", "native_body"],
+    },
+    "scanned-ocr.json": {
+        "media_type": "image/tiff",
+        "status": "partial",
+        "block_ids": ["scan_heading", "scan_body"],
+    },
+    "complex-table.json": {
+        "media_type": "application/pdf",
+        "status": "complete",
+        "block_ids": ["table_heading", "pump_table", "table_note"],
+    },
+    "multi-column.json": {
+        "media_type": "application/pdf",
+        "status": "complete",
+        "block_ids": ["column_title", "left_1", "left_2", "right_1", "right_2"],
+    },
+}
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -122,6 +146,52 @@ def test_document_v1_schema_and_example_are_valid() -> None:
     example = _load(DOCUMENT_EXAMPLE_PATH)
     _validator(DOCUMENT_SCHEMA_PATH).validate(example)
     _validate_document_semantics(example)
+
+
+def test_document_v1_reviewed_snapshots_are_valid() -> None:
+    snapshot_paths = sorted(DOCUMENT_SNAPSHOT_ROOT.glob("*.json"))
+    assert [path.name for path in snapshot_paths] == sorted(DOCUMENT_SNAPSHOT_EXPECTATIONS)
+
+    validator = _validator(DOCUMENT_SCHEMA_PATH)
+    for snapshot_path in snapshot_paths:
+        snapshot = _load(snapshot_path)
+        expected = DOCUMENT_SNAPSHOT_EXPECTATIONS[snapshot_path.name]
+
+        validator.validate(snapshot)
+        _validate_document_semantics(snapshot)
+        assert snapshot["source"]["media_type"] == expected["media_type"]
+        assert snapshot["status"] == expected["status"]
+        assert [block["id"] for block in snapshot["blocks"]] == expected["block_ids"]
+
+
+def test_document_v1_snapshots_cover_source_and_structure_evidence() -> None:
+    native_text = _load(DOCUMENT_SNAPSHOT_ROOT / "native-text.json")
+    assert {
+        source_ref["kind"]
+        for block in native_text["blocks"]
+        for source_ref in block.get("source_refs", [])
+    } == {"pdf_text_layer"}
+
+    scanned_ocr = _load(DOCUMENT_SNAPSHOT_ROOT / "scanned-ocr.json")
+    assert {warning["code"] for warning in scanned_ocr["warnings"]} == {"OCR_LOW_CONFIDENCE"}
+    assert {
+        source_ref["kind"]
+        for block in scanned_ocr["blocks"]
+        for source_ref in block.get("source_refs", [])
+    } == {"ocr"}
+
+    complex_table = _load(DOCUMENT_SNAPSHOT_ROOT / "complex-table.json")
+    table = complex_table["blocks"][1]["table"]
+    assert len(table["rows"]) == 3
+    assert table["rows"][2]["cells"][0]["column_span"] == 3
+
+    multi_column = _load(DOCUMENT_SNAPSHOT_ROOT / "multi-column.json")
+    assert [block["metadata"].get("column") for block in multi_column["blocks"][1:]] == [
+        "left",
+        "left",
+        "right",
+        "right",
+    ]
 
 
 def test_quality_report_v1_schema_and_example_are_valid() -> None:

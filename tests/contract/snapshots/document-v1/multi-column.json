@@ -1,0 +1,81 @@
+{
+  "$schema": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json",
+  "schema_version": 1,
+  "document_id": "fixture_multi_column",
+  "status": "complete",
+  "source": {
+    "filename": "relay-bulletin.pdf",
+    "media_type": "application/pdf"
+  },
+  "producer": {
+    "name": "technical-doc-parser",
+    "version": "fixture"
+  },
+  "coordinate_space": {
+    "unit": "pixel",
+    "origin": "top_left",
+    "bbox_format": "xyxy",
+    "dpi": 200
+  },
+  "pages": [
+    {
+      "id": "page_1",
+      "number": 1,
+      "width": 1600,
+      "height": 2200
+    }
+  ],
+  "blocks": [
+    {
+      "id": "column_title",
+      "type": "title",
+      "page_id": "page_1",
+      "bbox": [120, 100, 1480, 200],
+      "text": "Relay application bulletin",
+      "metadata": {
+        "spans_columns": true
+      }
+    },
+    {
+      "id": "left_1",
+      "type": "paragraph",
+      "page_id": "page_1",
+      "bbox": [120, 280, 740, 520],
+      "text": "1. Verify the rated coil voltage.",
+      "metadata": {
+        "column": "left"
+      }
+    },
+    {
+      "id": "left_2",
+      "type": "paragraph",
+      "page_id": "page_1",
+      "bbox": [120, 560, 740, 820],
+      "text": "2. Check the contact load category.",
+      "metadata": {
+        "column": "left"
+      }
+    },
+    {
+      "id": "right_1",
+      "type": "paragraph",
+      "page_id": "page_1",
+      "bbox": [860, 280, 1480, 520],
+      "text": "3. Select the recommended suppression circuit.",
+      "metadata": {
+        "column": "right"
+      }
+    },
+    {
+      "id": "right_2",
+      "type": "paragraph",
+      "page_id": "page_1",
+      "bbox": [860, 560, 1480, 820],
+      "text": "4. Confirm the operating temperature range.",
+      "metadata": {
+        "column": "right"
+      }
+    }
+  ],
+  "warnings": []
+}

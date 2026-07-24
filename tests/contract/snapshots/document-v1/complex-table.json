@@ -1,0 +1,141 @@
+{
+  "$schema": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json",
+  "schema_version": 1,
+  "document_id": "fixture_complex_table",
+  "status": "complete",
+  "source": {
+    "filename": "pump-schedule.pdf",
+    "media_type": "application/pdf"
+  },
+  "producer": {
+    "name": "technical-doc-parser",
+    "version": "fixture"
+  },
+  "coordinate_space": {
+    "unit": "pixel",
+    "origin": "top_left",
+    "bbox_format": "xyxy",
+    "dpi": 200
+  },
+  "pages": [
+    {
+      "id": "page_1",
+      "number": 1,
+      "width": 1600,
+      "height": 2200
+    }
+  ],
+  "blocks": [
+    {
+      "id": "table_heading",
+      "type": "heading",
+      "page_id": "page_1",
+      "bbox": [120, 100, 1000, 180],
+      "text": "Rated pump conditions"
+    },
+    {
+      "id": "pump_table",
+      "type": "table",
+      "page_id": "page_1",
+      "bbox": [120, 260, 1480, 760],
+      "text": "Parameter\tValue\tUnit\nPressure\t1.6\tMPa\nNominal operating point",
+      "score": {
+        "value": 0.88,
+        "kind": "table_structure_score"
+      },
+      "table": {
+        "id": "table_1",
+        "rows": [
+          {
+            "row_index": 0,
+            "is_header": true,
+            "bbox": [120, 260, 1480, 380],
+            "cells": [
+              {
+                "row_index": 0,
+                "column_index": 0,
+                "is_header": true,
+                "text": "Parameter",
+                "bbox": [120, 260, 760, 380]
+              },
+              {
+                "row_index": 0,
+                "column_index": 1,
+                "is_header": true,
+                "text": "Value",
+                "bbox": [760, 260, 1100, 380]
+              },
+              {
+                "row_index": 0,
+                "column_index": 2,
+                "is_header": true,
+                "text": "Unit",
+                "bbox": [1100, 260, 1480, 380]
+              }
+            ]
+          },
+          {
+            "row_index": 1,
+            "bbox": [120, 380, 1480, 540],
+            "cells": [
+              {
+                "row_index": 1,
+                "column_index": 0,
+                "text": "Pressure",
+                "bbox": [120, 380, 760, 540]
+              },
+              {
+                "row_index": 1,
+                "column_index": 1,
+                "text": "1.6",
+                "bbox": [760, 380, 1100, 540]
+              },
+              {
+                "row_index": 1,
+                "column_index": 2,
+                "text": "MPa",
+                "bbox": [1100, 380, 1480, 540]
+              }
+            ]
+          },
+          {
+            "row_index": 2,
+            "bbox": [120, 540, 1480, 760],
+            "cells": [
+              {
+                "row_index": 2,
+                "column_index": 0,
+                "column_span": 3,
+                "text": "Nominal operating point",
+                "bbox": [120, 540, 1480, 760],
+                "source_refs": [
+                  {
+                    "page_id": "page_1",
+                    "bbox": [120, 540, 1480, 760],
+                    "kind": "pdf_text_layer"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "table_note",
+      "type": "caption",
+      "page_id": "page_1",
+      "bbox": [120, 800, 1480, 880],
+      "text": "Table 3 - Values at 20 C"
+    }
+  ],
+  "relations": [
+    {
+      "id": "caption_for_table_1",
+      "type": "caption_of",
+      "from_block_id": "table_note",
+      "to_block_id": "pump_table"
+    }
+  ],
+  "warnings": []
+}

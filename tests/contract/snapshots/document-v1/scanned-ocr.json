@@ -1,0 +1,82 @@
+{
+  "$schema": "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json",
+  "schema_version": 1,
+  "document_id": "fixture_scanned_ocr",
+  "status": "partial",
+  "source": {
+    "filename": "inspection-card.tiff",
+    "media_type": "image/tiff"
+  },
+  "producer": {
+    "name": "technical-doc-parser",
+    "version": "fixture"
+  },
+  "coordinate_space": {
+    "unit": "pixel",
+    "origin": "top_left",
+    "bbox_format": "xyxy"
+  },
+  "pages": [
+    {
+      "id": "page_1",
+      "number": 1,
+      "width": 1728,
+      "height": 2292,
+      "image": {
+        "id": "page_1_image",
+        "uri": "pages/page_1.png",
+        "media_type": "image/png"
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "id": "scan_heading",
+      "type": "heading",
+      "page_id": "page_1",
+      "bbox": [140, 120, 1380, 250],
+      "text": "EQUIPMENT INSPECTION CARD",
+      "score": {
+        "value": 0.91,
+        "kind": "ocr_confidence"
+      },
+      "source_refs": [
+        {
+          "page_id": "page_1",
+          "bbox": [140, 120, 1380, 250],
+          "kind": "ocr"
+        }
+      ]
+    },
+    {
+      "id": "scan_body",
+      "type": "paragraph",
+      "page_id": "page_1",
+      "bbox": [140, 340, 1500, 520],
+      "text": "Bearing temperature: 68 C",
+      "score": {
+        "value": 0.54,
+        "kind": "ocr_confidence"
+      },
+      "source_refs": [
+        {
+          "page_id": "page_1",
+          "bbox": [140, 340, 1500, 520],
+          "kind": "ocr"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "code": "OCR_LOW_CONFIDENCE",
+      "message": "One or more text regions have low OCR confidence.",
+      "stage": "text_extraction",
+      "page_id": "page_1",
+      "block_id": "scan_body",
+      "details": {
+        "minimum_confidence": 0.54
+      }
+    }
+  ]
+}

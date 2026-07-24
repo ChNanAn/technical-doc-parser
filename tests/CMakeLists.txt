@@ -277,6 +277,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
                 0.88
                 0.84
                 0.92
+                0.16
         )
         set_tests_properties(pipeline_quality_benchmark PROPERTIES LABELS "benchmark;pipeline")
     endif()

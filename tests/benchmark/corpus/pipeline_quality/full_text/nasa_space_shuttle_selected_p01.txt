@@ -1,0 +1,36 @@
+CONTENTS
+1 INTRODUCTION....................... 1-1
+2 SPACE TRANSPORTATION SYSTEM
+PROPULSION.......................... 2-1
+Space Shuttle Main Engines . . . . . . . . . . . . 2-3
+Solid Rocket Boosters . . . . . . . . . . . . . . . . . 2-17
+External Tank . . . . . . . . . . . . . . . . . . . . . . . . . 2-33
+3 ORBITER STRUCTURE . . . . . . . .. . . . . . . . . 3-1
+4 ORBITER SYSTEMS . . . . . . .. .. . . . . . . . . . 4-1
+Propulsion . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4-3
+Power Generation . . . . . . . . . . . . . . . . . . . . . 4-9
+Environmental Control and Life Support
+System . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4-17
+Thermal Protection . . . . . . . . . . . . . . . . . . . . 4-25
+Purge, Vent, and Drain System . . . . . . . . . . 4-33
+Avionics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4-37
+5 ORBITER CREW ACCOMMODATIONS
+AND EQUIPMENT . . . . . . . . . . . . . . . . . . . . . . 5-1
+6 MISSION OPERATIONS AND
+SUPPORT . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6-1
+Launch and Landing Facilities and
+Operations . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6-3
+Tracking and Communications Network.. 6-43
+Flight Operations and Mission
+Control . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6-49
+7 FLIGHTCREW COMPLEMENT AND
+CREW TRAINING...................... 7-1
+8 TESTING .. . .. . .. . . . . . . . .. . . . . . . . . .. . . 8-1
+9 MANAGEMENT .. . . . . . . .. . . .. .. . .. . . . . . 9-1
+1 0 CONTRACTORS . . . . . . . . . . . . . . . . . . . . . . . 10-1
+APPENDIXES
+A Acronyms and Abbreviations............ A-1
+B Glossary . . . . . . . . . . . . . . . . . . . . . . . . . . . . . B-1
+C Unit Conversion Table . . . . . . . . . . . . . . . . . C-1
+PRECEDING PAGE BLANK NOT RLMED
+V

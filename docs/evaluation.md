@@ -40,8 +40,9 @@ Pipeline or Product measurement.
 
 - `text_completeness`: reference characters aligned to the final normalized document text divided by total reference
   characters. It exposes content lost between extraction/OCR and assembly.
-- `text_duplication_rate`: final characters that cannot be aligned to reference content divided by final characters.
-  Report CER beside it so substituted text is not mistaken for pure duplication.
+- `text_duplication_rate`: normalized output characters whose multiplicity exceeds the full-text reference divided by
+  normalized output characters. Character-multiset matching keeps this metric independent of reading order. Report
+  reference coverage and CER beside it so unavailable references or substituted text are not mistaken for quality.
 - `block_type_micro_f1`: class-aware one-to-one matching between final blocks and annotated blocks, using the recorded
   IoU threshold and taxonomy mapping.
 - `reading_order_score`: correctly ordered pairs divided by all comparable pairs among matched content blocks. This is
@@ -257,13 +258,18 @@ A scheduled and manually dispatchable workflow runs one reusable `DocumentEngine
 15 reviewed pages. The final ordered `DocumentBlock` output is evaluated against 2,280 independently reviewed
 characters and 77 reading-order anchors.
 
-| Metric | Baseline | Regression floor |
+| Metric | Baseline | Regression guard |
 | --- | ---: | ---: |
 | Sampled text completeness | 0.8934 | 0.88 |
+| Full-text duplication rate (11/15 pages) | 0.1421 | <= 0.16 |
 | Reading-order anchor recall | 0.8571 | 0.84 |
 | Pairwise reading-order score | 0.9385 | 0.92 |
 
 The baseline matches 2,037 reviewed characters and 66 anchors; 122 of 130 comparable pairs are correctly ordered.
+The 11 native-PDF pages also provide 35,742 normalized reference characters. Character-multiset matching finds 4,856
+extra characters among 34,170 output characters; because this order-independent count also reacts to substitutions,
+the report includes companion full-text CER `0.4608`. The four image-only pages are excluded and reported through
+reference coverage rather than silently entering either denominator.
 One selected IRS W-4 worksheet page currently produces only an empty header block and scores zero for completeness
 and anchor recall. It is intentionally retained as a visible failure and improvement target. These floors detect
 regression under the pinned corpus and model policy; they are not production acceptance thresholds. Reproduction
@@ -283,12 +289,10 @@ See the [full olmOCR-Bench report](benchmarks/olmocr-bench.md) for versions, cou
 
 The Backend baselines and sampled text/order Pipeline gate should remain in CI. The next evaluation work is:
 
-1. Create the four contract fixture classes and a versioned technical-document manifest.
-2. Add final-document text duplication and Block Type F1 to the existing completeness/order evaluator.
-3. Add structure-matched table text CER.
-4. Validate exported Document v1 results and reviewed snapshots.
-5. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
-6. Emit `quality-report.v1` and compare it with a pinned baseline in CI.
+1. Add Block Type F1 to the existing completeness/order/duplication evaluator.
+2. Add structure-matched table text CER.
+3. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
+4. Emit `quality-report.v1` and compare it with a pinned baseline in CI.
 
 Regression floors should be introduced only after the metric and corpus are stable. A floor prevents known regressions;
 it is not automatically a production acceptance target.

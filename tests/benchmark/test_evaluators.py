@@ -128,6 +128,53 @@ class PipelineEvaluatorTest(unittest.TestCase):
         self.assertEqual(1.0, report["summary"]["text_completeness"])
         self.assertEqual(1.0, report["summary"]["reading_order_anchor_recall"])
         self.assertEqual(0.0, report["summary"]["reading_order_score"])
+        self.assertIsNone(report["summary"]["text_duplication_rate"])
+        self.assertIsNone(report["summary"]["full_text_cer"])
+
+    def test_reports_full_text_duplication_with_companion_cer(self) -> None:
+        ground_truth = {
+            "task": "pipeline_text_order",
+            "samples": [
+                {
+                    "id": "page",
+                    "anchors": [{"id": "a", "text": "alpha"}],
+                    "reading_order": ["a"],
+                    "reference_text": "alpha bravo",
+                }
+            ],
+        }
+        predictions = {
+            "task": "pipeline_text_order",
+            "samples": [{"id": "page", "blocks": [{"text": "alpha bravo bravo"}]}],
+        }
+        report = evaluate_pipeline(ground_truth, predictions)
+        self.assertEqual(1, report["summary"]["full_text_reference_samples"])
+        self.assertEqual(6, report["summary"]["extra_characters"])
+        self.assertAlmostEqual(6 / 17, report["summary"]["text_duplication_rate"])
+        self.assertAlmostEqual(6 / 11, report["summary"]["full_text_cer"])
+
+        reordered = {
+            "task": "pipeline_text_order",
+            "samples": [{"id": "page", "blocks": [{"text": "bravo alpha"}]}],
+        }
+        report = evaluate_pipeline(ground_truth, reordered)
+        self.assertEqual(0.0, report["summary"]["text_duplication_rate"])
+
+    def test_missing_prediction_does_not_look_like_duplication(self) -> None:
+        ground_truth = {
+            "task": "pipeline_text_order",
+            "samples": [
+                {
+                    "id": "page",
+                    "anchors": [{"id": "a", "text": "alpha"}],
+                    "reading_order": ["a"],
+                    "reference_text": "alpha",
+                }
+            ],
+        }
+        report = evaluate_pipeline(ground_truth, {"task": "pipeline_text_order", "samples": []})
+        self.assertEqual(0.0, report["summary"]["text_duplication_rate"])
+        self.assertEqual(1.0, report["summary"]["full_text_cer"])
 
     def test_validates_all_committed_reviewed_spans(self) -> None:
         path = Path(__file__).resolve().parent / "corpus" / "pipeline_quality" / "ground_truth.json"
@@ -143,11 +190,12 @@ class PipelineEvaluatorTest(unittest.TestCase):
                 for sample in ground_truth["samples"]
             ],
         }
-        report = evaluate_pipeline(ground_truth, predictions)
+        report = evaluate_pipeline(ground_truth, predictions, reference_root=path.parent)
         self.assertEqual(15, report["summary"]["samples"])
         self.assertEqual(1.0, report["summary"]["text_completeness"])
         self.assertEqual(1.0, report["summary"]["reading_order_anchor_recall"])
         self.assertEqual(1.0, report["summary"]["reading_order_score"])
+        self.assertEqual(11, report["summary"]["full_text_reference_samples"])
 
 
 class TableEvaluatorTest(unittest.TestCase):

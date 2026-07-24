@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-"""Evaluate sampled final-text completeness and reading order."""
+"""Evaluate final-text completeness, duplication, and reading order."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 import unicodedata
+from collections import Counter
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
@@ -14,6 +16,8 @@ from typing import Any
 from benchmark_common import (
     EvaluationError,
     align_predictions,
+    error_rate,
+    levenshtein_distance,
     load_json,
     safe_ratio,
     validate_document,
@@ -66,6 +70,59 @@ def _anchors(sample: dict[str, Any]) -> tuple[list[dict[str, str]], list[str]]:
     return parsed, order
 
 
+def _full_text_reference(sample: dict[str, Any], reference_root: Path | None) -> str | None:
+    inline_reference = sample.get("reference_text")
+    reference_file = sample.get("full_text_reference")
+    if inline_reference is not None and reference_file is not None:
+        raise EvaluationError(f"ground-truth sample {sample.get('id')!r} has two full-text references")
+    if inline_reference is not None:
+        if not isinstance(inline_reference, str) or not normalize_text(inline_reference):
+            raise EvaluationError(f"ground-truth sample {sample.get('id')!r} has invalid reference_text")
+        return normalize_text(inline_reference)
+    if reference_file is None:
+        return None
+    if not isinstance(reference_file, str) or not reference_file:
+        raise EvaluationError(f"ground-truth sample {sample.get('id')!r} has invalid full_text_reference")
+    expected_sha256 = sample.get("full_text_reference_sha256")
+    if not isinstance(expected_sha256, str) or len(expected_sha256) != 64:
+        raise EvaluationError(f"ground-truth sample {sample.get('id')!r} is missing a full-text reference SHA256")
+    relative_path = Path(reference_file)
+    if reference_root is None:
+        raise EvaluationError("reference_root is required for file-backed full-text references")
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise EvaluationError(f"ground-truth sample {sample.get('id')!r} has an unsafe full-text reference path")
+    try:
+        reference_bytes = (reference_root / relative_path).read_bytes()
+        reference = reference_bytes.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise EvaluationError(
+            f"failed to read full-text reference for sample {sample.get('id')!r}: {error}"
+        ) from error
+    if hashlib.sha256(reference_bytes).hexdigest() != expected_sha256:
+        raise EvaluationError(f"full-text reference SHA256 mismatch for sample {sample.get('id')!r}")
+    if not normalize_text(reference):
+        raise EvaluationError(f"ground-truth sample {sample.get('id')!r} has an empty full-text reference")
+    return normalize_text(reference)
+
+
+def _full_text_metrics(reference: str, prediction: str) -> dict[str, int | float]:
+    reference_counts = Counter(reference)
+    prediction_counts = Counter(prediction)
+    extra_characters = sum(
+        max(predicted_count - reference_counts[character], 0)
+        for character, predicted_count in prediction_counts.items()
+    )
+    edit_distance = levenshtein_distance(reference, prediction)
+    return {
+        "reference_characters": len(reference),
+        "predicted_characters": len(prediction),
+        "extra_characters": extra_characters,
+        "text_duplication_rate": safe_ratio(extra_characters, len(prediction)),
+        "char_edit_distance": edit_distance,
+        "full_text_cer": error_rate(edit_distance, len(reference)),
+    }
+
+
 def _best_alignment(reference: str, blocks: list[str]) -> tuple[int, float]:
     best_characters = 0
     best_position = 0.0
@@ -81,7 +138,10 @@ def _best_alignment(reference: str, blocks: list[str]) -> tuple[int, float]:
 
 
 def evaluate_pipeline(
-    ground_truth: dict[str, Any], predictions: dict[str, Any], anchor_match_threshold: float = 0.8
+    ground_truth: dict[str, Any],
+    predictions: dict[str, Any],
+    anchor_match_threshold: float = 0.8,
+    reference_root: Path | None = None,
 ) -> dict[str, Any]:
     if not 0.0 < anchor_match_threshold <= 1.0:
         raise EvaluationError("anchor match threshold must be in (0, 1]")
@@ -96,11 +156,27 @@ def evaluate_pipeline(
     total_matched_anchors = 0
     total_pairs = 0
     total_correct_pairs = 0
+    full_text_reference_samples = 0
+    total_full_text_reference_characters = 0
+    total_full_text_predicted_characters = 0
+    total_extra_characters = 0
+    total_full_text_edit_distance = 0
     sample_reports = []
 
     for reference_sample, prediction_sample in aligned:
         blocks = _prediction_blocks(prediction_sample)
+        prediction_text = " ".join(block for block in blocks if block)
         anchors, reading_order = _anchors(reference_sample)
+        full_text_reference = _full_text_reference(reference_sample, reference_root)
+        full_text_metrics = (
+            _full_text_metrics(full_text_reference, prediction_text) if full_text_reference is not None else None
+        )
+        if full_text_metrics is not None:
+            full_text_reference_samples += 1
+            total_full_text_reference_characters += int(full_text_metrics["reference_characters"])
+            total_full_text_predicted_characters += int(full_text_metrics["predicted_characters"])
+            total_extra_characters += int(full_text_metrics["extra_characters"])
+            total_full_text_edit_distance += int(full_text_metrics["char_edit_distance"])
         alignments = {}
         anchor_reports = []
         for anchor in anchors:
@@ -146,6 +222,12 @@ def evaluate_pipeline(
                     sum(int(item["matched_for_order"]) for item in anchor_reports), len(anchor_reports)
                 ),
                 "reading_order_score": safe_ratio(correct_pairs, comparable_pairs),
+                "full_text_reference_available": full_text_metrics is not None,
+                "text_duplication_rate": (
+                    full_text_metrics["text_duplication_rate"] if full_text_metrics is not None else None
+                ),
+                "full_text_cer": full_text_metrics["full_text_cer"] if full_text_metrics is not None else None,
+                "full_text": full_text_metrics,
                 "comparable_pairs": comparable_pairs,
                 "correct_pairs": correct_pairs,
                 "anchors": anchor_reports,
@@ -153,7 +235,7 @@ def evaluate_pipeline(
         )
 
     return {
-        "version": 1,
+        "version": 2,
         "task": "pipeline_text_order",
         "dataset": ground_truth.get("dataset"),
         "prediction_metadata": metadata,
@@ -163,6 +245,8 @@ def evaluate_pipeline(
             "whitespace": "collapsed",
             "ignore_case": True,
             "anchor_match_threshold": anchor_match_threshold,
+            "text_duplication_matching": "normalized_character_multiset",
+            "full_text_unavailable_policy": "exclude_and_report_coverage",
         },
         "summary": {
             "samples": len(references),
@@ -175,6 +259,22 @@ def evaluate_pipeline(
             "comparable_pairs": total_pairs,
             "correct_pairs": total_correct_pairs,
             "reading_order_score": safe_ratio(total_correct_pairs, total_pairs),
+            "full_text_reference_samples": full_text_reference_samples,
+            "full_text_reference_coverage": safe_ratio(full_text_reference_samples, len(references)),
+            "full_text_reference_characters": total_full_text_reference_characters,
+            "full_text_predicted_characters": total_full_text_predicted_characters,
+            "extra_characters": total_extra_characters,
+            "text_duplication_rate": (
+                safe_ratio(total_extra_characters, total_full_text_predicted_characters)
+                if full_text_reference_samples > 0
+                else None
+            ),
+            "full_text_char_edit_distance": total_full_text_edit_distance,
+            "full_text_cer": (
+                error_rate(total_full_text_edit_distance, total_full_text_reference_characters)
+                if full_text_reference_samples > 0
+                else None
+            ),
         },
         "samples": sample_reports,
     }
@@ -189,6 +289,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--minimum-text-completeness", type=float)
     parser.add_argument("--minimum-reading-order-anchor-recall", type=float)
     parser.add_argument("--minimum-reading-order-score", type=float)
+    parser.add_argument("--maximum-text-duplication-rate", type=float)
     parser.add_argument("--quiet", action="store_true")
     return parser.parse_args()
 
@@ -200,11 +301,15 @@ def main() -> int:
             ("--minimum-text-completeness", args.minimum_text_completeness),
             ("--minimum-reading-order-anchor-recall", args.minimum_reading_order_anchor_recall),
             ("--minimum-reading-order-score", args.minimum_reading_order_score),
+            ("--maximum-text-duplication-rate", args.maximum_text_duplication_rate),
         ):
             if value is not None and not 0.0 <= value <= 1.0:
                 raise EvaluationError(f"{name} must be in [0, 1]")
         report = evaluate_pipeline(
-            load_json(args.ground_truth), load_json(args.predictions), args.anchor_match_threshold
+            load_json(args.ground_truth),
+            load_json(args.predictions),
+            args.anchor_match_threshold,
+            args.ground_truth.parent,
         )
         write_report(report, args.output, args.quiet)
         if (
@@ -225,6 +330,13 @@ def main() -> int:
         ):
             print("error: reading order score is below the regression floor", file=sys.stderr)
             return 1
+        if args.maximum_text_duplication_rate is not None:
+            duplication_rate = report["summary"]["text_duplication_rate"]
+            if duplication_rate is None:
+                raise EvaluationError("text duplication ceiling requires at least one full-text reference")
+            if duplication_rate > args.maximum_text_duplication_rate:
+                print("error: text duplication rate is above the regression ceiling", file=sys.stderr)
+                return 1
     except EvaluationError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2

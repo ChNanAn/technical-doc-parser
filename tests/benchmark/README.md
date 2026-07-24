@@ -18,6 +18,14 @@ The preparation step creates selected PDFs, canonical 200 DPI PNG files, and
 `data/raw/quality_baseline/inputs/prepared_manifest.json`. It uses the project CLI for PDFium rendering, so build
 the project before running it.
 
+The committed full-text references for the 11 native-PDF pages are reproducible with a pinned independent
+extractor. The four image-only pages intentionally have no full-text reference:
+
+```bash
+python3 -m pip install pypdf==5.9.0
+python3 scripts/prepare_pipeline_text_references.py
+```
+
 ## Prepare the annotated subset
 
 No manual drawing or transcription is required. The script selects five fixed samples from each upstream
@@ -172,6 +180,11 @@ text layers where available and visual transcription for image-only samples; the
 been transcribed. `reading_order_score` compares all pairs among anchors matched at or above the configured threshold,
 and `reading_order_anchor_recall` prevents a high order score from hiding missing content.
 
+Eleven native-PDF pages additionally have pinned, SHA256-verified full-text references. `text_duplication_rate`
+compares normalized character multiplicities, so reading-order changes do not create false duplicates. It is reported
+with full-text CER because OCR substitutions can also appear as extra characters. The four image-only pages are
+excluded from both full-text metrics and remain explicit in the `full_text_reference_coverage` count.
+
 The scheduled Pipeline Evaluation workflow downloads the source PDFs, prepares the fixed 15-page selection, and runs
 one reusable `DocumentEngine` over all eight PDFs. Enable the local CTest entry explicitly after preparing the corpus:
 
@@ -187,16 +200,18 @@ The pinned model policy resolves to PaddleOCR, `doclaynet -> paddle-layout -> te
 `table-transformer -> text` for tables. Predictions record the requested backends, configured fallback order, and
 model paths and thresholds. The current regression baseline is:
 
-| Metric | Baseline | Regression floor |
+| Metric | Baseline | Regression guard |
 | --- | ---: | ---: |
 | Sampled text completeness | 0.8934 | 0.88 |
+| Full-text duplication rate (11/15 pages) | 0.1421 | <= 0.16 |
 | Reading-order anchor recall | 0.8571 | 0.84 |
 | Pairwise reading-order score | 0.9385 | 0.92 |
 
 The aggregate covers 2,280 reviewed characters and 77 anchors; 2,037 characters and 66 anchors are matched, and 122
-of 130 comparable anchor pairs are ordered correctly. `irs_fw4_2024_selected:p02` currently emits only one empty
-header block and scores zero on completeness and anchor recall. This failure remains in the corpus and report so an
-aggregate score cannot hide it.
+of 130 comparable anchor pairs are ordered correctly. Across the 11 full-text references, 4,856 of 34,170 output
+characters exceed the 35,742-character reference multiset. Companion full-text CER is `0.4608` and has no regression
+threshold yet. `irs_fw4_2024_selected:p02` currently emits only one empty header block and scores zero on completeness
+and anchor recall. This failure remains in the corpus and report so an aggregate score cannot hide it.
 
 ## External olmOCR-Bench
 

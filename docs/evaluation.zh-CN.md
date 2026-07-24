@@ -39,8 +39,9 @@ Backend 指标用于定位组件能力；Pipeline 指标负责发现单模型评
 
 - `text_completeness`：最终归一化文档文本中能与参考文本对齐的字符数 / 参考字符总数，用来发现从
   Extraction/OCR 到 Assembly 之间丢失的内容。
-- `text_duplication_rate`：最终文本中无法与参考内容对齐的字符数 / 最终字符数。该指标必须与 CER 一起看，
-  避免把错误替换文字都误判为纯重复。
+- `text_duplication_rate`：归一化输出中字符出现次数超出全文参考的部分 / 归一化输出字符数。字符多重集匹配
+  让该指标不受 Reading Order 影响；必须同时报告 Reference Coverage 和 CER，避免把参考缺失或替换错误
+  误判为质量表现。
 - `block_type_micro_f1`：最终 Blocks 与标注 Blocks 在指定 IoU 阈值和 Taxonomy Mapping 下做分类一对一匹配。
 - `reading_order_score`：匹配内容块中顺序正确的 Block Pair 数 / 全部可比较 Block Pair 数，是 `[0, 1]`
   的归一化 Kendall-style 分数。少于两个匹配 Block 的页面单独统计，不能抬高均值。
@@ -153,13 +154,17 @@ Decode、Label Mapping 和结构后处理，但尚未衡量表格文字、TEDS �
 定时和手动触发的 Workflow 使用同一个可复用 `DocumentEngine` 解析 8 份公开 PDF 中的 15 个已复核页面，
 再用最终有序 `DocumentBlock` 对照 2,280 个独立复核字符和 77 个 Reading-order Anchors。
 
-| 指标 | 当前基线 | 回归下限 |
+| 指标 | 当前基线 | 回归门槛 |
 | --- | ---: | ---: |
 | 采样文本完整率 | 0.8934 | 0.88 |
+| 全文重复率（覆盖 11/15 页） | 0.1421 | <= 0.16 |
 | Reading-order Anchor Recall | 0.8571 | 0.84 |
 | Pairwise Reading-order Score | 0.9385 | 0.92 |
 
-当前匹配 2,037 个复核字符和 66 个 Anchor，130 个可比较 Pair 中有 122 个顺序正确。其中一张 IRS W-4
+当前匹配 2,037 个复核字符和 66 个 Anchor，130 个可比较 Pair 中有 122 个顺序正确。11 个原生 PDF 页面还
+提供 35,742 个归一化全文参考字符；字符多重集匹配在 34,170 个输出字符中识别出 4,856 个超额字符。由于该
+顺序无关的统计也会受替换错误影响，报告同时给出全文 CER `0.4608`。4 个纯图片页面不进入这两个分母，
+而是通过 Reference Coverage 明确报告。其中一张 IRS W-4
 Worksheet 页面目前只生成一个空 Header Block，文本完整率和 Anchor Recall 都是 0；该失败被有意保留在
 Corpus 和报告中，作为可见的改进目标。这些下限只保护固定语料和固定模型策略不发生回退，不是生产验收线。
 复现命令、指标范围和语料来源见 [Benchmark 指南](../tests/benchmark/README.md)。
@@ -176,11 +181,9 @@ Table 和公式导出的改进可以沿同一条独立曲线比较。版本、�
 
 ## 接下来实施顺序
 
-1. 建立四类 Contract Fixtures 和版本化 Technical Document Manifest。
-2. 在现有 Completeness/Order Evaluator 上增加 Text Duplication 和 Block Type F1。
-3. 增加结构匹配后的 Table Text CER。
-4. 校验导出的 Document v1，并建立经过 Review 的 Snapshot Tests。
-5. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
-6. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
+1. 在现有 Completeness/Order/Duplication Evaluator 上增加 Block Type F1。
+2. 增加结构匹配后的 Table Text CER。
+3. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
+4. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
 
 只有当 Metric 和 Corpus 都稳定后才设置 Regression Floor。下限用于防止已知回退，不应自动被当作生产验收线。

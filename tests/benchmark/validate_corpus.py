@@ -53,7 +53,27 @@ def main() -> int:
 
     if image_count != 15:
         raise RuntimeError(f"expected 15 images, found {image_count}")
-    print(f"Validated {image_count} distributed benchmark images across 3 datasets")
+
+    pipeline_ground_truth_path = CORPUS_ROOT / "pipeline_quality" / "ground_truth.json"
+    pipeline_ground_truth = json.loads(pipeline_ground_truth_path.read_text(encoding="utf-8"))
+    if len(pipeline_ground_truth["samples"]) != 15:
+        raise RuntimeError("the pipeline corpus must contain 15 samples")
+    full_text_references = 0
+    for sample in pipeline_ground_truth["samples"]:
+        relative_path = sample.get("full_text_reference")
+        if relative_path is None:
+            continue
+        reference_path = pipeline_ground_truth_path.parent / relative_path
+        if sha256(reference_path) != sample.get("full_text_reference_sha256"):
+            raise RuntimeError(f"full-text reference SHA256 mismatch: {reference_path}")
+        full_text_references += 1
+    if full_text_references != 11:
+        raise RuntimeError(f"expected 11 pipeline full-text references, found {full_text_references}")
+
+    print(
+        f"Validated {image_count} distributed benchmark images across 3 datasets "
+        f"and {full_text_references} pipeline full-text references"
+    )
     return 0
 
 

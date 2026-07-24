@@ -1,0 +1,88 @@
+The hot-gas manifold conducts hot gas
+(hydrogen-rich steam) from the turbines to the
+main chamber injector. The area between the wall
+and the liner provides a coolant flow path for the
+hydrogen gas that is exhausted from the low­
+pressure fuel turbopump turbine. This protects
+the outer wall and liner against the temperature
+effects of the hot gas from the preburners. After
+cooling the manifold, the hydrogen also serves as
+coolant for the primary faceplate, the secondary
+faceplate, and the main combustion chamber
+acoustic cavities. The high-pressure turbopumps
+are stud-mounted to the canted flanges on each
+side of the hot-gas manifold. The preburners are
+welded to the upper end of each side of the hot­
+gas manifold above the high-pressure
+turbopumps.
+Heat Exchanger
+The heat exchanger is a single-pass coil pack
+installed in the oxidizer side of the hot-gas
+manifold. It converts liquid oxygen to gaseous
+oxygen for vehicle oxygen tank and pogo-system
+accumulator pressurization. The heat exchanger
+consists of a helically wound small tube
+approximately 0.8 meter (2.6 feet) long, in series
+with two parallel larger tubes, each
+approximately 7.9 meters (25.8 feet) long. The
+tubes are attached to supports welded to the
+inner wall of the hot-gas manifold coolant jacket.
+The hot turbine exhaust gases from the high­
+pressure oxidizer turbopump heat the liquid
+oxygen to a gas. Liquid oxygen, tapped off the
+discharge side of the high-pressure oxidizer
+turbopump, is supplied to the inlet of the heat
+exchanger through an antiflood valve.
+The oxygen is heated to a gas in the small tube
+(first stage) and to the final outlet temperature in
+the two larger tubes (second stage). An orificed
+bypass line around the heat exchanger injects an
+unheated portion (approximately 30 percent) of
+the total oxygen flow into the outlet of the heat
+exchanger for control of temperature and flow­
+rate operating characteristics. Orifices in the
+heat exchanger bypass line and in the vehicle
+control heat exchanger flow rate.
+Thrust Vectoring
+The gimbal bearing assembly is a spherical low­
+friction universal joint that has ball and socket
+bearing surfaces. The bearing assembly provides
+the mechanical Interface with the vehicle for
+transmitting thrust loads and permits angulation
+of the actual thrust vector (force) about each of
+two vector control axes. The gimbal bearing is
+attached to the engine main injector by bolts that
+allow lateral positioning of the bearing. The
+gimbal bearing position is established by optical
+alinement during engine buildup to ensure that the
+actual thrust vector is within 30 minutes of arc to
+the engine centerline and 1.5 centimeters (0.6
+inch) of the gimbal center. Cycle life is obtained
+by low-friction antigalling bearing surfaces that
+operate under high loads.
+Pneumatic Subsystem
+The pneumatic control assembly provides (1)
+control of ground-supplied gaseous nitrogen
+used for engine prestart purges and of vehicle­
+supplied helium for the operational purge, (2)
+control of the oxidizer and fuel bleed valves, and
+(3) emergency shutdown control of the main
+propellant valves in the event of electrical power
+loss to the engine. The pneumatic control
+assembly consists of a ported manifold to which
+solenoid valves and pressure-actuated valves
+are attached.
+The oxidizer and fuel bleed valves are opened by
+pneumatic pressure from the pneumatic control
+assembly during engine-start preparation to
+provide a recirculation flow for propellants
+through the engine to ensure that the propellants
+are at the required temperatures for engine start.
+At engine start, the valves are closed by venting
+the actuation pressure.
+The pneumatic control system purge check
+valves are spring-loaded normally closed poppet
+valves that Isolate propellants from the pneumatic
+systems. The check valves are opened by
+pressure actuation.
+2-11

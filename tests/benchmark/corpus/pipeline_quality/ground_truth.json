@@ -1,16 +1,20 @@
 {
-  "version": 1,
+  "version": 2,
   "task": "pipeline_text_order",
   "dataset": "technical-doc-parser/quality-baseline-15",
   "annotation": {
     "revision": "2026-07-24",
-    "reference_scope": "reviewed_spans",
+    "reference_scope": "reviewed_spans plus native-PDF full text where available",
+    "full_text_reference_scope": "11 of 15 pages with native PDF text layers; four image-only pages are excluded and reported as uncovered",
+    "full_text_reference_extractor": "pypdf 5.9.0 extract_text",
     "method": "Independent PDF text layers plus visual review of the rendered pages",
-    "notes": "Text completeness is sampled over the listed spans. Reading order compares all pairs in each explicit order list."
+    "notes": "Text completeness is sampled over the listed spans. Reading order compares all pairs in each explicit order list. Text duplication and companion CER use only samples with pinned full-text references."
   },
   "samples": [
     {
       "id": "irs_f1040_2024_selected:p01",
+      "full_text_reference": "full_text/irs_f1040_2024_selected_p01.txt",
+      "full_text_reference_sha256": "d905c113af63dbf0204db1ed73eed9a02913a4705ccb3063b520b8ed37871d4b",
       "document_id": "irs_f1040_2024_selected",
       "page_number": 1,
       "image_sha256": "74fc7d6d31e3a0b10b6101815ab06a8346e73fede40026216fdd968c4ec2b4b1",
@@ -24,6 +28,8 @@
     },
     {
       "id": "irs_f1040_2024_selected:p02",
+      "full_text_reference": "full_text/irs_f1040_2024_selected_p02.txt",
+      "full_text_reference_sha256": "0da4feb2be75437fbde7584f1f2e72094354a4794f061acc146ef6786f0528a7",
       "document_id": "irs_f1040_2024_selected",
       "page_number": 2,
       "image_sha256": "1694dc37c7b27660cc7bbc196dd0b56368cdc2ab69d7f34ad6c180f02e0efd94",
@@ -38,6 +44,8 @@
     },
     {
       "id": "irs_fw4_2024_selected:p01",
+      "full_text_reference": "full_text/irs_fw4_2024_selected_p01.txt",
+      "full_text_reference_sha256": "574e50bb6b9f81d1eee29074022d32cf267574785475f2b9cbb675262958a3b0",
       "document_id": "irs_fw4_2024_selected",
       "page_number": 1,
       "image_sha256": "93fb46cc35dff94aaf7d45adf0cf229059c1db1e20d6292bac21bae92a3cd221",
@@ -53,6 +61,8 @@
     },
     {
       "id": "irs_fw4_2024_selected:p02",
+      "full_text_reference": "full_text/irs_fw4_2024_selected_p02.txt",
+      "full_text_reference_sha256": "e68423afc59265ab49c572de3760b5164768eb3abc3b56ee467c3a41105ae8d4",
       "document_id": "irs_fw4_2024_selected",
       "page_number": 2,
       "image_sha256": "a15132d3a6ba6649567f5c3ba2fad422666eb144c1ee07b29d7b45ccb0e8ff3d",
@@ -67,6 +77,8 @@
     },
     {
       "id": "nist_sp800_53r5_selected:p01",
+      "full_text_reference": "full_text/nist_sp800_53r5_selected_p01.txt",
+      "full_text_reference_sha256": "17a9254ffd08c112be1f2ea918400bc6b6c22710c934fcc0653923bd34e2c8cd",
       "document_id": "nist_sp800_53r5_selected",
       "page_number": 1,
       "image_sha256": "9bd816c575afe212b6eeb38789f6ceae36cd359f9b81a25cb10839317e6f5941",
@@ -81,6 +93,8 @@
     },
     {
       "id": "nist_sp800_53r5_selected:p02",
+      "full_text_reference": "full_text/nist_sp800_53r5_selected_p02.txt",
+      "full_text_reference_sha256": "7dae5e31952b5bf9882c25468430b280f93ea863608a942bad155f92695fa35e",
       "document_id": "nist_sp800_53r5_selected",
       "page_number": 2,
       "image_sha256": "8cc91ab720760424adf9db658680137ab8bd67dc50367435f5b101792575b0fd",
@@ -96,6 +110,8 @@
     },
     {
       "id": "nist_sp800_53r5_selected:p03",
+      "full_text_reference": "full_text/nist_sp800_53r5_selected_p03.txt",
+      "full_text_reference_sha256": "c044b0463cd7f30041d27c4669bf60c724b051b7c90ff415d464f7d1015fa5cb",
       "document_id": "nist_sp800_53r5_selected",
       "page_number": 3,
       "image_sha256": "bb20087204e8d1eb5d18d197e413ad3c6f0e9d22ef527f16f5c9ded090390ee9",
@@ -110,6 +126,8 @@
     },
     {
       "id": "nist_sp800_53r5_selected:p04",
+      "full_text_reference": "full_text/nist_sp800_53r5_selected_p04.txt",
+      "full_text_reference_sha256": "3b45d46926bdd7537193b0bfe1fc96674a413382a94617faf11abe0507dac757",
       "document_id": "nist_sp800_53r5_selected",
       "page_number": 4,
       "image_sha256": "5339dec83aa770fe31dfb96e8e0546c0c8c687209aa146a3a47b71022281c2df",
@@ -123,6 +141,8 @@
     },
     {
       "id": "nasa_space_shuttle_selected:p01",
+      "full_text_reference": "full_text/nasa_space_shuttle_selected_p01.txt",
+      "full_text_reference_sha256": "9791cb45e3ea6d56ff37b47f886bda95750e007242327025c80679cfb5998fb6",
       "document_id": "nasa_space_shuttle_selected",
       "page_number": 1,
       "image_sha256": "63f5294670798612bf3f3950f3814b7f0c7b6e592ec04d4ecde891cf2498b9f9",
@@ -137,6 +157,8 @@
     },
     {
       "id": "nasa_space_shuttle_selected:p02",
+      "full_text_reference": "full_text/nasa_space_shuttle_selected_p02.txt",
+      "full_text_reference_sha256": "9c1a338c0e99c194ebbd328ecd452d152fc30de380387247d959a592af737d6f",
       "document_id": "nasa_space_shuttle_selected",
       "page_number": 2,
       "image_sha256": "dd7288850acbd8a79745b352809f575a4ffdc6e636a4aa4d5fee64de25c1fed2",
@@ -150,6 +172,8 @@
     },
     {
       "id": "nasa_space_shuttle_selected:p03",
+      "full_text_reference": "full_text/nasa_space_shuttle_selected_p03.txt",
+      "full_text_reference_sha256": "80746b8761f5ce3b14fd0bfd678ddf56685146d98272c9aba6a084c7aed9fa4a",
       "document_id": "nasa_space_shuttle_selected",
       "page_number": 3,
       "image_sha256": "dfda854f224c2f8b0f02b5fab2c877931728d2d8b96aa0c543bc133d3a152388",

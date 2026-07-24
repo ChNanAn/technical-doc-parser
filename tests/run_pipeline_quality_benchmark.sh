@@ -13,6 +13,7 @@ REPORT="$9"
 MINIMUM_TEXT_COMPLETENESS="${10}"
 MINIMUM_READING_ORDER_ANCHOR_RECALL="${11}"
 MINIMUM_READING_ORDER_SCORE="${12}"
+MAXIMUM_TEXT_DUPLICATION_RATE="${13}"
 
 "$PRODUCER" \
   --manifest "$MANIFEST" \
@@ -26,4 +27,5 @@ MINIMUM_READING_ORDER_SCORE="${12}"
   --output "$REPORT" \
   --minimum-text-completeness "$MINIMUM_TEXT_COMPLETENESS" \
   --minimum-reading-order-anchor-recall "$MINIMUM_READING_ORDER_ANCHOR_RECALL" \
-  --minimum-reading-order-score "$MINIMUM_READING_ORDER_SCORE"
+  --minimum-reading-order-score "$MINIMUM_READING_ORDER_SCORE" \
+  --maximum-text-duplication-rate "$MAXIMUM_TEXT_DUPLICATION_RATE"

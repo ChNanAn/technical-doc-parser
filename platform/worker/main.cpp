@@ -1,4 +1,3 @@
-#include "app/cli_options.h"
 #include "pipeline/backend_registry.h"
 #include "pipeline/document_pipeline.h"
 #include "redis_client.h"
@@ -94,19 +93,19 @@ void validateJob(const nlohmann::json& job, const std::filesystem::path& runtime
     }
 }
 
-doc_parser::app::CliOptions optionsFromJob(const nlohmann::json& job) {
+doc_parser::pipeline::PipelineRunOptions optionsFromJob(const nlohmann::json& job) {
     const nlohmann::json& pipeline = job.at("pipeline");
     const nlohmann::json& backends = pipeline.at("backends");
-    doc_parser::app::CliOptions options;
-    options.input_pdf = localFilePath(job.at("input").at("uri").get<std::string>()).string();
-    options.output_dir = job.at("output_directory").get<std::string>();
-    options.dpi = pipeline.at("dpi").get<int>();
+    doc_parser::pipeline::PipelineRunOptions options;
+    options.input_path = localFilePath(job.at("input").at("uri").get<std::string>());
+    options.output_directory = job.at("output_directory").get<std::string>();
+    options.render.dpi = pipeline.at("dpi").get<int>();
     options.debug = pipeline.at("debug").get<bool>();
-    options.document_backend = backends.at("document").get<std::string>();
-    options.ocr_backend = backends.at("ocr").get<std::string>();
-    options.layout_backend = backends.at("layout").get<std::string>();
-    options.table_backend = backends.at("table").get<std::string>();
-    options.backend_config = backends.value("registry_config", "");
+    options.backends.document = backends.at("document").get<std::string>();
+    options.backends.ocr = backends.at("ocr").get<std::string>();
+    options.backends.layout = backends.at("layout").get<std::string>();
+    options.backends.table = backends.at("table").get<std::string>();
+    options.backends.registry_config = backends.value("registry_config", "");
     options.timeout_seconds = job.at("limits").at("timeout_seconds").get<int>();
     options.maximum_pages = job.at("limits").at("maximum_pages").get<int>();
     return options;

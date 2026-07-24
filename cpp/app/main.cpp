@@ -7,6 +7,22 @@
 
 namespace {
 
+doc_parser::pipeline::PipelineRunOptions pipelineOptions(const doc_parser::app::CliOptions& options) {
+    doc_parser::pipeline::PipelineRunOptions pipeline_options;
+    pipeline_options.input_path = options.input_pdf;
+    pipeline_options.output_directory = options.output_dir;
+    pipeline_options.render.dpi = options.dpi;
+    pipeline_options.backends.document = options.document_backend;
+    pipeline_options.backends.ocr = options.ocr_backend;
+    pipeline_options.backends.layout = options.layout_backend;
+    pipeline_options.backends.table = options.table_backend;
+    pipeline_options.backends.registry_config = options.backend_config;
+    pipeline_options.debug = options.debug;
+    pipeline_options.timeout_seconds = options.timeout_seconds;
+    pipeline_options.maximum_pages = options.maximum_pages;
+    return pipeline_options;
+}
+
 void configureLogging(const doc_parser::app::CliOptions& options) {
     spdlog::set_pattern("[%l] %v");
     spdlog::set_level(options.debug ? spdlog::level::debug : spdlog::level::warn);
@@ -38,7 +54,7 @@ int main(int argc, char** argv) {
     configureLogging(options);
 
     const doc_parser::pipeline::DocumentPipeline pipeline;
-    if (!pipeline.run(options)) {
+    if (!pipeline.run(pipelineOptions(options))) {
         return 2;
     }
 

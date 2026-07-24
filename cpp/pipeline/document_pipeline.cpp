@@ -36,7 +36,7 @@ void stageFailed(IStageObserver& observer,
     observer.onStageFailed({stage, code, message, retryable});
 }
 
-bool deadlineExceeded(const app::CliOptions& options,
+bool deadlineExceeded(const PipelineRunOptions& options,
                       const Clock::time_point& run_started,
                       IStageObserver& observer,
                       const std::string& next_stage) {
@@ -91,12 +91,12 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
 
 } // namespace
 
-bool DocumentPipeline::run(const app::CliOptions& options) const {
+bool DocumentPipeline::run(const PipelineRunOptions& options) const {
     NullStageObserver observer;
     return run(options, observer);
 }
 
-bool DocumentPipeline::run(const app::CliOptions& options, IStageObserver& observer) const {
+bool DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& observer) const {
     const Clock::time_point run_started = Clock::now();
     const PipelineContext context = PipelineContext::fromOptions(options);
 
@@ -115,8 +115,8 @@ bool DocumentPipeline::run(const app::CliOptions& options, IStageObserver& obser
 
     stage_started = Clock::now();
     observer.onStageStarted({"open", context.backends.document, 1});
-    if (!document.source->open(context.input_pdf)) {
-        spdlog::error("open_document: failed to open input document: {}", context.input_pdf.string());
+    if (!document.source->open(context.input_path)) {
+        spdlog::error("open_document: failed to open input document: {}", context.input_path.string());
         stageFailed(observer, "open", "open_document_failed", "failed to open input document");
         return false;
     }

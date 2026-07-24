@@ -36,6 +36,18 @@ The Worker is a persistent Redis Streams consumer. It processes one Run at a tim
 to non-reentrant backend state. Multiple Worker containers provide horizontal concurrency. Model-session caching is
 the next runtime optimization; the protocol and process lifecycle do not depend on it.
 
+The Worker resolves the same `DOCUMENT_INTELLIGENCE_ENGINE_*` model-path and inference-tuning compatibility variables
+as the CLI. Inspect the effective configuration without connecting to Redis or loading a model:
+
+```bash
+DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR=/models/paddleocr \
+  ./build/platform-release/platform/worker/document_intelligence_worker --print-engine-config
+```
+
+Library users should continue to pass an explicit `EngineConfig`; environment compatibility belongs to process entry
+points, not the SDK itself. At normal startup, the Worker records the resolved configuration and uses the same
+configured backend registry for capability probing and every Job.
+
 ## Product boundary
 
 The repository has two deliberately separate deliverables:

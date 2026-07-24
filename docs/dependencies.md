@@ -111,7 +111,7 @@ cmake -S . -B build \
   -DONNXRuntime_ROOT=/path/to/onnxruntime-linux-x64-1.18.1 \
   -DDOC_PARSER_PADDLEOCR_BASELINE_DIR=/path/to/paddleocr-baseline
 
-# CLI compatibility override, useful for quick experiments:
+# CLI and Worker compatibility override, useful for deployments and quick experiments:
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR=/path/to/paddleocr-baseline
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL=/path/to/det.onnx
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL=/path/to/rec.onnx
@@ -129,7 +129,7 @@ export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=expected-substring
 ```
 
 The reusable C++ engine does not read model paths or thresholds from the process environment. Configure them through
-`EngineConfig`; the CLI explicitly maps the compatibility variables above into that structure:
+`EngineConfig`; the CLI and platform Worker explicitly map the compatibility variables above into that structure:
 
 ```cpp
 auto config = doc_parser::pipeline::defaultEngineConfig();

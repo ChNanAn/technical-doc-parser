@@ -1,5 +1,15 @@
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+if(TARGET document_intelligence_worker)
+    add_test(
+        NAME platform_worker_environment_config
+        COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/worker_environment_config_test.py
+            --worker $<TARGET_FILE:document_intelligence_worker>
+    )
+    set_tests_properties(platform_worker_environment_config PROPERTIES LABELS platform)
+endif()
+
 if(DOC_PARSER_ENABLE_PDFIUM)
     add_test(
         NAME cmake_install_consumer

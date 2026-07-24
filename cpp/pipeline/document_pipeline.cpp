@@ -97,10 +97,22 @@ common::Status DocumentPipeline::run(const PipelineRunOptions& options) const {
 }
 
 common::Status DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& observer) const {
+    return runWithRegistry(options, nullptr, observer);
+}
+
+common::Status DocumentPipeline::run(const PipelineRunOptions& options,
+                                     const BackendRegistry& registry,
+                                     IStageObserver& observer) const {
+    return runWithRegistry(options, &registry, observer);
+}
+
+common::Status DocumentPipeline::runWithRegistry(const PipelineRunOptions& options,
+                                                 const BackendRegistry* registry,
+                                                 IStageObserver& observer) const {
     const Clock::time_point run_started = Clock::now();
     document::ParsedDocument document;
     document::PipelineArtifacts artifacts;
-    common::Status status = parseInternal(options, nullptr, {}, document, artifacts, observer);
+    common::Status status = parseInternal(options, nullptr, {}, document, artifacts, observer, registry);
     if (!status.okStatus()) {
         return status;
     }
@@ -117,7 +129,7 @@ common::Status DocumentPipeline::parse(const PipelineRunOptions& options,
                                        document::ParsedDocument& document,
                                        document::PipelineArtifacts& artifacts,
                                        IStageObserver& observer) const {
-    return parseInternal(options, &services, service_trace, document, artifacts, observer);
+    return parseInternal(options, &services, service_trace, document, artifacts, observer, nullptr);
 }
 
 common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options,
@@ -125,7 +137,8 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
                                                const std::string& service_trace,
                                                document::ParsedDocument& parsed_document,
                                                document::PipelineArtifacts& artifacts,
-                                               IStageObserver& observer) const {
+                                               IStageObserver& observer,
+                                               const BackendRegistry* registry) const {
     const Clock::time_point run_started = Clock::now();
     const PipelineContext context = PipelineContext::fromOptions(options);
 
@@ -133,7 +146,8 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     observer.onStageStarted({"configure", "registry", 1});
     PipelineServiceCreationResult service_creation;
     if (services == nullptr) {
-        service_creation = createPipelineServices(context.backends);
+        service_creation = registry == nullptr ? createPipelineServices(context.backends)
+                                               : createPipelineServices(context.backends, *registry);
         if (!service_creation.status.okStatus()) {
             observer.onStageFailed({service_creation.status.stage(),
                                     service_creation.status.code(),

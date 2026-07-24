@@ -1,5 +1,6 @@
 #include "pipeline/backend_registry.h"
 #include "pipeline/document_pipeline.h"
+#include "pipeline/engine_config.h"
 #include "redis_client.h"
 #include "worker_stage_observer.h"
 
@@ -111,8 +112,7 @@ doc_parser::pipeline::PipelineRunOptions optionsFromJob(const nlohmann::json& jo
     return options;
 }
 
-std::string availableCapabilities() {
-    const doc_parser::pipeline::BackendRegistry registry = doc_parser::pipeline::createDefaultBackendRegistry();
+std::string availableCapabilities(const doc_parser::pipeline::BackendRegistry& registry) {
     nlohmann::json capabilities = {
         {"document", nlohmann::json::array({"auto"})},
         {"ocr", nlohmann::json::array({"auto"})},
@@ -140,6 +140,40 @@ std::string availableCapabilities() {
         }
     }
     return capabilities.dump();
+}
+
+nlohmann::json engineConfigJson(const doc_parser::pipeline::EngineConfig& config) {
+    return {
+        {"tesseract", {{"executable", config.tesseract.executable}, {"language", config.tesseract.language}}},
+        {"paddle_ocr",
+         {
+             {"detection_model", config.paddle_ocr.detection_model.string()},
+             {"recognition_model", config.paddle_ocr.recognition_model.string()},
+             {"character_dict", config.paddle_ocr.character_dict.string()},
+             {"profile", config.paddle_ocr.profile.name},
+             {"recognition_batch_size", config.paddle_ocr.recognition_batch_size},
+             {"recognition_max_width", config.paddle_ocr.recognition_max_width},
+             {"detection_limit_side", config.paddle_ocr.detection_limit_side},
+         }},
+        {"doclaynet",
+         {
+             {"model", config.doclaynet.model_path.string()},
+             {"confidence_threshold", config.doclaynet.confidence_threshold},
+         }},
+        {"paddle_layout",
+         {
+             {"model", config.paddle_layout.model_path.string()},
+             {"confidence_threshold", config.paddle_layout.confidence_threshold},
+         }},
+        {"table_transformer",
+         {
+             {"detection_model", config.table_transformer.detection_model_path.string()},
+             {"structure_model", config.table_transformer.structure_model_path.string()},
+             {"detection_confidence_threshold", config.table_transformer.detection_confidence_threshold},
+             {"structure_confidence_threshold", config.table_transformer.structure_confidence_threshold},
+             {"crop_padding", config.table_transformer.crop_padding},
+         }},
+    };
 }
 
 class WorkerHeartbeat {
@@ -211,9 +245,20 @@ private:
 
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     std::signal(SIGINT, stopWorker);
     std::signal(SIGTERM, stopWorker);
+
+    if (argc > 2 || (argc == 2 && std::string(argv[1]) != "--print-engine-config")) {
+        std::cerr << "Usage: " << argv[0] << " [--print-engine-config]\n";
+        return 2;
+    }
+
+    const doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::engineConfigFromEnvironment();
+    if (argc == 2) {
+        std::cout << engineConfigJson(engine_config).dump(2) << '\n';
+        return 0;
+    }
 
     const std::string redis_host = environment("REDIS_HOST", "127.0.0.1");
     const int redis_port = environmentInt("REDIS_PORT", 6379);
@@ -223,10 +268,13 @@ int main() {
     const std::filesystem::path runtime_root = environment("WORKER_RUNTIME_ROOT", "");
 
     try {
+        const doc_parser::pipeline::BackendRegistry backend_registry =
+            doc_parser::pipeline::createDefaultBackendRegistry(engine_config);
         doc_parser::platform::RedisClient redis(redis_host, redis_port);
         redis.ensureConsumerGroup(job_stream, consumer_group);
         const std::string worker_key = "worker:" + worker_id;
-        const std::string capabilities = availableCapabilities();
+        const std::string capabilities = availableCapabilities(backend_registry);
+        std::cout << "worker engine config: " << engineConfigJson(engine_config).dump() << '\n';
         WorkerHeartbeat heartbeat(redis_host, redis_port, worker_key, capabilities);
 
         while (running) {
@@ -255,7 +303,8 @@ int main() {
                 observer.publishJobEvent("job_started");
                 const doc_parser::pipeline::DocumentPipeline pipeline;
                 try {
-                    const doc_parser::common::Status status = pipeline.run(optionsFromJob(job), observer);
+                    const doc_parser::common::Status status =
+                        pipeline.run(optionsFromJob(job), backend_registry, observer);
                     observer.publishJobEvent(status.okStatus() ? "job_succeeded" : "job_failed", status.message());
                 } catch (const std::exception& error) {
                     observer.publishJobEvent("job_failed", error.what());

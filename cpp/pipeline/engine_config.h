@@ -25,8 +25,8 @@ struct EngineConfig {
 
 EngineConfig defaultEngineConfig();
 
-// Compatibility adapter for CLI deployments. The engine itself never reads
-// model configuration from the process environment.
+// Compatibility adapter for process entry points such as the CLI and Worker.
+// The engine itself never reads model configuration from the environment.
 EngineConfig engineConfigFromEnvironment(BackendOptions backends = {});
 
 } // namespace doc_parser::pipeline

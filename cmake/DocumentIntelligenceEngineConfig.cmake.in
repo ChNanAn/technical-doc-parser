@@ -1,0 +1,19 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+if(@DOC_PARSER_ENABLE_OPENCV@ OR @DOC_PARSER_ENABLE_ONNXRUNTIME@)
+    find_dependency(OpenCV 4.2 COMPONENTS core imgproc imgcodecs)
+endif()
+
+if(@DOC_PARSER_ENABLE_PDFIUM@)
+    find_dependency(PDFium CONFIG)
+endif()
+
+if(@DOC_PARSER_ENABLE_ONNXRUNTIME@)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+    find_dependency(ONNXRuntime MODULE)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/DocumentIntelligenceEngineTargets.cmake")
+check_required_components(DocumentIntelligenceEngine)

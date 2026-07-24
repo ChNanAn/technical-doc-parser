@@ -2,10 +2,7 @@ add_library(doc_parser_assembly
     document_assembler.cpp
 )
 
-target_include_directories(doc_parser_assembly
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/cpp
-)
+doc_parser_set_public_includes(doc_parser_assembly)
 
 target_link_libraries(doc_parser_assembly
     PUBLIC

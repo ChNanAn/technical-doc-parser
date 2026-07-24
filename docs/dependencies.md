@@ -108,7 +108,7 @@ To use custom ONNX Runtime or PaddleOCR model locations:
 
 ```bash
 cmake -S . -B build \
-  -DONNXRUNTIME_ROOT=/path/to/onnxruntime-linux-x64-1.18.1 \
+  -DONNXRuntime_ROOT=/path/to/onnxruntime-linux-x64-1.18.1 \
   -DDOC_PARSER_PADDLEOCR_BASELINE_DIR=/path/to/paddleocr-baseline
 
 # CLI compatibility override, useful for quick experiments:

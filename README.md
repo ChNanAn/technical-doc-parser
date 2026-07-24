@@ -14,7 +14,7 @@ The project combines native text extraction, OCR, layout analysis, reading order
 - **Backend-agnostic**: PDF, OCR, layout, and table providers can evolve without rewriting the pipeline.
 - **Structured output**: text, blocks, tables, reading order, page numbers, bounding boxes, and confidence are represented as typed data.
 - **Inspectable and measurable**: intermediate artifacts, public fixtures, metrics, smoke tests, and CI are part of the engine.
-- **SDK-oriented**: the CLI is available today; a stable C++ library and SDK facade remain active roadmap work.
+- **Embeddable SDK**: `DocumentEngine` reuses model sessions across parses and returns typed results independently of export format.
 
 ## Pipeline
 
@@ -67,6 +67,23 @@ Select backends explicitly or use the versioned registry configuration:
   --table-backend auto \
   --backend-config config/backends.json
 ```
+
+### C++ Embedding
+
+Install the library and versioned CMake package:
+
+```bash
+cmake --install build/core-release --prefix build/sdk
+```
+
+Downstream projects can call `find_package(DocumentIntelligenceEngine CONFIG REQUIRED)` and link
+`DocumentIntelligenceEngine::engine`. `DocumentEngine::parse()` returns the document and pipeline artifacts in memory;
+JSON, Markdown, and HTML export is an explicit caller choice. See the runnable [embedding example](examples/embed_document.cpp)
+and its standalone [CMake project](examples/CMakeLists.txt).
+
+PDFium and, when enabled, ONNX Runtime remain external package dependencies. Set `PDFium_DIR` and
+`ONNXRuntime_ROOT` when configuring a downstream project if they are not installed in standard locations. Model
+files are runtime data; SDK applications should provide their paths through `EngineConfig`.
 
 ## Output
 
@@ -136,7 +153,7 @@ The end-to-end pipeline is running. The current focus is:
 2. Recoverable and idempotent worker execution.
 3. End-to-end evaluation on representative technical documents.
 4. OCR, reading order, document assembly, and source-grounded RAG output.
-5. A reusable `DocumentEngine` C++ SDK facade and model-session reuse.
+5. C++ SDK API stabilization, packaging portability, and broader embedding examples.
 
 Additional input formats, more interchangeable models, multi-tenant SaaS features, and large-scale orchestration are not current priorities.
 

@@ -71,10 +71,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_sources(doc_parser_layout PRIVATE doclaynet_onnx_backend.cpp paddle_doclayout_onnx_backend.cpp)
 endif()
 
-target_include_directories(doc_parser_layout
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/cpp
-)
+doc_parser_set_public_includes(doc_parser_layout)
 
 target_link_libraries(doc_parser_layout
     PUBLIC
@@ -89,10 +86,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             opencv_imgproc
             opencv_imgcodecs
     )
-    target_include_directories(doc_parser_layout SYSTEM PUBLIC ${OpenCV_INCLUDE_DIRS})
     target_compile_definitions(doc_parser_layout
         PUBLIC
             DOC_PARSER_ENABLE_ONNXRUNTIME=1
+        PRIVATE
             DOC_PARSER_DOCLAYNET_MODEL_PATH="${DOC_PARSER_DOCLAYNET_MODEL_PATH}"
             DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH="${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}"
     )

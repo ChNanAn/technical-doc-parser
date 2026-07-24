@@ -1,5 +1,24 @@
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+if(DOC_PARSER_ENABLE_PDFIUM)
+    add_test(
+        NAME cmake_install_consumer
+        COMMAND
+            ${CMAKE_COMMAND}
+            "-DENGINE_BUILD_DIR=${PROJECT_BINARY_DIR}"
+            "-DINSTALL_PREFIX=${PROJECT_BINARY_DIR}/install-consumer-prefix"
+            "-DCONSUMER_SOURCE_DIR=${PROJECT_SOURCE_DIR}/tests/install_consumer"
+            "-DCONSUMER_BUILD_DIR=${PROJECT_BINARY_DIR}/install-consumer-build"
+            "-DCONSUMER_OUTPUT_DIR=${PROJECT_BINARY_DIR}/install-consumer-output"
+            "-DPDFium_DIR=${PDFium_DIR}"
+            "-DENABLE_ONNXRUNTIME=${DOC_PARSER_ENABLE_ONNXRUNTIME}"
+            "-DONNXRuntime_ROOT=${ONNXRuntime_ROOT}"
+            "-DTEST_PDF=${PROJECT_SOURCE_DIR}/tests/fixtures/pdfs/pdfjs-basicapi.pdf"
+            -P "${PROJECT_SOURCE_DIR}/tests/install_consumer/run.cmake"
+    )
+    set_tests_properties(cmake_install_consumer PROPERTIES LABELS packaging)
+endif()
+
 add_test(
     NAME benchmark_corpus_integrity
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/validate_corpus.py

@@ -10,10 +10,7 @@ add_library(doc_parser_document_source_pdf
     text_service.cpp
 )
 
-target_include_directories(doc_parser_document_source_pdf
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/cpp
-)
+doc_parser_set_public_includes(doc_parser_document_source_pdf)
 
 target_include_directories(doc_parser_document_source_pdf
     SYSTEM

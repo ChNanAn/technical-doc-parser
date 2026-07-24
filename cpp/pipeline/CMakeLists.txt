@@ -12,9 +12,11 @@ add_library(doc_parser_pipeline
     text_quality.cpp
 )
 
+doc_parser_set_public_includes(doc_parser_pipeline)
 target_include_directories(doc_parser_pipeline
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/cpp
+    PRIVATE
+        $<BUILD_INTERFACE:${nlohmann_json_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${spdlog_SOURCE_DIR}/include>
 )
 
 target_link_libraries(doc_parser_pipeline
@@ -28,9 +30,6 @@ target_link_libraries(doc_parser_pipeline
         doc_parser_ocr
         doc_parser_reading_order
         doc_parser_table
-        spdlog::spdlog
-    PRIVATE
-        nlohmann_json::nlohmann_json
 )
 
 if(DOC_PARSER_ENABLE_OPENCV)

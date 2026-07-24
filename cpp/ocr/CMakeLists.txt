@@ -52,10 +52,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     )
 endif()
 
-target_include_directories(doc_parser_ocr
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/cpp
-)
+doc_parser_set_public_includes(doc_parser_ocr)
 
 target_link_libraries(doc_parser_ocr
     PUBLIC
@@ -71,15 +68,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             opencv_imgcodecs
     )
 
-    target_include_directories(doc_parser_ocr
-        SYSTEM
-        PUBLIC
-            ${OpenCV_INCLUDE_DIRS}
-    )
-
     target_compile_definitions(doc_parser_ocr
         PUBLIC
             DOC_PARSER_ENABLE_ONNXRUNTIME=1
+        PRIVATE
             DOC_PARSER_PADDLEOCR_BASELINE_DIR="${DOC_PARSER_PADDLEOCR_BASELINE_DIR}"
     )
 endif()

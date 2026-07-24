@@ -49,10 +49,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_sources(doc_parser_table PRIVATE table_transformer_onnx_backend.cpp)
 endif()
 
-target_include_directories(doc_parser_table
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/cpp
-)
+doc_parser_set_public_includes(doc_parser_table)
 
 target_link_libraries(doc_parser_table
     PUBLIC
@@ -67,10 +64,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             opencv_imgproc
             opencv_imgcodecs
     )
-    target_include_directories(doc_parser_table SYSTEM PUBLIC ${OpenCV_INCLUDE_DIRS})
     target_compile_definitions(doc_parser_table
         PUBLIC
             DOC_PARSER_ENABLE_ONNXRUNTIME=1
+        PRIVATE
             DOC_PARSER_TABLE_DETECTION_MODEL_PATH="${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}"
             DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH="${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}"
     )

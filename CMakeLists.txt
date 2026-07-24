@@ -5,6 +5,9 @@ project(document_intelligence_engine
     LANGUAGES CXX
 )
 
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -53,6 +56,20 @@ function(doc_parser_set_common_warnings target_name)
     target_compile_options(${target_name}
         PRIVATE
             $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
+endfunction()
+
+function(doc_parser_set_public_includes target_name)
+    get_target_property(target_type ${target_name} TYPE)
+    if(target_type STREQUAL "INTERFACE_LIBRARY")
+        set(include_scope INTERFACE)
+    else()
+        set(include_scope PUBLIC)
+    endif()
+    target_include_directories(${target_name}
+        ${include_scope}
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/cpp>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 endfunction()
 
@@ -187,3 +204,67 @@ endif()
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
+
+add_library(DocumentIntelligenceEngine::engine ALIAS doc_parser_pipeline)
+set_target_properties(doc_parser_pipeline PROPERTIES EXPORT_NAME engine)
+
+set(DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS
+    doc_parser_assembly
+    doc_parser_common
+    doc_parser_document
+    doc_parser_document_source
+    doc_parser_export
+    doc_parser_layout
+    doc_parser_ocr
+    doc_parser_pipeline
+    doc_parser_reading_order
+    doc_parser_table
+)
+if(DOC_PARSER_ENABLE_PDFIUM)
+    list(APPEND DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS doc_parser_document_source_pdf)
+endif()
+if(DOC_PARSER_ENABLE_OPENCV)
+    list(APPEND DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS doc_parser_image)
+endif()
+
+install(TARGETS ${DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS}
+    EXPORT DocumentIntelligenceEngineTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(DIRECTORY cpp/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.h"
+    PATTERN "app" EXCLUDE
+)
+
+set(DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR
+    "${CMAKE_INSTALL_LIBDIR}/cmake/DocumentIntelligenceEngine"
+)
+configure_package_config_file(
+    cmake/DocumentIntelligenceEngineConfig.cmake.in
+    "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfig.cmake"
+    INSTALL_DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR}"
+)
+write_basic_package_version_file(
+    "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfigVersion.cmake"
+    VERSION "${PROJECT_VERSION}"
+    COMPATIBILITY SameMajorVersion
+)
+install(EXPORT DocumentIntelligenceEngineTargets
+    FILE DocumentIntelligenceEngineTargets.cmake
+    NAMESPACE DocumentIntelligenceEngine::
+    DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR}"
+)
+install(FILES
+    "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfig.cmake"
+    "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfigVersion.cmake"
+    cmake/FindONNXRuntime.cmake
+    DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR}"
+)
+install(FILES
+    examples/CMakeLists.txt
+    examples/embed_document.cpp
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/DocumentIntelligenceEngine/examples"
+)

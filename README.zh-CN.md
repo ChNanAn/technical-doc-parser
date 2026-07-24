@@ -14,7 +14,7 @@
 - **后端无关**：PDF、OCR、Layout、Table 提供方可以演进，不需要重写 Pipeline。
 - **结构化输出**：文本、版面块、表格、阅读顺序、页码、bbox 和置信度进入统一类型模型。
 - **可检查、可评测**：中间产物、公开 Fixture、指标、冒烟测试和 CI 都是引擎的一部分。
-- **面向 SDK 演进**：当前提供 CLI，稳定 C++ Library/SDK facade 仍在路线图中。
+- **可嵌入 SDK**：`DocumentEngine` 可跨任务复用模型 Session，并将类型化解析结果与具体导出格式解耦。
 
 ## Pipeline
 
@@ -67,6 +67,22 @@ ctest --preset core-release
   --table-backend auto \
   --backend-config config/backends.json
 ```
+
+### C++ 嵌入
+
+安装 Library 和带版本的 CMake Package：
+
+```bash
+cmake --install build/core-release --prefix build/sdk
+```
+
+下游项目可使用 `find_package(DocumentIntelligenceEngine CONFIG REQUIRED)`，并链接
+`DocumentIntelligenceEngine::engine`。`DocumentEngine::parse()` 直接返回内存中的文档与 Pipeline Artifacts；
+是否导出 JSON、Markdown 或 HTML 由调用方显式决定。可运行代码见[嵌入示例](examples/embed_document.cpp)和独立的
+[CMake 项目](examples/CMakeLists.txt)。
+
+PDFium 以及启用时的 ONNX Runtime 仍是外部 Package 依赖。如果它们不在系统标准路径，下游配置时需要设置
+`PDFium_DIR` 和 `ONNXRuntime_ROOT`。模型文件属于运行时数据，SDK 应用应通过 `EngineConfig` 传入模型路径。
 
 ## 输出
 
@@ -136,7 +152,7 @@ docker compose -f platform/deploy/docker-compose.yml up --build
 2. 可恢复、幂等的 Worker 执行。
 3. 面向代表性技术文档的端到端评测。
 4. OCR、Reading Order、Document Assembly 和带来源引用的 RAG 输出。
-5. 可复用的 `DocumentEngine` C++ SDK facade 和模型 Session 复用。
+5. C++ SDK API 稳定、Package 可移植性和更多嵌入示例。
 
 更多输入格式、继续增加同类模型、多租户 SaaS 和大规模编排暂时不是当前优先级。
 

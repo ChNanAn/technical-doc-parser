@@ -146,6 +146,7 @@ class PipelineEvaluatorTest(unittest.TestCase):
         report = evaluate_pipeline(ground_truth, predictions)
         self.assertEqual(15, report["summary"]["samples"])
         self.assertEqual(1.0, report["summary"]["text_completeness"])
+        self.assertEqual(1.0, report["summary"]["reading_order_anchor_recall"])
         self.assertEqual(1.0, report["summary"]["reading_order_score"])
 
 

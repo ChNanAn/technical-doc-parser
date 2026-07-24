@@ -1,0 +1,55 @@
+name: Pipeline Evaluation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: 15-page quality baseline
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev
+          python3 -m pip install pypdf pillow
+
+      - name: Install PDFium
+        run: bash scripts/setup_pdfium.sh
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          -DPDFium_DIR=third_party/pdfium
+          -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON
+          -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PIPELINE_BENCHMARK=ON
+
+      - name: Build
+        run: cmake --build build --config Release --target document_intelligence_engine pipeline_quality_eval --parallel
+
+      - name: Prepare 15-page corpus
+        run: |
+          bash scripts/download_quality_baseline.sh
+          python3 scripts/prepare_quality_baseline.py --engine build/cpp/app/document_intelligence_engine
+
+      - name: Evaluate pipeline
+        run: ctest --test-dir build -R '^pipeline_quality_benchmark$' --output-on-failure
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-quality-report
+          path: |
+            build/tests/pipeline_quality_predictions.json
+            build/tests/pipeline_quality_report.json
+          if-no-files-found: warn

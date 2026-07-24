@@ -172,6 +172,32 @@ text layers where available and visual transcription for image-only samples; the
 been transcribed. `reading_order_score` compares all pairs among anchors matched at or above the configured threshold,
 and `reading_order_anchor_recall` prevents a high order score from hiding missing content.
 
+The scheduled Pipeline Evaluation workflow downloads the source PDFs, prepares the fixed 15-page selection, and runs
+one reusable `DocumentEngine` over all eight PDFs. Enable the local CTest entry explicitly after preparing the corpus:
+
+```bash
+cmake -S . -B build-ort -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PIPELINE_BENCHMARK=ON
+cmake --build build-ort --target document_intelligence_engine pipeline_quality_eval --parallel
+bash scripts/download_quality_baseline.sh
+python3 scripts/prepare_quality_baseline.py --engine build-ort/cpp/app/document_intelligence_engine
+ctest --test-dir build-ort -R '^pipeline_quality_benchmark$' --output-on-failure
+```
+
+The pinned model policy resolves to PaddleOCR, `doclaynet -> paddle-layout -> text` for layout, and
+`table-transformer -> text` for tables. Predictions record the requested backends, configured fallback order, and
+model paths and thresholds. The current regression baseline is:
+
+| Metric | Baseline | Regression floor |
+| --- | ---: | ---: |
+| Sampled text completeness | 0.8934 | 0.88 |
+| Reading-order anchor recall | 0.8571 | 0.84 |
+| Pairwise reading-order score | 0.9385 | 0.92 |
+
+The aggregate covers 2,280 reviewed characters and 77 anchors; 2,037 characters and 66 anchors are matched, and 122
+of 130 comparable anchor pairs are ordered correctly. `irs_fw4_2024_selected:p02` currently emits only one empty
+header block and scores zero on completeness and anchor recall. This failure remains in the corpus and report so an
+aggregate score cannot hide it.
+
 DocLayNet is read with HTTP Range requests, so only its test annotation JSON and five PNG files are transferred
 from the 30 GB archive. PubTables images are streamed only until the five fixed entries are found; the multi-GB
 image archive is not downloaded in full. Source versions, IDs, checksums, and license notes are recorded in

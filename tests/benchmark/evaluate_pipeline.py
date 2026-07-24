@@ -187,6 +187,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--anchor-match-threshold", type=float, default=0.8)
     parser.add_argument("--minimum-text-completeness", type=float)
+    parser.add_argument("--minimum-reading-order-anchor-recall", type=float)
     parser.add_argument("--minimum-reading-order-score", type=float)
     parser.add_argument("--quiet", action="store_true")
     return parser.parse_args()
@@ -197,6 +198,7 @@ def main() -> int:
     try:
         for name, value in (
             ("--minimum-text-completeness", args.minimum_text_completeness),
+            ("--minimum-reading-order-anchor-recall", args.minimum_reading_order_anchor_recall),
             ("--minimum-reading-order-score", args.minimum_reading_order_score),
         ):
             if value is not None and not 0.0 <= value <= 1.0:
@@ -210,6 +212,12 @@ def main() -> int:
             and report["summary"]["text_completeness"] < args.minimum_text_completeness
         ):
             print("error: text completeness is below the regression floor", file=sys.stderr)
+            return 1
+        if (
+            args.minimum_reading_order_anchor_recall is not None
+            and report["summary"]["reading_order_anchor_recall"] < args.minimum_reading_order_anchor_recall
+        ):
+            print("error: reading order anchor recall is below the regression floor", file=sys.stderr)
             return 1
         if (
             args.minimum_reading_order_score is not None

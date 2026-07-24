@@ -148,11 +148,27 @@ ctest --test-dir build -R pubtables_table_benchmark --output-on-failure
 五张 Fixture 上当前 Table Structure Micro F1 为 `1.0`，CI 下限为 `0.95`。它能保护 Region Crop、Tensor
 Decode、Label Mapping 和结构后处理，但尚未衡量表格文字、TEDS 或真实跨页表格质量。
 
+## 15 页 Pipeline 基线
+
+定时和手动触发的 Workflow 使用同一个可复用 `DocumentEngine` 解析 8 份公开 PDF 中的 15 个已复核页面，
+再用最终有序 `DocumentBlock` 对照 2,280 个独立复核字符和 77 个 Reading-order Anchors。
+
+| 指标 | 当前基线 | 回归下限 |
+| --- | ---: | ---: |
+| 采样文本完整率 | 0.8934 | 0.88 |
+| Reading-order Anchor Recall | 0.8571 | 0.84 |
+| Pairwise Reading-order Score | 0.9385 | 0.92 |
+
+当前匹配 2,037 个复核字符和 66 个 Anchor，130 个可比较 Pair 中有 122 个顺序正确。其中一张 IRS W-4
+Worksheet 页面目前只生成一个空 Header Block，文本完整率和 Anchor Recall 都是 0；该失败被有意保留在
+Corpus 和报告中，作为可见的改进目标。这些下限只保护固定语料和固定模型策略不发生回退，不是生产验收线。
+复现命令、指标范围和语料来源见 [Benchmark 指南](../tests/benchmark/README.md)。
+
 ## 接下来实施顺序
 
 1. 建立四类 Contract Fixtures 和版本化 Technical Document Manifest。
-2. 实现 Final Document 的 Text Completeness、Duplication 和 Block Type F1 Evaluator。
-3. 增加匹配 Block Pair 的 Reading Order Score，以及结构匹配后的 Table Text CER。
+2. 在现有 Completeness/Order Evaluator 上增加 Text Duplication 和 Block Type F1。
+3. 增加结构匹配后的 Table Text CER。
 4. 校验导出的 Document v1，并建立经过 Review 的 Snapshot Tests。
 5. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
 6. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。

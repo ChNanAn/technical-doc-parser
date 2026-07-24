@@ -251,13 +251,31 @@ Table Transformer/PubTables label system, not evidence of perfect production acc
 region preprocessing, crop padding, tensor decoding, label mapping, and structural postprocessing. Text accuracy
 and TEDS are not yet measured by this object-structure metric.
 
+## 15-Page Pipeline Baseline
+
+A scheduled and manually dispatchable workflow runs one reusable `DocumentEngine` over eight public PDFs containing
+15 reviewed pages. The final ordered `DocumentBlock` output is evaluated against 2,280 independently reviewed
+characters and 77 reading-order anchors.
+
+| Metric | Baseline | Regression floor |
+| --- | ---: | ---: |
+| Sampled text completeness | 0.8934 | 0.88 |
+| Reading-order anchor recall | 0.8571 | 0.84 |
+| Pairwise reading-order score | 0.9385 | 0.92 |
+
+The baseline matches 2,037 reviewed characters and 66 anchors; 122 of 130 comparable pairs are correctly ordered.
+One selected IRS W-4 worksheet page currently produces only an empty header block and scores zero for completeness
+and anchor recall. It is intentionally retained as a visible failure and improvement target. These floors detect
+regression under the pinned corpus and model policy; they are not production acceptance thresholds. Reproduction
+commands, metric scope, and corpus sources are in the [Benchmark Guide](../tests/benchmark/README.md).
+
 ## Implementation Priority
 
-The current Backend baselines should remain in CI. The next evaluation work should move upward through the stack:
+The Backend baselines and sampled text/order Pipeline gate should remain in CI. The next evaluation work is:
 
 1. Create the four contract fixture classes and a versioned technical-document manifest.
-2. Implement final-document text completeness, duplication, and Block Type F1 evaluators.
-3. Add matched-block pairwise reading-order scoring and structure-matched table text CER.
+2. Add final-document text duplication and Block Type F1 to the existing completeness/order evaluator.
+3. Add structure-matched table text CER.
 4. Validate exported Document v1 results and reviewed snapshots.
 5. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
 6. Emit `quality-report.v1` and compare it with a pinned baseline in CI.

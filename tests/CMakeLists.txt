@@ -164,6 +164,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         paddle_ocr_eval.cpp
     )
 
+    add_executable(pipeline_quality_eval
+        pipeline_quality_eval.cpp
+    )
+
     add_executable(funsd_ocr_eval
         funsd_ocr_eval.cpp
     )
@@ -187,6 +191,12 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             nlohmann_json::nlohmann_json
     )
 
+    target_link_libraries(pipeline_quality_eval
+        PRIVATE
+            doc_parser_pipeline
+            nlohmann_json::nlohmann_json
+    )
+
     target_link_libraries(funsd_ocr_eval
         PRIVATE
             doc_parser_ocr
@@ -207,6 +217,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
 
     doc_parser_set_common_warnings(paddle_ocr_onnx_baseline)
     doc_parser_set_common_warnings(paddle_ocr_eval)
+    doc_parser_set_common_warnings(pipeline_quality_eval)
     doc_parser_set_common_warnings(funsd_ocr_eval)
     doc_parser_set_common_warnings(doclaynet_layout_eval)
     doc_parser_set_common_warnings(pubtables_table_eval)
@@ -233,6 +244,30 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             0.70
     )
     set_tests_properties(paddle_ocr_benchmark PROPERTIES LABELS benchmark)
+
+    if(DOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PIPELINE_BENCHMARK)
+        set(PIPELINE_QUALITY_ROOT "${PROJECT_SOURCE_DIR}/data/raw/quality_baseline/inputs")
+        set(PIPELINE_QUALITY_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/pipeline_quality_predictions.json")
+        set(PIPELINE_QUALITY_REPORT "${CMAKE_CURRENT_BINARY_DIR}/pipeline_quality_report.json")
+        add_test(
+            NAME pipeline_quality_benchmark
+            COMMAND bash
+                ${CMAKE_CURRENT_SOURCE_DIR}/run_pipeline_quality_benchmark.sh
+                $<TARGET_FILE:pipeline_quality_eval>
+                ${PIPELINE_QUALITY_ROOT}/prepared_manifest.json
+                ${PIPELINE_QUALITY_ROOT}
+                ${CMAKE_CURRENT_BINARY_DIR}/pipeline-quality-work
+                ${PIPELINE_QUALITY_PREDICTIONS}
+                ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_pipeline.py
+                ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/pipeline_quality/ground_truth.json
+                ${PIPELINE_QUALITY_REPORT}
+                0.88
+                0.84
+                0.92
+        )
+        set_tests_properties(pipeline_quality_benchmark PROPERTIES LABELS "benchmark;pipeline")
+    endif()
 
     set(DOCLAYNET_LAYOUT_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/doclaynet_layout_predictions.json")
     set(DOCLAYNET_LAYOUT_REPORT "${CMAKE_CURRENT_BINARY_DIR}/doclaynet_layout_report.json")

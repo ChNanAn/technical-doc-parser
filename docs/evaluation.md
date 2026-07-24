@@ -99,6 +99,22 @@ and train/test isolation. Tiny committed model sets are regression alarms, not p
 This project uses public datasets for repeatable OCR, layout, and table evaluation. The first OCR target is FUNSD
 because it is small, public, and contains scanned form images with text annotations.
 
+## Committed PaddleOCR Regression
+
+The required ONNX build runs real PaddleOCR detection and recognition over five redistributable pages from the
+Tesseract test corpus. A C++ producer writes page-level predictions, then the backend-independent evaluator applies
+NFKC normalization, whitespace collapse, case folding, and corpus-level CER/WER:
+
+```bash
+ctest --test-dir build-ort -R paddle_ocr_benchmark --output-on-failure
+```
+
+The pinned `ppocrv5_mobile` baseline has corpus CER `0.6827`, character-count ratio `0.9714`, and WER `0.8487`.
+CI enforces `CER <= 0.70` and publishes `paddle_ocr_report.json` as an artifact. The high page-level CER is visible
+evidence of two known limitations: text from multi-column magazine pages is emitted in row-wise order, and the
+baseline has no 180-degree orientation handling. On the two simple upright pages, CER is `0.0170` and `0.0000`.
+This five-page set is a deterministic regression gate, not a broad OCR accuracy claim.
+
 ## FUNSD OCR Baseline
 
 FUNSD is not committed to this repository. Download it into `data/raw/`, which is ignored by git:

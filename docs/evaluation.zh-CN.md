@@ -89,6 +89,21 @@ Train/Test 隔离。仓库中五页规模的模型数据只能作为回归报警
 
 ## 仓库已有 Backend 基线
 
+### 已提交的 PaddleOCR 回归
+
+必需的 ONNX Build 会在 Tesseract 测试语料的 5 个可再分发页面上运行真实 PaddleOCR 检测与识别。C++
+Producer 输出页级文本后，Backend-independent Evaluator 统一执行 NFKC、空白折叠、大小写归一化，并计算
+Corpus CER/WER：
+
+```bash
+ctest --test-dir build-ort -R paddle_ocr_benchmark --output-on-failure
+```
+
+固定 `ppocrv5_mobile` baseline 的 Corpus CER 为 `0.6827`，字符数量比为 `0.9714`，WER 为 `0.8487`；CI
+要求 `CER <= 0.70` 并上传 `paddle_ocr_report.json`。高 CER 真实暴露了两个已知限制：多栏杂志页的文本按
+横向行交错输出，且 baseline 尚不支持 180 度方向处理。两个简单正向页面的 CER 分别为 `0.0170` 和
+`0.0000`。这 5 页是确定性的回归门槛，不代表广泛场景准确率。
+
 ### FUNSD OCR
 
 下载数据并构建评测目标：
@@ -143,4 +158,3 @@ Decode、Label Mapping 和结构后处理，但尚未衡量表格文字、TEDS �
 6. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
 
 只有当 Metric 和 Corpus 都稳定后才设置 Regression Floor。下限用于防止已知回退，不应自动被当作生产验收线。
-

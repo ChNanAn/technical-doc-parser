@@ -142,7 +142,8 @@ doc_parser::pipeline::DocumentEngine engine(std::move(config));
 
 With ONNX Runtime enabled, CTest includes `paddle_ocr_onnx_baseline`. It loads the default models and runs
 end-to-end detection, batched recognition, detection-only, and supplied-region recognition against a committed
-test image. If the models are unavailable, the test is skipped with CTest skip code `77`.
+test image. Model availability is required: missing or invalid models fail the test instead of being reported as a
+skip.
 
 The built-in `ppocrv4_mobile` and `ppocrv5_mobile` profiles are separate model contracts. The current official
 mobile exports share the same BGR channel order and normalization values, while the public profile keeps those

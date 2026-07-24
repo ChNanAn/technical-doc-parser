@@ -76,6 +76,15 @@ python3 tests/benchmark/evaluate_ocr.py \
   --output output/ocr_metrics.json
 ```
 
+With ONNX Runtime enabled, `paddle_ocr_benchmark` generates predictions for all five committed OCR pages with the
+pinned PaddleOCR model and enforces a case-insensitive corpus CER ceiling of `0.70`. The current baseline is
+`0.6827`; the two magazine pages expose unresolved multi-column ordering errors, and the rotated page exposes the
+absence of orientation handling:
+
+```bash
+ctest --test-dir build-ort -R paddle_ocr_benchmark --output-on-failure
+```
+
 Layout predictions use the internal mapped labels (`title`, `text`, `list`, `table`, `figure`, `header`,
 `footer`, or `unknown`):
 

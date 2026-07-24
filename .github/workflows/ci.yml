@@ -30,13 +30,24 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON -DDOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLEOCR_BASELINE=ON -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON -DDOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER=ON
+
+      - name: Verify required PaddleOCR models
+        run: test -s models/paddleocr/baseline/det.onnx && test -s models/paddleocr/baseline/rec.onnx && test -s models/paddleocr/baseline/ppocrv5_dict.txt
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+      - name: Upload OCR benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paddle-ocr-benchmark
+          path: build/tests/paddle_ocr_report.json
+          if-no-files-found: warn
 
       - name: Show help
         run: ./build/cpp/app/document_intelligence_engine --help

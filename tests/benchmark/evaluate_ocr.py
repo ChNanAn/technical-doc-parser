@@ -116,6 +116,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ground-truth", type=Path, default=DEFAULT_GROUND_TRUTH, help="Ground-truth JSON file")
     parser.add_argument("--output", type=Path, help="Write the metric report to this JSON file")
     parser.add_argument("--ignore-case", action="store_true", help="Case-fold text before calculating metrics")
+    parser.add_argument("--maximum-cer", type=float, help="Fail if corpus CER exceeds this regression ceiling")
     parser.add_argument("--quiet", action="store_true", help="Do not print the metric report to stdout")
     return parser.parse_args()
 
@@ -123,8 +124,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
+        if args.maximum_cer is not None and args.maximum_cer < 0.0:
+            raise EvaluationError("--maximum-cer must be non-negative")
         report = evaluate_ocr(load_json(args.ground_truth), load_json(args.predictions), args.ignore_case)
         write_report(report, args.output, args.quiet)
+        if args.maximum_cer is not None and report["summary"]["cer"] > args.maximum_cer:
+            print(
+                f"error: corpus CER {report['summary']['cer']:.6f} exceeds maximum {args.maximum_cer:.6f}",
+                file=sys.stderr,
+            )
+            return 1
     except EvaluationError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2

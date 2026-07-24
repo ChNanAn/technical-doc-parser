@@ -34,6 +34,7 @@ add_test(
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_ocr.py
         --predictions ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/ground_truth.json
+        --maximum-cer 0.0
         --quiet
 )
 
@@ -159,6 +160,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         paddle_ocr_onnx_baseline.cpp
     )
 
+    add_executable(paddle_ocr_eval
+        paddle_ocr_eval.cpp
+    )
+
     add_executable(funsd_ocr_eval
         funsd_ocr_eval.cpp
     )
@@ -174,6 +179,12 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_link_libraries(paddle_ocr_onnx_baseline
         PRIVATE
             doc_parser_ocr
+    )
+
+    target_link_libraries(paddle_ocr_eval
+        PRIVATE
+            doc_parser_ocr
+            nlohmann_json::nlohmann_json
     )
 
     target_link_libraries(funsd_ocr_eval
@@ -195,6 +206,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     )
 
     doc_parser_set_common_warnings(paddle_ocr_onnx_baseline)
+    doc_parser_set_common_warnings(paddle_ocr_eval)
     doc_parser_set_common_warnings(funsd_ocr_eval)
     doc_parser_set_common_warnings(doclaynet_layout_eval)
     doc_parser_set_common_warnings(pubtables_table_eval)
@@ -202,10 +214,25 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     add_test(NAME paddle_ocr_onnx_baseline COMMAND paddle_ocr_onnx_baseline)
     set_tests_properties(paddle_ocr_onnx_baseline
         PROPERTIES
-            SKIP_RETURN_CODE 77
             ENVIRONMENT
                 "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/images/phototest.tif;DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=quick"
     )
+
+    set(PADDLE_OCR_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/paddle_ocr_predictions.json")
+    set(PADDLE_OCR_REPORT "${CMAKE_CURRENT_BINARY_DIR}/paddle_ocr_report.json")
+    add_test(
+        NAME paddle_ocr_benchmark
+        COMMAND bash
+            ${CMAKE_CURRENT_SOURCE_DIR}/run_paddle_ocr_benchmark.sh
+            $<TARGET_FILE:paddle_ocr_eval>
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/ground_truth.json
+            ${PADDLE_OCR_PREDICTIONS}
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_ocr.py
+            ${PADDLE_OCR_REPORT}
+            0.70
+    )
+    set_tests_properties(paddle_ocr_benchmark PROPERTIES LABELS benchmark)
 
     set(DOCLAYNET_LAYOUT_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/doclaynet_layout_predictions.json")
     set(DOCLAYNET_LAYOUT_REPORT "${CMAKE_CURRENT_BINARY_DIR}/doclaynet_layout_report.json")

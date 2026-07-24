@@ -8,8 +8,6 @@
 
 namespace {
 
-constexpr int kSkip = 77;
-
 std::string envString(const char* name) {
     const char* value = std::getenv(name);
     if (value == nullptr) {
@@ -23,9 +21,9 @@ std::string envString(const char* name) {
 int main() {
     const doc_parser::ocr::PaddleOcrOnnxBackend backend;
     if (!backend.isAvailable()) {
-        std::cout << "PaddleOCR ONNX baseline skipped; default models are unavailable. "
-                     "Run bash scripts/setup_paddleocr_baseline.sh.\n";
-        return kSkip;
+        std::cerr << "PaddleOCR ONNX baseline failed; default models are unavailable: " << backend.unavailableReason()
+                  << "\nRun bash scripts/setup_paddleocr_baseline.sh.\n";
+        return 1;
     }
 
     const std::string image_path = envString("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE");

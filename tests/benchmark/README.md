@@ -126,8 +126,7 @@ model has a `0.70` micro-F1 regression floor, while Paddle PP-DocLayoutV3 has a 
 ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)$' --output-on-failure
 ```
 
-Table predictions use the PubTables structure labels (`table`, `table row`, `table column`,
-`table column header`, and `table spanning cell`):
+Table predictions contain PubTables structure objects and final cells with bbox, row/column indices, spans, and text:
 
 ```bash
 python3 tests/benchmark/evaluate_table.py \
@@ -136,21 +135,24 @@ python3 tests/benchmark/evaluate_table.py \
   --output output/table_metrics.json
 ```
 
-When the pinned Table Transformer models are installed, `pubtables_table_benchmark` runs real C++ region and
-structure inference over all five images and enforces a `0.95` micro-F1 floor:
+When the pinned PaddleOCR and Table Transformer models are installed, `pubtables_table_benchmark` runs real C++ OCR,
+region/structure inference, and final cell-text assignment over all five images. It enforces a `0.95` structure
+micro-F1 floor and a `0.08` structure-matched Table Text CER ceiling:
 
 ```bash
 bash scripts/setup_table_transformer.sh
 ctest --test-dir build -R pubtables_table_benchmark --output-on-failure
 ```
 
-The pinned baseline has micro-F1 `1.000` and mean matched IoU `0.9746` over 130 objects. The small in-domain subset
-is suitable for regression detection only; it is not a broad table-model leaderboard or a text/TEDS evaluation.
+The pinned baseline has micro-F1 `1.000` and mean matched IoU `0.9746` over 130 objects. All 384 final cells match a
+reference cell, and case-insensitive Table Text CER is `0.0577` (210 edits over 3,642 NFKC-normalized reference
+characters). Exact cell text is `271/384` (`0.7057`).
 
 Layout and table reports use class-aware, one-to-one maximum-cardinality matching. They contain per-class and
-per-sample precision, recall, F1, mean matched IoU, micro/macro F1, and exact object-structure match rate. The table
-metric evaluates the available PubTables row/column/header/spanning-cell boxes; it is not a text-content or TEDS
-metric.
+per-sample precision, recall, F1, mean matched IoU, micro/macro F1, and exact object-structure match rate. Table cells
+are matched one-to-one by bbox IoU independently of text; missing reference cells are scored as empty predictions.
+The small in-domain subset is suitable for regression detection only. It is not a broad table-model leaderboard and
+does not measure TEDS or cross-page tables.
 
 The corpus integrity check, evaluator unit tests, and perfect-prediction CLI smoke tests are registered with CTest
 under the `benchmark` label. The normal GitHub Actions `ctest` step therefore runs them automatically:
@@ -165,7 +167,7 @@ The fixed annotated subset contains:
 | --- | ---: | --- |
 | Tesseract test corpus | 5 | Page-level reference transcripts |
 | DocLayNet | 5 | 11 layout classes and bounding boxes |
-| PubTables-1M | 5 | Table, row, column, header, and spanning-cell boxes |
+| PubTables-1M + Europe PMC JATS | 5 | Table structure boxes and cell text |
 
 These 15 images and annotations are intentionally committed with the repository. Tesseract samples are
 Apache-2.0, DocLayNet is CDLA-Permissive-1.0, and PubTables-1M is CDLA-Permissive-2.0.
@@ -230,9 +232,10 @@ hardware, commands, and interpretation are published in the
 remain under ignored `data/raw/`; they are not CI dependencies or repository fixtures.
 
 DocLayNet is read with HTTP Range requests, so only its test annotation JSON and five PNG files are transferred
-from the 30 GB archive. PubTables images are streamed only until the five fixed entries are found; the multi-GB
-image archive is not downloaded in full. Source versions, IDs, checksums, and license notes are recorded in
-`annotated_sources.json`. Large intermediate annotation archives remain under the ignored `data/raw/` cache.
+from the 30 GB archive. PubTables images are streamed only until the five fixed entries are found; its 4.17 GB words
+archive is not a dependency. Cell text comes from four small SHA256-pinned Europe PMC JATS XML responses. Source
+versions, IDs, checksums, and license notes are recorded in `annotated_sources.json` and each table sample. Large
+intermediate annotation archives remain under the ignored `data/raw/` cache.
 
 ## Coverage
 

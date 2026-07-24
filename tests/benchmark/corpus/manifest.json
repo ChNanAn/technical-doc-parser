@@ -21,7 +21,7 @@
       "task": "table_structure",
       "samples": 5,
       "ground_truth": "table_pubtables/ground_truth.json",
-      "ground_truth_sha256": "36cf69c3df562f7c87c6feffeb8c3bc29d94ead224f2687912a267a7e6e0beb2"
+      "ground_truth_sha256": "74f707add31b1a04801cba7048f1b61fa6fded19d399c58cbcc00bdcf42bf36f"
     }
   ]
 }

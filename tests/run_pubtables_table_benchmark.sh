@@ -8,6 +8,7 @@ PYTHON="$4"
 METRIC_SCRIPT="$5"
 REPORT="$6"
 MINIMUM_MICRO_F1="$7"
+MAXIMUM_TABLE_TEXT_CER="$8"
 
 set +e
 "$EVALUATOR" --ground-truth "$GROUND_TRUTH" --output "$PREDICTIONS"
@@ -24,4 +25,6 @@ fi
   --ground-truth "$GROUND_TRUTH" \
   --predictions "$PREDICTIONS" \
   --output "$REPORT" \
-  --minimum-micro-f1 "$MINIMUM_MICRO_F1"
+  --minimum-micro-f1 "$MINIMUM_MICRO_F1" \
+  --ignore-case \
+  --maximum-table-text-cer "$MAXIMUM_TABLE_TEXT_CER"

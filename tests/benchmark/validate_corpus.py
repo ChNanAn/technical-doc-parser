@@ -22,6 +22,8 @@ def main() -> int:
         raise RuntimeError("the distributed corpus must contain 3 datasets and 15 samples")
 
     image_count = 0
+    table_cell_count = 0
+    table_text_reference_samples = 0
     for dataset in manifest["datasets"]:
         ground_truth_path = CORPUS_ROOT / dataset["ground_truth"]
         if sha256(ground_truth_path) != dataset["ground_truth_sha256"]:
@@ -46,13 +48,72 @@ def main() -> int:
                 if sha256(annotation_path) != sample["annotation_sha256"]:
                     raise RuntimeError(f"annotation SHA256 mismatch: {annotation_path}")
 
-            for item in sample.get("objects", []):
+            for item in sample.get("objects", []) + sample.get("cells", []):
                 x0, y0, x1, y1 = item["bbox"]
                 if not (0 <= x0 <= x1 <= sample["width"] + 1 and 0 <= y0 <= y1 <= sample["height"] + 1):
                     raise RuntimeError(f"bbox outside image for {sample['id']}: {item['bbox']}")
 
+            if dataset["task"] == "table_structure":
+                cells = sample.get("cells")
+                source = sample.get("cell_text_source")
+                if not isinstance(cells, list) or not cells:
+                    raise RuntimeError(f"missing table cell references for {sample['id']}")
+                if not isinstance(source, dict) or source.get("provider") != "Europe PMC":
+                    raise RuntimeError(f"missing table cell provenance for {sample['id']}")
+                if not all(
+                    isinstance(source.get(field), str) and source[field]
+                    for field in (
+                        "pmcid",
+                        "url",
+                        "full_text_xml_sha256",
+                        "license",
+                        "license_url",
+                        "table_wrap_id",
+                        "table_label",
+                        "extraction",
+                    )
+                ):
+                    raise RuntimeError(f"incomplete table cell provenance for {sample['id']}")
+
+                row_count = sum(item["label"] == "table row" for item in sample["objects"])
+                column_count = sum(item["label"] == "table column" for item in sample["objects"])
+                occupied = set()
+                for cell in cells:
+                    if not isinstance(cell.get("text"), str):
+                        raise RuntimeError(f"table cell text must be a string for {sample['id']}")
+                    values = [cell.get(field) for field in ("row_index", "column_index", "row_span", "column_span")]
+                    if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
+                        raise RuntimeError(f"table cell grid values must be integers for {sample['id']}")
+                    row_index, column_index, row_span, column_span = values
+                    if (
+                        row_index < 0
+                        or column_index < 0
+                        or row_span <= 0
+                        or column_span <= 0
+                        or row_index + row_span > row_count
+                        or column_index + column_span > column_count
+                    ):
+                        raise RuntimeError(f"table cell exceeds the grid for {sample['id']}: {cell}")
+                    slots = {
+                        (row, column)
+                        for row in range(row_index, row_index + row_span)
+                        for column in range(column_index, column_index + column_span)
+                    }
+                    if slots & occupied:
+                        raise RuntimeError(f"overlapping table cells for {sample['id']}: {cell}")
+                    occupied.update(slots)
+                if len(occupied) != row_count * column_count:
+                    raise RuntimeError(f"table cells do not cover the grid for {sample['id']}")
+                table_cell_count += len(cells)
+                table_text_reference_samples += 1
+
     if image_count != 15:
         raise RuntimeError(f"expected 15 images, found {image_count}")
+    if table_text_reference_samples != 5 or table_cell_count != 384:
+        raise RuntimeError(
+            f"expected 384 table cells across 5 text references, found "
+            f"{table_cell_count} across {table_text_reference_samples}"
+        )
 
     pipeline_ground_truth_path = CORPUS_ROOT / "pipeline_quality" / "ground_truth.json"
     pipeline_ground_truth = json.loads(pipeline_ground_truth_path.read_text(encoding="utf-8"))
@@ -72,7 +133,7 @@ def main() -> int:
 
     print(
         f"Validated {image_count} distributed benchmark images across 3 datasets "
-        f"and {full_text_references} pipeline full-text references"
+        f"with {table_cell_count} table cells and {full_text_references} pipeline full-text references"
     )
     return 0
 

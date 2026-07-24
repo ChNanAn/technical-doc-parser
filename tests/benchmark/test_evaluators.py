@@ -228,6 +228,92 @@ class TableEvaluatorTest(unittest.TestCase):
         self.assertEqual(0.0, report["summary"]["exact_match_rate"])
         self.assertEqual(1, report["summary"]["false_negative"])
 
+    def test_matches_cell_text_by_bbox(self) -> None:
+        cells = [
+            {"bbox": [0, 0, 50, 20], "text": "Alpha"},
+            {"bbox": [50, 0, 100, 20], "text": "Bravo"},
+        ]
+        ground_truth = {
+            "task": "table_structure",
+            "samples": [
+                {
+                    "id": "table",
+                    "objects": [{"label": "table", "bbox": [0, 0, 100, 20]}],
+                    "cells": cells,
+                }
+            ],
+        }
+        predictions = {
+            "task": "table_structure",
+            "samples": [
+                {
+                    "id": "table",
+                    "objects": ground_truth["samples"][0]["objects"],
+                    "cells": cells,
+                }
+            ],
+        }
+        report = evaluate_table(ground_truth, predictions)
+        self.assertEqual(2, report["summary"]["matched_cells"])
+        self.assertEqual(1.0, report["summary"]["cell_coverage"])
+        self.assertEqual(0.0, report["summary"]["table_text_cer"])
+
+    def test_reports_incorrect_matched_cell_text(self) -> None:
+        ground_truth = {
+            "task": "table_structure",
+            "samples": [
+                {
+                    "id": "table",
+                    "objects": [{"label": "table", "bbox": [0, 0, 20, 20]}],
+                    "cells": [{"bbox": [0, 0, 20, 20], "text": "cat"}],
+                }
+            ],
+        }
+        predictions = {
+            "task": "table_structure",
+            "samples": [
+                {
+                    "id": "table",
+                    "objects": ground_truth["samples"][0]["objects"],
+                    "cells": [{"bbox": [0, 0, 20, 20], "text": "cot"}],
+                }
+            ],
+        }
+        report = evaluate_table(ground_truth, predictions)
+        self.assertEqual(1, report["summary"]["character_edit_distance"])
+        self.assertAlmostEqual(1 / 3, report["summary"]["table_text_cer"])
+
+    def test_scores_missing_cell_as_empty_text(self) -> None:
+        ground_truth = {
+            "task": "table_structure",
+            "samples": [
+                {
+                    "id": "table",
+                    "objects": [{"label": "table", "bbox": [0, 0, 60, 20]}],
+                    "cells": [
+                        {"bbox": [0, 0, 20, 20], "text": "one"},
+                        {"bbox": [20, 0, 40, 20], "text": "two"},
+                        {"bbox": [40, 0, 60, 20], "text": ""},
+                    ],
+                }
+            ],
+        }
+        predictions = {
+            "task": "table_structure",
+            "samples": [
+                {
+                    "id": "table",
+                    "objects": ground_truth["samples"][0]["objects"],
+                    "cells": [{"bbox": [0, 0, 20, 20], "text": "one"}],
+                }
+            ],
+        }
+        report = evaluate_table(ground_truth, predictions)
+        self.assertEqual(2, report["summary"]["unmatched_reference_cells"])
+        self.assertEqual(1, report["summary"]["exact_text_cells"])
+        self.assertEqual(3, report["summary"]["character_edit_distance"])
+        self.assertEqual(0.5, report["summary"]["table_text_cer"])
+
 
 if __name__ == "__main__":
     unittest.main()

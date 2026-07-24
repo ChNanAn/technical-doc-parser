@@ -231,26 +231,31 @@ DocLayNet taxonomy therefore has an inherent advantage on this corpus.
 The threshold is a regression floor, not a production acceptance target. Five pages are enough to catch model,
 preprocessing, label-map, and postprocessing regressions, but not enough to establish domain-wide quality.
 
-## PubTables-1M Table Structure
+## PubTables-1M Table Structure and Text
 
-With both Table Transformer models installed, CTest runs region detection, padded region cropping, and structure
-recognition on the five committed PubTables-1M table images:
+With PaddleOCR and both Table Transformer models installed, CTest runs OCR, region detection, padded region cropping,
+structure recognition, and final cell-text assignment on the five committed PubTables-1M table images:
 
 ```bash
 ctest --test-dir build -R pubtables_table_benchmark --output-on-failure
 ```
 
 At IoU `0.5`, the pinned baseline predicts all 130 table, row, column, column-header, projected-row-header, and
-spanning-cell objects:
+spanning-cell objects. It also matches all 384 final cells to independent text references:
 
-| Precision | Recall | Micro F1 | Macro F1 | Mean matched IoU | Exact match |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 1.000 | 1.000 | 1.000 | 1.000 | 0.9746 | 1.000 |
+| Metric | Baseline | Regression guard |
+| --- | ---: | ---: |
+| Table Structure Micro F1 | 1.000 | >= 0.95 |
+| Mean matched structure IoU | 0.9746 | reported |
+| Cell coverage | 1.000 | reported |
+| Exact cell-text rate | 0.7057 | reported |
+| Structure-matched Table Text CER | 0.0577 | <= 0.08 |
 
-CI enforces a `0.95` micro-F1 regression floor. This is a deliberately tiny in-domain regression set for the
-Table Transformer/PubTables label system, not evidence of perfect production accuracy. It catches changes to
-region preprocessing, crop padding, tensor decoding, label mapping, and structural postprocessing. Text accuracy
-and TEDS are not yet measured by this object-structure metric.
+The text references are extracted from SHA256-pinned Europe PMC JATS XML and aligned to the original PubTables row,
+column, spanning-cell, and projected-row-header boxes. The case-insensitive corpus metric applies NFKC and collapsed
+whitespace; unmatched reference cells are scored as empty predictions. The current run has 210 edits over 3,642
+reference characters. This deliberately tiny in-domain set catches OCR-to-cell assignment and model regressions,
+but it is not evidence of production accuracy and does not measure TEDS, cross-page tables, or broad domain coverage.
 
 ## 15-Page Pipeline Baseline
 
@@ -295,9 +300,9 @@ See the [full olmOCR-Bench report](benchmarks/olmocr-bench.md) for versions, cou
 
 The Backend baselines and sampled text/order Pipeline gate should remain in CI. The next evaluation work is:
 
-1. Add structure-matched table text CER.
-2. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
-3. Emit `quality-report.v1` and compare it with a pinned baseline in CI.
+1. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
+2. Emit `quality-report.v1` and compare it with a pinned baseline in CI.
+3. Broaden table evaluation with public out-of-domain samples, TEDS, and multi-page continuation cases.
 
 Regression floors should be introduced only after the metric and corpus are stable. A floor prevents known regressions;
 it is not automatically a production acceptance target.

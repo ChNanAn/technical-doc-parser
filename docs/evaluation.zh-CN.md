@@ -140,14 +140,21 @@ ctest --test-dir build -R '^(doclaynet_layout_benchmark|paddle_layout_benchmark)
 当前 RF-DETR Micro F1 为 `0.768657`，Paddle PP-DocLayoutV3 为 `0.500000`；CI 回归下限分别为 `0.70`
 和 `0.45`。不同 Label Taxonomy 会影响比较，这些数字不是全领域准确率结论。
 
-### PubTables-1M Table Structure
+### PubTables-1M 表格结构与文字
 
 ```bash
 ctest --test-dir build -R pubtables_table_benchmark --output-on-failure
 ```
 
-五张 Fixture 上当前 Table Structure Micro F1 为 `1.0`，CI 下限为 `0.95`。它能保护 Region Crop、Tensor
-Decode、Label Mapping 和结构后处理，但尚未衡量表格文字、TEDS 或真实跨页表格质量。
+该测试复用一个 PaddleOCR Session 和一组 Table Transformer Session，实际经过 OCR、Region Crop、结构识别与
+最终 Cell Text Assignment。五张 Fixture 上 130 个结构对象全部匹配，Table Structure Micro F1 为 `1.0`，
+Mean Matched IoU 为 `0.9746`，CI 下限为 `0.95`。384 个最终 Cell 也全部与独立文字参考完成结构匹配，Cell
+Coverage 为 `1.0`，Exact Cell-text Rate 为 `0.7057`。
+
+文字参考由带 SHA256 的 Europe PMC JATS XML 提取，再与 PubTables 的 Row、Column、Spanning Cell 和
+Projected Row Header Box 对齐。CER 使用 NFKC、折叠空白和大小写不敏感规则；未匹配参考 Cell 按空预测计分。
+当前 3,642 个参考字符有 210 个编辑，Table Text CER 为 `0.0577`，CI 上限为 `0.08`。这仍是很小的同域回归集，
+用于发现 OCR-to-cell Assignment 与模型回退，不能证明生产准确率，也尚未覆盖 TEDS、跨页表格和广泛领域。
 
 ## 15 页 Pipeline 基线
 
@@ -186,8 +193,8 @@ Table 和公式导出的改进可以沿同一条独立曲线比较。版本、�
 
 ## 接下来实施顺序
 
-1. 增加结构匹配后的 Table Text CER。
-2. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
-3. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
+1. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
+2. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
+3. 用公开域外样本、TEDS 和跨页延续表格扩大 Table Evaluation。
 
 只有当 Metric 和 Corpus 都稳定后才设置 Regression Floor。下限用于防止已知回退，不应自动被当作生产验收线。

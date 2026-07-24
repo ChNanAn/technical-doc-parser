@@ -111,6 +111,34 @@ PUBTABLES_IMAGE_SHA256 = {
     "PMC3430698_table_0": "b291ddfc48e641dc0ff007d8b3a720a8ad51a27dee186f8d0cb1e0d2f5047f18",
     "PMC1187882_table_1": "32328b9feae15e66527c9bf92509e8d832c9f258a2ea54bf7f88076676f198b9",
 }
+EUROPE_PMC_FULL_TEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
+EUROPE_PMC_JATS_SHA256 = {
+    "PMC4840909": "d73f9272c5b80177c0a5d9a7e60d9f2fd3e03c96d4b4be088832284cca7bd709",
+    "PMC3430698": "b0d570e46840c5df25995ae8c7a9126bb67453e9bc633659b46ed2addf2b3bc7",
+    "PMC4429321": "c2c6ba22fcb7da6d1c6b0f8aec76f20fa5cd86ce8d62379ba21af76d0bea6d4c",
+    "PMC1187882": "18634fa227f17e4a082ae7ecb534e3a778aa2d38c7f78c5a500daac929e103f4",
+}
+EUROPE_PMC_JATS_LICENSES = {
+    "PMC4840909": {"license": "CC BY 4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/"},
+    "PMC3430698": {"license": "CC BY (version not stated)", "license_url": "https://creativecommons.org/licenses/by/"},
+    "PMC4429321": {"license": "CC BY 4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/"},
+    "PMC1187882": {"license": "CC BY 2.0", "license_url": "https://creativecommons.org/licenses/by/2.0/"},
+}
+PUBTABLES_JATS_TABLES = {
+    "PMC4840909_table_0": {"pmcid": "PMC4840909", "table_wrap_id": "Tab2", "table_label": "Table 2"},
+    "PMC3430698_table_1": {
+        "pmcid": "PMC3430698",
+        "table_wrap_id": "pone-0043479-t003",
+        "table_label": "Table 3",
+    },
+    "PMC4429321_table_0": {"pmcid": "PMC4429321", "table_wrap_id": "Tab1", "table_label": "Table 1"},
+    "PMC3430698_table_0": {
+        "pmcid": "PMC3430698",
+        "table_wrap_id": "pone-0043479-t001",
+        "table_label": "Table 1",
+    },
+    "PMC1187882_table_1": {"pmcid": "PMC1187882", "table_wrap_id": "T2", "table_label": "Table 2"},
+}
 
 
 def sha256(path: Path) -> str:
@@ -328,6 +356,153 @@ def parse_pubtables_xml(xml_path: Path) -> dict:
     return {"width": width, "height": height, "objects": objects}
 
 
+def normalized_element_text(element: ET.Element | None) -> str:
+    return "" if element is None else " ".join("".join(element.itertext()).split())
+
+
+def parse_jats_table(xml_path: Path, table_wrap_id: str, expected_label: str) -> dict:
+    table_wraps = ET.parse(xml_path).getroot().findall(".//table-wrap")
+    matches = [(index, item) for index, item in enumerate(table_wraps) if item.get("id") == table_wrap_id]
+    if len(matches) != 1:
+        raise RuntimeError(f"expected one JATS table-wrap {table_wrap_id!r} in {xml_path.name}")
+    table_index, table_wrap = matches[0]
+    table_label = normalized_element_text(table_wrap.find("label"))
+    if table_label != expected_label:
+        raise RuntimeError(f"JATS table label changed for {table_wrap_id}: {table_label!r}")
+    table = table_wrap.find("table")
+    if table is None:
+        raise RuntimeError(f"JATS table-wrap {table_wrap_id} has no inline table")
+
+    text_by_slot = {}
+    occupied = set()
+    row_elements = table.findall(".//tr")
+    column_count = 0
+    for row_index, row in enumerate(row_elements):
+        column_index = 0
+        for element in row:
+            if element.tag not in {"th", "td"}:
+                continue
+            while (row_index, column_index) in occupied:
+                column_index += 1
+            row_span = int(element.get("rowspan", "1"))
+            column_span = int(element.get("colspan", "1"))
+            if row_span <= 0 or column_span <= 0:
+                raise RuntimeError(f"invalid JATS cell span in {table_wrap_id}")
+            text_by_slot[(row_index, column_index)] = normalized_element_text(element)
+            for covered_row in range(row_index, row_index + row_span):
+                for covered_column in range(column_index, column_index + column_span):
+                    if (covered_row, covered_column) in occupied:
+                        raise RuntimeError(f"overlapping JATS cells in {table_wrap_id}")
+                    occupied.add((covered_row, covered_column))
+            column_index += column_span
+        while (row_index, column_index) in occupied:
+            column_index += 1
+        column_count = max(column_count, column_index)
+
+    if any(row_index >= len(row_elements) for row_index, _ in occupied):
+        raise RuntimeError(f"JATS rowspan exceeds the table grid in {table_wrap_id}")
+    return {
+        "table_index": table_index,
+        "table_label": table_label,
+        "row_count": len(row_elements),
+        "column_count": column_count,
+        "text_by_slot": text_by_slot,
+    }
+
+
+def intersect_bbox(lhs: list[float], rhs: list[float]) -> list[float]:
+    return [max(lhs[0], rhs[0]), max(lhs[1], rhs[1]), min(lhs[2], rhs[2]), min(lhs[3], rhs[3])]
+
+
+def overlaps_header(bbox: list[float], headers: list[list[float]]) -> bool:
+    area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+    for header in headers:
+        intersection = intersect_bbox(bbox, header)
+        intersection_area = max(0.0, intersection[2] - intersection[0]) * max(
+            0.0, intersection[3] - intersection[1]
+        )
+        if area > 0.0 and intersection_area / area > 0.5:
+            return True
+    return False
+
+
+def covered_indices(bbox: list[float], boxes: list[list[float]], axis: int) -> list[int]:
+    result = []
+    for index, box in enumerate(boxes):
+        center = (box[axis] + box[axis + 2]) * 0.5
+        if bbox[axis] - 1.0 <= center <= bbox[axis + 2] + 1.0:
+            result.append(index)
+    return result
+
+
+def build_reference_cells(sample_id: str, objects: list[dict], jats_table: dict) -> list[dict]:
+    rows = sorted((item["bbox"] for item in objects if item["label"] == "table row"), key=lambda box: box[1])
+    columns = sorted(
+        (item["bbox"] for item in objects if item["label"] == "table column"), key=lambda box: box[0]
+    )
+    headers = [item["bbox"] for item in objects if item["label"] == "table column header"]
+    merged = [
+        item
+        for item in objects
+        if item["label"] in {"table spanning cell", "table projected row header"}
+    ]
+    if (len(rows), len(columns)) != (jats_table["row_count"], jats_table["column_count"]):
+        raise RuntimeError(
+            f"JATS and PubTables grids differ for {sample_id}: "
+            f"JATS={jats_table['row_count']}x{jats_table['column_count']} "
+            f"PubTables={len(rows)}x{len(columns)}"
+        )
+
+    cells = []
+    covered_slots = set()
+    text_by_slot = jats_table["text_by_slot"]
+    for item in merged:
+        covered_rows = covered_indices(item["bbox"], rows, 1)
+        covered_columns = covered_indices(item["bbox"], columns, 0)
+        if not covered_rows or not covered_columns:
+            raise RuntimeError(f"merged cell does not cover the grid for {sample_id}: {item['bbox']}")
+        slots = {(row, column) for row in covered_rows for column in covered_columns}
+        if slots & covered_slots:
+            raise RuntimeError(f"overlapping PubTables merged cells for {sample_id}: {item['bbox']}")
+        covered_slots.update(slots)
+        text = " ".join(text_by_slot.get(slot, "") for slot in sorted(slots) if text_by_slot.get(slot, ""))
+        cells.append(
+            {
+                "row_index": covered_rows[0],
+                "column_index": covered_columns[0],
+                "row_span": len(covered_rows),
+                "column_span": len(covered_columns),
+                "is_header": item["label"] == "table projected row header"
+                or overlaps_header(item["bbox"], headers),
+                "bbox": item["bbox"],
+                "text": text,
+            }
+        )
+
+    for row_index, row in enumerate(rows):
+        row_is_header = overlaps_header(row, headers)
+        for column_index, column in enumerate(columns):
+            if (row_index, column_index) in covered_slots:
+                continue
+            cells.append(
+                {
+                    "row_index": row_index,
+                    "column_index": column_index,
+                    "row_span": 1,
+                    "column_span": 1,
+                    "is_header": row_is_header,
+                    "bbox": intersect_bbox(row, column),
+                    "text": text_by_slot.get((row_index, column_index), ""),
+                }
+            )
+
+    cells.sort(key=lambda cell: (cell["row_index"], cell["column_index"]))
+    covered_count = sum(cell["row_span"] * cell["column_span"] for cell in cells)
+    if covered_count != len(rows) * len(columns):
+        raise RuntimeError(f"reference cells do not cover the complete grid for {sample_id}")
+    return cells
+
+
 def prepare_pubtables() -> dict:
     output_root = OUTPUT_ROOT / "table_pubtables"
     raw_dir = CACHE_ROOT / "pubtables"
@@ -336,6 +511,12 @@ def prepare_pubtables() -> dict:
     raw_dir.mkdir(parents=True, exist_ok=True)
     image_dir.mkdir(parents=True, exist_ok=True)
     annotation_dir.mkdir(parents=True, exist_ok=True)
+
+    jats_paths = {}
+    for pmcid, expected_sha256 in EUROPE_PMC_JATS_SHA256.items():
+        jats_path = raw_dir / "jats" / f"{pmcid}.xml"
+        download(EUROPE_PMC_FULL_TEXT_URL.format(pmcid=pmcid), jats_path, expected_sha256)
+        jats_paths[pmcid] = jats_path
 
     annotation_archive_path = raw_dir / "structure_annotations_test.tar.gz"
     download(PUBTABLES_ANNOTATION_URL, annotation_archive_path, PUBTABLES_ANNOTATION_SHA256)
@@ -385,6 +566,15 @@ def prepare_pubtables() -> dict:
         if (actual_width, actual_height) != (parsed["width"], parsed["height"]):
             raise RuntimeError(f"PubTables image dimensions differ: {image_path.name}")
         validate_boxes(sample_id, parsed["width"], parsed["height"], parsed["objects"])
+        jats_source = PUBTABLES_JATS_TABLES[sample_id]
+        jats_path = jats_paths[jats_source["pmcid"]]
+        jats_table = parse_jats_table(
+            jats_path,
+            jats_source["table_wrap_id"],
+            jats_source["table_label"],
+        )
+        cells = build_reference_cells(sample_id, parsed["objects"], jats_table)
+        validate_boxes(sample_id, parsed["width"], parsed["height"], cells)
         samples.append(
             {
                 "id": sample_id,
@@ -393,6 +583,18 @@ def prepare_pubtables() -> dict:
                 "width": parsed["width"],
                 "height": parsed["height"],
                 "objects": parsed["objects"],
+                "cells": cells,
+                "cell_text_source": {
+                    "provider": "Europe PMC",
+                    "pmcid": jats_source["pmcid"],
+                    "url": EUROPE_PMC_FULL_TEXT_URL.format(pmcid=jats_source["pmcid"]),
+                    "full_text_xml_sha256": sha256(jats_path),
+                    **EUROPE_PMC_JATS_LICENSES[jats_source["pmcid"]],
+                    "table_wrap_id": jats_source["table_wrap_id"],
+                    "table_index": jats_table["table_index"],
+                    "table_label": jats_table["table_label"],
+                    "extraction": "JATS text aligned to PubTables-1M row, column, and merged-cell boxes",
+                },
                 "image_sha256": sha256(image_path),
                 "annotation_sha256": sha256(annotation_path),
             }

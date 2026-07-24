@@ -29,6 +29,9 @@
       "mirror": "https://huggingface.co/datasets/bsmock/pubtables-1m",
       "mirror_commit": "35b1c097807e0b07ec5313879b85956b7b3890db",
       "annotation_archive_sha256": "be13440e09f9ecc2b502dc87898420080bf572986a2ae74e0b8713d5cebaa384",
+      "cell_text_provider": "Europe PMC JATS fullTextXML",
+      "cell_text_url_template": "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML",
+      "cell_text_licenses": "Article-level CC BY terms recorded in each selected sample",
       "selected_ids": [
         "PMC4840909_table_0",
         "PMC3430698_table_1",

@@ -51,6 +51,7 @@ add_test(
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_table.py
         --predictions ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/table_pubtables/ground_truth.json
+        --maximum-table-text-cer 0.0
         --quiet
 )
 
@@ -222,6 +223,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
 
     target_link_libraries(pubtables_table_eval
         PRIVATE
+            doc_parser_ocr
             doc_parser_table
             nlohmann_json::nlohmann_json
     )
@@ -357,6 +359,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_table.py
             ${PUBTABLES_TABLE_REPORT}
             0.95
+            0.08
     )
     set_tests_properties(pubtables_table_benchmark
         PROPERTIES

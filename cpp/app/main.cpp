@@ -55,7 +55,8 @@ int main(int argc, char** argv) {
     configureLogging(options);
 
     doc_parser::pipeline::PipelineRunOptions pipeline_options = pipelineOptions(options);
-    doc_parser::pipeline::DocumentEngine engine(pipeline_options.backends);
+    doc_parser::pipeline::DocumentEngine engine(
+        doc_parser::pipeline::engineConfigFromEnvironment(pipeline_options.backends));
     if (!engine.isReady()) {
         spdlog::error("failed to initialize document engine: {}", engine.initializationError());
         return 2;

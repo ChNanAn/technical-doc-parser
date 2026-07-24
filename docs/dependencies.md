@@ -111,7 +111,7 @@ cmake -S . -B build \
   -DONNXRUNTIME_ROOT=/path/to/onnxruntime-linux-x64-1.18.1 \
   -DDOC_PARSER_PADDLEOCR_BASELINE_DIR=/path/to/paddleocr-baseline
 
-# Runtime override, useful for quick experiments:
+# CLI compatibility override, useful for quick experiments:
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR=/path/to/paddleocr-baseline
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL=/path/to/det.onnx
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL=/path/to/rec.onnx
@@ -126,6 +126,18 @@ export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_LIMIT_SIDE=960
 # Optional end-to-end baseline image:
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=/path/to/text-image.png
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_EXPECT_TEXT=expected-substring
+```
+
+The reusable C++ engine does not read model paths or thresholds from the process environment. Configure them through
+`EngineConfig`; the CLI explicitly maps the compatibility variables above into that structure:
+
+```cpp
+auto config = doc_parser::pipeline::defaultEngineConfig();
+config.paddle_ocr.detection_model = "/path/to/det.onnx";
+config.paddle_ocr.recognition_model = "/path/to/rec.onnx";
+config.paddle_ocr.character_dict = "/path/to/ppocrv5_dict.txt";
+config.paddle_ocr.recognition_batch_size = 8;
+doc_parser::pipeline::DocumentEngine engine(std::move(config));
 ```
 
 With ONNX Runtime enabled, CTest includes `paddle_ocr_onnx_baseline`. It loads the default models and runs
@@ -230,7 +242,8 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim
 conda install -c conda-forge tesseract
 ```
 
-The default OCR language is `eng`. Override the executable or language with environment variables:
+The default OCR language is `eng`. Library users set `EngineConfig::tesseract`; the CLI compatibility adapter also
+accepts environment variables:
 
 ```bash
 DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_CMD=/path/to/tesseract DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG=eng+chi_sim ./build/cpp/app/document_intelligence_engine input.pdf --debug
@@ -264,8 +277,8 @@ bash scripts/setup_paddle_layout.sh
 
 Automatic setup can be disabled independently with
 `-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_DOCLAYNET_LAYOUT=OFF` and
-`-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLE_LAYOUT=OFF`. Custom model paths or runtime thresholds can be
-selected with:
+`-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLE_LAYOUT=OFF`. Library users configure `EngineConfig::doclaynet` and
+`EngineConfig::paddle_layout`. The CLI compatibility adapter accepts:
 
 ```bash
 export DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_MODEL=/path/to/model.onnx
@@ -317,7 +330,8 @@ bash scripts/setup_table_transformer.sh
 ```
 
 The models total approximately 221 MiB, so automatic configure-time setup is disabled by default. Enable it with
-`-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON`, or configure custom files and thresholds with:
+`-DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON`. Library users configure
+`EngineConfig::table_transformer`; the CLI compatibility adapter accepts:
 
 ```bash
 export DOCUMENT_INTELLIGENCE_ENGINE_TABLE_DETECTION_MODEL=/path/to/detection.onnx

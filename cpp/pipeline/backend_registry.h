@@ -14,6 +14,8 @@
 
 namespace doc_parser::pipeline {
 
+struct EngineConfig;
+
 enum class BackendCreationStatus {
     Created,
     Unknown,
@@ -115,6 +117,7 @@ struct BackendRegistryConfigResult {
 };
 
 BackendRegistry createDefaultBackendRegistry();
+BackendRegistry createDefaultBackendRegistry(const EngineConfig& config);
 BackendRegistryConfigResult loadBackendRegistryConfig(const std::filesystem::path& path,
                                                       const BackendRegistry& registry);
 

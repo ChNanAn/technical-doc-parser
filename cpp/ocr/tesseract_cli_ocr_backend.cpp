@@ -18,11 +18,6 @@
 namespace doc_parser::ocr {
 namespace {
 
-constexpr const char* kTesseractCommandEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_CMD";
-constexpr const char* kTesseractLanguageEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG";
-constexpr const char* kLegacyTesseractCommandEnv = "DOC_PARSER_TESSERACT_CMD";
-constexpr const char* kLegacyTesseractLanguageEnv = "DOC_PARSER_TESSERACT_LANG";
-
 struct TsvWord {
     int block = 0;
     int paragraph = 0;
@@ -236,28 +231,12 @@ void appendWordsAsLines(const std::vector<TsvWord>& words, document::PageText& p
     }
 }
 
-std::string envOrDefault(const char* primary_name, const char* legacy_name, const std::string& fallback) {
-    const char* value = std::getenv(primary_name);
-    if (value != nullptr && !std::string(value).empty()) {
-        return value;
-    }
-
-    value = std::getenv(legacy_name);
-    if (value == nullptr || std::string(value).empty()) {
-        return fallback;
-    }
-    return value;
-}
-
 } // namespace
 
-TesseractCliOcrBackend::TesseractCliOcrBackend()
-    : TesseractCliOcrBackend(envOrDefault(kTesseractCommandEnv, kLegacyTesseractCommandEnv, "tesseract"),
-                             envOrDefault(kTesseractLanguageEnv, kLegacyTesseractLanguageEnv, "eng")) {}
+TesseractCliOcrBackend::TesseractCliOcrBackend() : TesseractCliOcrBackend("tesseract", "eng") {}
 
 TesseractCliOcrBackend::TesseractCliOcrBackend(std::string language)
-    : TesseractCliOcrBackend(envOrDefault(kTesseractCommandEnv, kLegacyTesseractCommandEnv, "tesseract"),
-                             std::move(language)) {}
+    : TesseractCliOcrBackend("tesseract", std::move(language)) {}
 
 TesseractCliOcrBackend::TesseractCliOcrBackend(std::string executable, std::string language)
     : executable_(std::move(executable)), language_(std::move(language)) {}

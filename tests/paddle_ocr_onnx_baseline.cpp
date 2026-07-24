@@ -24,8 +24,7 @@ int main() {
     const doc_parser::ocr::PaddleOcrOnnxBackend backend;
     if (!backend.isAvailable()) {
         std::cout << "PaddleOCR ONNX baseline skipped; default models are unavailable. "
-                     "Run bash scripts/setup_paddleocr_baseline.sh or set "
-                     "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR.\n";
+                     "Run bash scripts/setup_paddleocr_baseline.sh.\n";
         return kSkip;
     }
 

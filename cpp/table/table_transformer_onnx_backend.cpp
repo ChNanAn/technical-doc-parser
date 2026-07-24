@@ -34,11 +34,6 @@ struct TableTransformerOnnxBackend::ModelBundle {
 
 namespace {
 
-constexpr const char* kDetectionModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TABLE_DETECTION_MODEL";
-constexpr const char* kStructureModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TABLE_STRUCTURE_MODEL";
-constexpr const char* kDetectionConfidenceEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TABLE_DETECTION_CONFIDENCE";
-constexpr const char* kStructureConfidenceEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TABLE_STRUCTURE_CONFIDENCE";
-constexpr const char* kCropPaddingEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TABLE_CROP_PADDING";
 constexpr const char* kDebugEnv = "DOCUMENT_INTELLIGENCE_ENGINE_TABLE_DEBUG";
 
 #ifndef DOC_PARSER_TABLE_DETECTION_MODEL_PATH
@@ -85,50 +80,15 @@ bool envFlag(const char* name) {
     return flag != "0" && flag != "false" && flag != "FALSE" && flag != "off" && flag != "OFF";
 }
 
-double envProbability(const char* name, double fallback) {
-    const char* value = std::getenv(name);
-    if (value == nullptr || std::string(value).empty()) {
-        return fallback;
-    }
-    try {
-        const double parsed = std::stod(value);
-        return parsed > 0.0 && parsed < 1.0 ? parsed : fallback;
-    } catch (const std::exception&) {
-        return fallback;
-    }
-}
-
-int envNonNegativeInt(const char* name, int fallback) {
-    const char* value = std::getenv(name);
-    if (value == nullptr || std::string(value).empty()) {
-        return fallback;
-    }
-    try {
-        const int parsed = std::stoi(value);
-        return parsed >= 0 ? parsed : fallback;
-    } catch (const std::exception&) {
-        return fallback;
-    }
-}
-
 bool fileExists(const std::filesystem::path& path) {
     std::error_code error;
     return !path.empty() && std::filesystem::is_regular_file(path, error);
 }
 
-TableTransformerOnnxConfig configFromEnvironment() {
+TableTransformerOnnxConfig defaultConfig() {
     TableTransformerOnnxConfig config;
-    const char* detection = std::getenv(kDetectionModelEnv);
-    const char* structure = std::getenv(kStructureModelEnv);
-    config.detection_model_path =
-        detection == nullptr || std::string(detection).empty() ? DOC_PARSER_TABLE_DETECTION_MODEL_PATH : detection;
-    config.structure_model_path =
-        structure == nullptr || std::string(structure).empty() ? DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH : structure;
-    config.detection_confidence_threshold =
-        envProbability(kDetectionConfidenceEnv, config.detection_confidence_threshold);
-    config.structure_confidence_threshold =
-        envProbability(kStructureConfidenceEnv, config.structure_confidence_threshold);
-    config.crop_padding = envNonNegativeInt(kCropPaddingEnv, config.crop_padding);
+    config.detection_model_path = DOC_PARSER_TABLE_DETECTION_MODEL_PATH;
+    config.structure_model_path = DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH;
     return config;
 }
 
@@ -535,7 +495,7 @@ TableTransformerOnnxBackend::loadModels(const TableTransformerOnnxConfig& config
     }
 }
 
-TableTransformerOnnxBackend::TableTransformerOnnxBackend() : TableTransformerOnnxBackend(configFromEnvironment()) {}
+TableTransformerOnnxBackend::TableTransformerOnnxBackend() : TableTransformerOnnxBackend(defaultConfig()) {}
 
 TableTransformerOnnxBackend::TableTransformerOnnxBackend(TableTransformerOnnxConfig config)
     : config_(std::move(config)), models_(loadModels(config_)) {}

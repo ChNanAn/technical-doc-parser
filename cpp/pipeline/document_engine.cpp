@@ -8,18 +8,19 @@
 namespace doc_parser::pipeline {
 
 struct DocumentEngine::Impl {
-    Impl(BackendOptions backend_options, const BackendRegistry& registry)
-        : options(std::move(backend_options)), creation(createPipelineServices(options, registry)) {}
+    Impl(EngineConfig engine_config, const BackendRegistry& registry)
+        : config(std::move(engine_config)), creation(createPipelineServices(config.backends, registry)) {}
 
-    BackendOptions options;
+    EngineConfig config;
     PipelineServiceCreationResult creation;
 };
 
-DocumentEngine::DocumentEngine(BackendOptions options)
-    : DocumentEngine(std::move(options), createDefaultBackendRegistry()) {}
+DocumentEngine::DocumentEngine() : DocumentEngine(defaultEngineConfig()) {}
 
-DocumentEngine::DocumentEngine(BackendOptions options, const BackendRegistry& registry)
-    : impl_(std::make_unique<Impl>(std::move(options), registry)) {}
+DocumentEngine::DocumentEngine(EngineConfig config) : DocumentEngine(config, createDefaultBackendRegistry(config)) {}
+
+DocumentEngine::DocumentEngine(EngineConfig config, const BackendRegistry& registry)
+    : impl_(std::make_unique<Impl>(std::move(config), registry)) {}
 
 DocumentEngine::~DocumentEngine() = default;
 
@@ -44,7 +45,7 @@ bool DocumentEngine::parse(PipelineRunOptions options, IStageObserver& observer)
         return false;
     }
 
-    options.backends = impl_->options;
+    options.backends = impl_->config.backends;
     const DocumentPipeline pipeline;
     return pipeline.run(options, impl_->creation.services, impl_->creation.trace_message, observer);
 }

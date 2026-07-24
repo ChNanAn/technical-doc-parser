@@ -37,8 +37,6 @@ struct DocLayNetOnnxBackend::ModelBundle {
 
 namespace {
 
-constexpr const char* kModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_MODEL";
-constexpr const char* kConfidenceEnv = "DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE";
 constexpr const char* kDebugEnv = "DOCUMENT_INTELLIGENCE_ENGINE_LAYOUT_DEBUG";
 
 #ifndef DOC_PARSER_DOCLAYNET_MODEL_PATH
@@ -73,29 +71,14 @@ bool envFlag(const char* name) {
     return flag != "0" && flag != "false" && flag != "FALSE" && flag != "off" && flag != "OFF";
 }
 
-double envProbability(const char* name, double fallback) {
-    const char* value = std::getenv(name);
-    if (value == nullptr || std::string(value).empty()) {
-        return fallback;
-    }
-    try {
-        const double parsed = std::stod(value);
-        return parsed > 0.0 && parsed < 1.0 ? parsed : fallback;
-    } catch (const std::exception&) {
-        return fallback;
-    }
-}
-
 bool fileExists(const std::filesystem::path& path) {
     std::error_code error;
     return !path.empty() && std::filesystem::is_regular_file(path, error);
 }
 
-DocLayNetOnnxConfig configFromEnvironment() {
+DocLayNetOnnxConfig defaultConfig() {
     DocLayNetOnnxConfig config;
-    const char* model = std::getenv(kModelEnv);
-    config.model_path = model == nullptr || std::string(model).empty() ? DOC_PARSER_DOCLAYNET_MODEL_PATH : model;
-    config.confidence_threshold = envProbability(kConfidenceEnv, config.confidence_threshold);
+    config.model_path = DOC_PARSER_DOCLAYNET_MODEL_PATH;
     return config;
 }
 
@@ -258,7 +241,7 @@ std::unique_ptr<DocLayNetOnnxBackend::ModelBundle> DocLayNetOnnxBackend::loadMod
     }
 }
 
-DocLayNetOnnxBackend::DocLayNetOnnxBackend() : DocLayNetOnnxBackend(configFromEnvironment()) {}
+DocLayNetOnnxBackend::DocLayNetOnnxBackend() : DocLayNetOnnxBackend(defaultConfig()) {}
 
 DocLayNetOnnxBackend::DocLayNetOnnxBackend(DocLayNetOnnxConfig config)
     : config_(std::move(config)), model_(loadModel(config_)) {}

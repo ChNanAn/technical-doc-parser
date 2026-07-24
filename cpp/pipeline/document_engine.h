@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pipeline/backend_registry.h"
+#include "pipeline/engine_config.h"
 #include "pipeline/pipeline_options.h"
 #include "pipeline/stage_observer.h"
 
@@ -9,12 +9,15 @@
 
 namespace doc_parser::pipeline {
 
+class BackendRegistry;
+
 // Reusable document engine. One instance owns its model backends and is intended
 // for sequential parsing; create one instance per concurrently parsing thread.
 class DocumentEngine {
 public:
-    explicit DocumentEngine(BackendOptions options = {});
-    DocumentEngine(BackendOptions options, const BackendRegistry& registry);
+    DocumentEngine();
+    explicit DocumentEngine(EngineConfig config);
+    DocumentEngine(EngineConfig config, const BackendRegistry& registry);
     ~DocumentEngine();
 
     DocumentEngine(const DocumentEngine&) = delete;

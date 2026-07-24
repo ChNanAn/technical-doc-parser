@@ -47,14 +47,6 @@ struct PaddleOcrOnnxBackend::ModelBundle {
 
 namespace {
 
-constexpr const char* kDetectionModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL";
-constexpr const char* kRecognitionModelEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MODEL";
-constexpr const char* kCharacterDictEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DICT";
-constexpr const char* kModelDirEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR";
-constexpr const char* kProfileEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_PROFILE";
-constexpr const char* kRecognitionBatchSizeEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_BATCH_SIZE";
-constexpr const char* kRecognitionMaxWidthEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MAX_WIDTH";
-constexpr const char* kDetectionLimitSideEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_LIMIT_SIDE";
 constexpr const char* kDebugEnv = "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DEBUG";
 
 #ifndef DOC_PARSER_PADDLEOCR_BASELINE_DIR
@@ -102,32 +94,6 @@ struct RecognitionStats {
     std::size_t empty_decodes = 0;
     std::vector<int64_t> first_output_shape;
 };
-
-std::filesystem::path envPath(const char* name) {
-    const char* value = std::getenv(name);
-    if (value == nullptr || std::string(value).empty()) {
-        return {};
-    }
-    return std::filesystem::path(value);
-}
-
-std::string envString(const char* name, const std::string& fallback) {
-    const char* value = std::getenv(name);
-    return value == nullptr || std::string(value).empty() ? fallback : std::string(value);
-}
-
-int envPositiveInt(const char* name, int fallback) {
-    const char* value = std::getenv(name);
-    if (value == nullptr || std::string(value).empty()) {
-        return fallback;
-    }
-    try {
-        const int parsed = std::stoi(value);
-        return parsed > 0 ? parsed : fallback;
-    } catch (const std::exception&) {
-        return fallback;
-    }
-}
 
 bool envFlag(const char* name) {
     const char* value = std::getenv(name);
@@ -184,55 +150,12 @@ std::string shapeToString(const std::vector<int64_t>& shape) {
     return stream.str();
 }
 
-bool applyModelProfile(const std::string& name, PaddleOcrOnnxConfig& config) {
-    if (name != "ppocrv4_mobile" && name != "ppocrv5_mobile") {
-        return false;
-    }
-
-    config.profile = {};
-    config.profile.name = name;
-    config.profile.detection_mean = {0.485F, 0.456F, 0.406F};
-    config.profile.detection_std = {0.229F, 0.224F, 0.225F};
-    config.profile.detection_scale = 1.0F / 255.0F;
-    config.profile.recognition_mean = {0.5F, 0.5F, 0.5F};
-    config.profile.recognition_std = {0.5F, 0.5F, 0.5F};
-    config.profile.recognition_scale = 1.0F / 255.0F;
-    config.profile.convert_bgr_to_rgb = false;
-    config.recognition_image_height = 48;
-    config.recognition_base_width = 320;
-    return true;
-}
-
-PaddleOcrOnnxConfig configFromEnvironment() {
+PaddleOcrOnnxConfig defaultConfig() {
     PaddleOcrOnnxConfig config;
-    const std::string profile_name = envString(kProfileEnv, "ppocrv5_mobile");
-    if (!applyModelProfile(profile_name, config)) {
-        config.profile.name = profile_name;
-    }
-    std::filesystem::path model_dir = envPath(kModelDirEnv);
-    if (model_dir.empty()) {
-        model_dir = DOC_PARSER_PADDLEOCR_BASELINE_DIR;
-    }
-
-    config.detection_model = envPath(kDetectionModelEnv);
-    if (config.detection_model.empty()) {
-        config.detection_model = model_dir / "det.onnx";
-    }
-
-    config.recognition_model = envPath(kRecognitionModelEnv);
-    if (config.recognition_model.empty()) {
-        config.recognition_model = model_dir / "rec.onnx";
-    }
-
-    config.character_dict = envPath(kCharacterDictEnv);
-    if (config.character_dict.empty()) {
-        config.character_dict = model_dir / "ppocrv5_dict.txt";
-    }
-
-    config.recognition_batch_size = static_cast<std::size_t>(
-        envPositiveInt(kRecognitionBatchSizeEnv, static_cast<int>(config.recognition_batch_size)));
-    config.recognition_max_width = envPositiveInt(kRecognitionMaxWidthEnv, config.recognition_max_width);
-    config.detection_limit_side = envPositiveInt(kDetectionLimitSideEnv, config.detection_limit_side);
+    const std::filesystem::path model_dir = DOC_PARSER_PADDLEOCR_BASELINE_DIR;
+    config.detection_model = model_dir / "det.onnx";
+    config.recognition_model = model_dir / "rec.onnx";
+    config.character_dict = model_dir / "ppocrv5_dict.txt";
     return config;
 }
 
@@ -882,7 +805,7 @@ PaddleOcrOnnxBackend::loadModelBundle(const PaddleOcrOnnxConfig& config) {
     }
 }
 
-PaddleOcrOnnxBackend::PaddleOcrOnnxBackend() : PaddleOcrOnnxBackend(configFromEnvironment()) {}
+PaddleOcrOnnxBackend::PaddleOcrOnnxBackend() : PaddleOcrOnnxBackend(defaultConfig()) {}
 
 PaddleOcrOnnxBackend::PaddleOcrOnnxBackend(PaddleOcrOnnxConfig config)
     : config_(std::move(config)), model_(loadModelBundle(config_)) {}

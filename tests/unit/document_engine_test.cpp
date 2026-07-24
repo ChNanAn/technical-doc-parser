@@ -1,11 +1,13 @@
 #include "document_source/document_source_factory.h"
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
+#include "pipeline/backend_registry.h"
 #include "pipeline/document_engine.h"
 #include "table/table_backend.h"
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -53,7 +55,9 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAcrossDocuments) {
             << R"({"version":1,"auto_order":{"document":["pdf"],"ocr":["noop"],"layout":["text"],"table":["text"]}})";
     }
     backend_options.registry_config = registry_config;
-    doc_parser::pipeline::DocumentEngine engine(backend_options, registry);
+    doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
+    engine_config.backends = backend_options;
+    doc_parser::pipeline::DocumentEngine engine(engine_config, registry);
     ASSERT_TRUE(engine.isReady()) << engine.initializationError();
     std::filesystem::remove(registry_config);
 
@@ -78,4 +82,20 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAcrossDocuments) {
     EXPECT_EQ(counts->table, 1);
 
     std::filesystem::remove_all(output_root);
+}
+
+TEST(DocumentEngineTest, LegacyEnvironmentIsAnExplicitConfigAdapter) {
+    ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE", "0.73", 1), 0);
+    ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_TABLE_CROP_PADDING", "31", 1), 0);
+    ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG", "eng+chi_sim", 1), 0);
+
+    const doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::engineConfigFromEnvironment();
+
+    EXPECT_DOUBLE_EQ(config.doclaynet.confidence_threshold, 0.73);
+    EXPECT_EQ(config.table_transformer.crop_padding, 31);
+    EXPECT_EQ(config.tesseract.language, "eng+chi_sim");
+
+    unsetenv("DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE");
+    unsetenv("DOCUMENT_INTELLIGENCE_ENGINE_TABLE_CROP_PADDING");
+    unsetenv("DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG");
 }

@@ -1,5 +1,7 @@
 #include "pipeline/backend_registry.h"
 
+#include "pipeline/engine_config.h"
+
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
 #include "ocr/paddle_ocr_onnx_backend.h"
 #endif
@@ -136,19 +138,30 @@ BackendCreationResult<table::ITableBackend> BackendRegistry::createTable(const s
     return table_.create(name);
 }
 
-BackendRegistry createDefaultBackendRegistry() {
+BackendRegistry createDefaultBackendRegistry() { return createDefaultBackendRegistry(defaultEngineConfig()); }
+
+BackendRegistry createDefaultBackendRegistry(const EngineConfig& config) {
     BackendRegistry registry;
     registry.registerDocument("pdf", [] { return document_source::createDocumentSource("pdf"); });
     registry.registerOcr("noop", [] { return std::make_unique<ocr::NoopOcrBackend>(); });
-    registry.registerOcr("tesseract", [] { return makeAvailableBackend<ocr::TesseractCliOcrBackend>(); });
+    registry.registerOcr("tesseract", [backend_config = config.tesseract] {
+        return makeAvailableBackend<ocr::TesseractCliOcrBackend>(backend_config.executable, backend_config.language);
+    });
     registry.registerLayout("text", [] { return std::make_unique<layout::TextLayoutModelBackend>(); });
     registry.registerTable("text", [] { return std::make_unique<table::TextTableStructureBackend>(); });
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
-    registry.registerOcr("paddle", [] { return makeAvailableBackend<ocr::PaddleOcrOnnxBackend>(); });
-    registry.registerLayout("doclaynet", [] { return makeAvailableBackend<layout::DocLayNetOnnxBackend>(); });
-    registry.registerLayout("paddle-layout", [] { return makeAvailableBackend<layout::PaddleDocLayoutOnnxBackend>(); });
-    registry.registerTable("table-transformer",
-                           [] { return makeAvailableBackend<table::TableTransformerOnnxBackend>(); });
+    registry.registerOcr("paddle", [backend_config = config.paddle_ocr] {
+        return makeAvailableBackend<ocr::PaddleOcrOnnxBackend>(backend_config);
+    });
+    registry.registerLayout("doclaynet", [backend_config = config.doclaynet] {
+        return makeAvailableBackend<layout::DocLayNetOnnxBackend>(backend_config);
+    });
+    registry.registerLayout("paddle-layout", [backend_config = config.paddle_layout] {
+        return makeAvailableBackend<layout::PaddleDocLayoutOnnxBackend>(backend_config);
+    });
+    registry.registerTable("table-transformer", [backend_config = config.table_transformer] {
+        return makeAvailableBackend<table::TableTransformerOnnxBackend>(backend_config);
+    });
 #else
     registry.registerOcr("paddle", [] { return std::unique_ptr<ocr::IOcrBackend>{}; });
     registry.registerLayout("doclaynet", [] { return std::unique_ptr<layout::ILayoutBackend>{}; });

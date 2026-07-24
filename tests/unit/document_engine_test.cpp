@@ -119,6 +119,18 @@ TEST(DocumentEngineTest, InitializationExposesStructuredBackendFailure) {
 }
 
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
+TEST(DocumentEngineTest, DefaultConfigKeepsConfiguredModelPaths) {
+    const doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
+
+    EXPECT_TRUE(config.paddle_ocr.detection_model.is_absolute());
+    EXPECT_TRUE(config.paddle_ocr.recognition_model.is_absolute());
+    EXPECT_TRUE(config.paddle_ocr.character_dict.is_absolute());
+    EXPECT_TRUE(config.doclaynet.model_path.is_absolute());
+    EXPECT_TRUE(config.paddle_layout.model_path.is_absolute());
+    EXPECT_TRUE(config.table_transformer.detection_model_path.is_absolute());
+    EXPECT_TRUE(config.table_transformer.structure_model_path.is_absolute());
+}
+
 TEST(DocumentEngineTest, InitializationPreservesModelPathFailureReason) {
     doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
     config.backends.document = "pdf";

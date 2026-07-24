@@ -818,6 +818,15 @@ PaddleOcrOnnxBackend& PaddleOcrOnnxBackend::operator=(PaddleOcrOnnxBackend&&) no
 
 bool PaddleOcrOnnxBackend::isAvailable() const { return model_ != nullptr; }
 
+std::string PaddleOcrOnnxBackend::unavailableReason() const {
+    if (isAvailable()) {
+        return {};
+    }
+    return "failed to load PaddleOCR models (detection=" + config_.detection_model.string() +
+           ", recognition=" + config_.recognition_model.string() + ", dictionary=" + config_.character_dict.string() +
+           ")";
+}
+
 const PaddleOcrOnnxConfig& PaddleOcrOnnxBackend::config() const { return config_; }
 
 bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& result) const {

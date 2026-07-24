@@ -72,14 +72,28 @@ std::string joinNames(const std::vector<std::string>& names) {
     return joined;
 }
 
+std::string joinDetails(const std::vector<std::string>& details) {
+    std::string joined;
+    for (const std::string& detail : details) {
+        joined += (joined.empty() ? "" : "; ") + detail;
+    }
+    return joined;
+}
+
 void setCreationError(PipelineServiceCreationResult& result,
                       const std::string& stage,
                       const std::string& backend,
-                      BackendCreationStatus status) {
-    result.error_stage = "configure_" + stage + "_backend";
-    result.error_message = status == BackendCreationStatus::Unknown ? "unknown " + stage + " backend: " + backend
-                                                                    : stage + " backend is unavailable: " + backend;
-    spdlog::error("{}: {}", result.error_stage, result.error_message);
+                      BackendCreationStatus status,
+                      const std::string& detail = {}) {
+    std::string reason = status == BackendCreationStatus::Unknown ? "unknown " + stage + " backend: " + backend
+                                                                  : stage + " backend is unavailable: " + backend;
+    if (!detail.empty()) {
+        reason += ": " + detail;
+    }
+    const std::string code = status == BackendCreationStatus::Unknown ? "configure.backend_unknown"
+                                                                      : "configure.backend_unavailable";
+    result.status = common::Status::error(code, reason, "configure");
+    spdlog::error("{}: {}", result.status.code(), result.status.message());
 }
 
 } // namespace
@@ -93,9 +107,8 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     PipelineServiceCreationResult result;
     const BackendRegistryConfigResult config_result = loadBackendRegistryConfig(options.registry_config, registry);
     if (!config_result.ok) {
-        result.error_stage = "configure_backend_registry";
-        result.error_message = config_result.error;
-        spdlog::error("configure_backend_registry: {}", result.error_message);
+        result.status = common::Status::error("configure.backend_registry_invalid", config_result.error, "configure");
+        spdlog::error("{}: {}", result.status.code(), result.status.message());
         return result;
     }
     const BackendRegistryConfig& config = config_result.config;
@@ -120,9 +133,10 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
             spdlog::debug("backend registry: skipping unavailable document backend '{}'", name);
         }
         if (document.status != BackendCreationStatus::Created) {
-            result.error_stage = "configure_document_source_backend";
-            result.error_message = "no document backend from configured auto_order is available";
-            spdlog::error("{}: {}", result.error_stage, result.error_message);
+            result.status = common::Status::error("configure.document_backend_unavailable",
+                                                  "no document backend from configured auto_order is available",
+                                                  "configure");
+            spdlog::error("{}: {}", result.status.code(), result.status.message());
             return result;
         }
     } else {
@@ -137,6 +151,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     std::unique_ptr<ocr::IOcrBackend> ocr_backend;
     std::string selected_ocr = options.ocr;
     if (options.ocr == "auto") {
+        std::vector<std::string> unavailable_reasons;
         for (const std::string& name : config.ocr_auto_order) {
             BackendCreationResult<ocr::IOcrBackend> candidate = registry.createOcr(name);
             if (candidate.status == BackendCreationStatus::Created) {
@@ -144,6 +159,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
                 ocr_backend = std::move(candidate.backend);
                 break;
             }
+            unavailable_reasons.push_back(name + ": " + candidate.error_message);
             spdlog::debug("backend registry: skipping unavailable OCR backend '{}'", name);
         }
         if (ocr_backend == nullptr) {
@@ -151,14 +167,15 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
             spdlog::warn("configure_ocr_backend: auto order found no usable OCR backend; native-text documents can "
                          "still be processed, but pages requiring OCR will fail");
             ocr_backend = std::make_unique<ocr::UnavailableOcrBackend>("no OCR backend from configured auto_order is "
-                                                                       "available; install a backend or select "
-                                                                       "--ocr-backend "
+                                                                       "available (" +
+                                                                       joinDetails(unavailable_reasons) +
+                                                                       "); install a backend or select --ocr-backend "
                                                                        "noop explicitly");
         }
     } else {
         BackendCreationResult<ocr::IOcrBackend> creation = registry.createOcr(options.ocr);
         if (creation.status != BackendCreationStatus::Created) {
-            setCreationError(result, "ocr", options.ocr, creation.status);
+            setCreationError(result, "ocr", options.ocr, creation.status, creation.error_message);
             return result;
         }
         ocr_backend = std::move(creation.backend);
@@ -169,19 +186,23 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     if (options.layout == "auto") {
         std::vector<NamedBackend<layout::ILayoutBackend>> available;
         std::vector<std::string> selected_names;
+        std::vector<std::string> unavailable_reasons;
         for (const std::string& name : config.layout_auto_order) {
             BackendCreationResult<layout::ILayoutBackend> candidate = registry.createLayout(name);
             if (candidate.status == BackendCreationStatus::Created) {
                 selected_names.push_back(name);
                 available.push_back({name, std::move(candidate.backend)});
             } else {
+                unavailable_reasons.push_back(name + ": " + candidate.error_message);
                 spdlog::debug("backend registry: skipping unavailable layout backend '{}'", name);
             }
         }
         if (available.empty()) {
-            result.error_stage = "configure_layout_backend";
-            result.error_message = "no layout backend from configured auto_order is available";
-            spdlog::error("{}: {}", result.error_stage, result.error_message);
+            result.status = common::Status::error(
+                "configure.layout_backend_unavailable",
+                "no layout backend from configured auto_order is available: " + joinDetails(unavailable_reasons),
+                "configure");
+            spdlog::error("{}: {}", result.status.code(), result.status.message());
             return result;
         }
         selected_layout = joinNames(selected_names);
@@ -193,7 +214,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     } else {
         BackendCreationResult<layout::ILayoutBackend> creation = registry.createLayout(options.layout);
         if (creation.status != BackendCreationStatus::Created) {
-            setCreationError(result, "layout", options.layout, creation.status);
+            setCreationError(result, "layout", options.layout, creation.status, creation.error_message);
             return result;
         }
         layout_backend = std::move(creation.backend);
@@ -204,19 +225,23 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     if (options.table == "auto") {
         std::vector<NamedBackend<table::ITableBackend>> available;
         std::vector<std::string> selected_names;
+        std::vector<std::string> unavailable_reasons;
         for (const std::string& name : config.table_auto_order) {
             BackendCreationResult<table::ITableBackend> candidate = registry.createTable(name);
             if (candidate.status == BackendCreationStatus::Created) {
                 selected_names.push_back(name);
                 available.push_back({name, std::move(candidate.backend)});
             } else {
+                unavailable_reasons.push_back(name + ": " + candidate.error_message);
                 spdlog::debug("backend registry: skipping unavailable table backend '{}'", name);
             }
         }
         if (available.empty()) {
-            result.error_stage = "configure_table_backend";
-            result.error_message = "no table backend from configured auto_order is available";
-            spdlog::error("{}: {}", result.error_stage, result.error_message);
+            result.status = common::Status::error(
+                "configure.table_backend_unavailable",
+                "no table backend from configured auto_order is available: " + joinDetails(unavailable_reasons),
+                "configure");
+            spdlog::error("{}: {}", result.status.code(), result.status.message());
             return result;
         }
         selected_table = joinNames(selected_names);
@@ -228,7 +253,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     } else {
         BackendCreationResult<table::ITableBackend> creation = registry.createTable(options.table);
         if (creation.status != BackendCreationStatus::Created) {
-            setCreationError(result, "table", options.table, creation.status);
+            setCreationError(result, "table", options.table, creation.status, creation.error_message);
             return result;
         }
         table_backend = std::move(creation.backend);
@@ -240,7 +265,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     result.services.table = std::move(table_backend);
     result.trace_message = "registry=" + config_source + ", document=" + selected_document + ", ocr=" + selected_ocr +
                            ", layout=" + selected_layout + ", table=" + selected_table;
-    result.ok = true;
+    result.status = common::Status::ok();
     return result;
 }
 

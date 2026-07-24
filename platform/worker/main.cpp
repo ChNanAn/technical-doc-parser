@@ -255,8 +255,8 @@ int main() {
                 observer.publishJobEvent("job_started");
                 const doc_parser::pipeline::DocumentPipeline pipeline;
                 try {
-                    const bool success = pipeline.run(optionsFromJob(job), observer);
-                    observer.publishJobEvent(success ? "job_succeeded" : "job_failed", "");
+                    const doc_parser::common::Status status = pipeline.run(optionsFromJob(job), observer);
+                    observer.publishJobEvent(status.okStatus() ? "job_succeeded" : "job_failed", status.message());
                 } catch (const std::exception& error) {
                     observer.publishJobEvent("job_failed", error.what());
                 }

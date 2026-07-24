@@ -48,7 +48,8 @@ public:
     PaddleOcrOnnxBackend(PaddleOcrOnnxBackend&&) noexcept;
     PaddleOcrOnnxBackend& operator=(PaddleOcrOnnxBackend&&) noexcept;
 
-    bool isAvailable() const;
+    bool isAvailable() const override;
+    std::string unavailableReason() const override;
     const PaddleOcrOnnxConfig& config() const;
     bool recognize(const OcrRequest& request, OcrResult& result) const override;
     bool detect(const OcrRequest& request, OcrDetectionResult& result) const override;

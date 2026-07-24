@@ -9,6 +9,13 @@
 
 namespace {
 
+class UnavailableOcrBackend final : public doc_parser::ocr::IOcrBackend {
+public:
+    bool recognize(const doc_parser::ocr::OcrRequest&, doc_parser::ocr::OcrResult&) const override { return false; }
+    bool isAvailable() const override { return false; }
+    std::string unavailableReason() const override { return "test model file is missing"; }
+};
+
 std::filesystem::path writeConfig(const std::string& name, const std::string& contents) {
     const std::filesystem::path path = std::filesystem::temp_directory_path() / name;
     std::ofstream output(path);
@@ -25,6 +32,16 @@ TEST(BackendRegistryTest, RejectsDuplicateRegistrationAndReportsUnknownBackend) 
     EXPECT_FALSE(registry.registerOcr("auto", [] { return std::make_unique<doc_parser::ocr::NoopOcrBackend>(); }));
     EXPECT_EQ(registry.createOcr("missing").status, doc_parser::pipeline::BackendCreationStatus::Unknown);
     EXPECT_EQ(registry.createOcr("noop").status, doc_parser::pipeline::BackendCreationStatus::Created);
+}
+
+TEST(BackendRegistryTest, PreservesBackendAvailabilityReason) {
+    doc_parser::pipeline::BackendRegistry registry;
+    ASSERT_TRUE(registry.registerOcr("unavailable", [] { return std::make_unique<UnavailableOcrBackend>(); }));
+
+    const auto creation = registry.createOcr("unavailable");
+
+    EXPECT_EQ(creation.status, doc_parser::pipeline::BackendCreationStatus::Unavailable);
+    EXPECT_EQ(creation.error_message, "test model file is missing");
 }
 
 TEST(BackendRegistryTest, ListsRegisteredBackendsForCapabilityDiscovery) {
@@ -45,7 +62,7 @@ TEST(BackendRegistryTest, LoadsValidatedAutoOrderAndDrivesServiceSelection) {
 
     const doc_parser::pipeline::PipelineServiceCreationResult result =
         doc_parser::pipeline::createPipelineServices(options);
-    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_TRUE(result.status.okStatus()) << result.status.message();
     EXPECT_NE(result.trace_message.find("ocr=noop"), std::string::npos);
     EXPECT_NE(result.trace_message.find("layout=text"), std::string::npos);
     EXPECT_NE(result.trace_message.find("table=text"), std::string::npos);

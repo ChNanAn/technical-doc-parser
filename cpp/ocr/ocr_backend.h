@@ -46,6 +46,7 @@ public:
     virtual bool recognize(const OcrRequest& request, OcrResult& result) const = 0;
     virtual bool detect(const OcrRequest&, OcrDetectionResult&) const { return false; }
     virtual bool recognizeRegions(const OcrRegionRequest&, OcrRegionRecognitionResult&) const { return false; }
+    virtual bool isAvailable() const { return true; }
     virtual std::string unavailableReason() const { return {}; }
 };
 
@@ -59,6 +60,7 @@ public:
     explicit UnavailableOcrBackend(std::string reason);
 
     bool recognize(const OcrRequest& request, OcrResult& result) const override;
+    bool isAvailable() const override { return false; }
     std::string unavailableReason() const override;
 
 private:

@@ -349,6 +349,10 @@ PaddleDocLayoutOnnxBackend& PaddleDocLayoutOnnxBackend::operator=(PaddleDocLayou
 
 bool PaddleDocLayoutOnnxBackend::isAvailable() const { return model_ != nullptr; }
 
+std::string PaddleDocLayoutOnnxBackend::unavailableReason() const {
+    return isAvailable() ? std::string{} : "failed to load Paddle layout model: " + config_.model_path.string();
+}
+
 const PaddleDocLayoutOnnxConfig& PaddleDocLayoutOnnxBackend::config() const { return config_; }
 
 bool PaddleDocLayoutOnnxBackend::analyze(const LayoutRequest& request, LayoutResult& result) const {

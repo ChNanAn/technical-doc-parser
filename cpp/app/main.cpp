@@ -58,10 +58,13 @@ int main(int argc, char** argv) {
     doc_parser::pipeline::DocumentEngine engine(
         doc_parser::pipeline::engineConfigFromEnvironment(pipeline_options.backends));
     if (!engine.isReady()) {
-        spdlog::error("failed to initialize document engine: {}", engine.initializationError());
+        const doc_parser::common::Status& status = engine.initializationStatus();
+        spdlog::error("failed to initialize document engine [{}]: {}", status.code(), status.message());
         return 2;
     }
-    if (!engine.parse(std::move(pipeline_options))) {
+    const doc_parser::common::Status status = engine.parse(std::move(pipeline_options));
+    if (!status.okStatus()) {
+        spdlog::error("document parsing failed at {} [{}]: {}", status.stage(), status.code(), status.message());
         return 2;
     }
 

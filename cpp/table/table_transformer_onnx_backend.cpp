@@ -508,6 +508,14 @@ TableTransformerOnnxBackend& TableTransformerOnnxBackend::operator=(TableTransfo
 
 bool TableTransformerOnnxBackend::isAvailable() const { return models_ != nullptr; }
 
+std::string TableTransformerOnnxBackend::unavailableReason() const {
+    if (isAvailable()) {
+        return {};
+    }
+    return "failed to load Table Transformer models (detection=" + config_.detection_model_path.string() +
+           ", structure=" + config_.structure_model_path.string() + ")";
+}
+
 const TableTransformerOnnxConfig& TableTransformerOnnxBackend::config() const { return config_; }
 
 bool TableTransformerOnnxBackend::recognize(const TableRequest& request, TableResult& result) const {

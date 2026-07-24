@@ -254,6 +254,10 @@ DocLayNetOnnxBackend& DocLayNetOnnxBackend::operator=(DocLayNetOnnxBackend&&) no
 
 bool DocLayNetOnnxBackend::isAvailable() const { return model_ != nullptr; }
 
+std::string DocLayNetOnnxBackend::unavailableReason() const {
+    return isAvailable() ? std::string{} : "failed to load DocLayNet model: " + config_.model_path.string();
+}
+
 const DocLayNetOnnxConfig& DocLayNetOnnxBackend::config() const { return config_; }
 
 bool DocLayNetOnnxBackend::analyze(const LayoutRequest& request, LayoutResult& result) const {

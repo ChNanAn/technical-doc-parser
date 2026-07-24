@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/status.h"
+
 #include "document_source/document_source_factory.h"
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
@@ -22,9 +24,8 @@ struct PipelineServices {
 };
 
 struct PipelineServiceCreationResult {
-    bool ok = false;
-    std::string error_stage;
-    std::string error_message;
+    common::Status status =
+        common::Status::error("configure.not_started", "pipeline services were not configured", "configure");
     std::string trace_message;
     PipelineServices services;
 };

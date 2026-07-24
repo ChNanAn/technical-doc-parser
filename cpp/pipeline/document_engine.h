@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/status.h"
+
 #include "pipeline/engine_config.h"
 #include "pipeline/pipeline_options.h"
 #include "pipeline/stage_observer.h"
@@ -26,10 +28,10 @@ public:
     DocumentEngine& operator=(DocumentEngine&&) noexcept;
 
     bool isReady() const;
-    const std::string& initializationError() const;
+    const common::Status& initializationStatus() const;
 
-    bool parse(PipelineRunOptions options);
-    bool parse(PipelineRunOptions options, IStageObserver& observer);
+    common::Status parse(PipelineRunOptions options);
+    common::Status parse(PipelineRunOptions options, IStageObserver& observer);
 
 private:
     struct Impl;

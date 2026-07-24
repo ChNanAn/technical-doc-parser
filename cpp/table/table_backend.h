@@ -25,6 +25,8 @@ public:
     virtual ~ITableBackend() = default;
 
     virtual bool recognize(const TableRequest& request, TableResult& result) const = 0;
+    virtual bool isAvailable() const { return true; }
+    virtual std::string unavailableReason() const { return {}; }
 };
 
 class TextTableStructureBackend final : public ITableBackend {
@@ -51,7 +53,8 @@ public:
     TableTransformerOnnxBackend(TableTransformerOnnxBackend&&) noexcept;
     TableTransformerOnnxBackend& operator=(TableTransformerOnnxBackend&&) noexcept;
 
-    bool isAvailable() const;
+    bool isAvailable() const override;
+    std::string unavailableReason() const override;
     const TableTransformerOnnxConfig& config() const;
     bool recognize(const TableRequest& request, TableResult& result) const override;
 

@@ -28,26 +28,26 @@ long long elapsedMilliseconds(const Clock::time_point& started) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
 }
 
-void stageFailed(IStageObserver& observer,
-                 const std::string& stage,
-                 const std::string& code,
-                 const std::string& message,
-                 bool retryable = false) {
+common::Status stageFailed(IStageObserver& observer,
+                           const std::string& stage,
+                           const std::string& code,
+                           const std::string& message,
+                           bool retryable = false) {
     observer.onStageFailed({stage, code, message, retryable});
+    return common::Status::error(code, message, stage, retryable);
 }
 
-bool deadlineExceeded(const PipelineRunOptions& options,
-                      const Clock::time_point& run_started,
-                      IStageObserver& observer,
-                      const std::string& next_stage) {
+common::Status deadlineStatus(const PipelineRunOptions& options,
+                              const Clock::time_point& run_started,
+                              IStageObserver& observer,
+                              const std::string& next_stage) {
     if (options.timeout_seconds <= 0 || Clock::now() - run_started < std::chrono::seconds(options.timeout_seconds)) {
-        return false;
+        return common::Status::ok();
     }
-    stageFailed(observer,
-                next_stage,
-                "run_timeout",
-                "pipeline exceeded its " + std::to_string(options.timeout_seconds) + " second deadline");
-    return true;
+    return stageFailed(observer,
+                       next_stage,
+                       "run_timeout",
+                       "pipeline exceeded its " + std::to_string(options.timeout_seconds) + " second deadline");
 }
 
 #if DOC_PARSER_ENABLE_OPENCV
@@ -91,26 +91,26 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
 
 } // namespace
 
-bool DocumentPipeline::run(const PipelineRunOptions& options) const {
+common::Status DocumentPipeline::run(const PipelineRunOptions& options) const {
     NullStageObserver observer;
     return run(options, observer);
 }
 
-bool DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& observer) const {
+common::Status DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& observer) const {
     return runInternal(options, nullptr, {}, observer);
 }
 
-bool DocumentPipeline::run(const PipelineRunOptions& options,
-                           PipelineServices& services,
-                           const std::string& service_trace,
-                           IStageObserver& observer) const {
+common::Status DocumentPipeline::run(const PipelineRunOptions& options,
+                                     PipelineServices& services,
+                                     const std::string& service_trace,
+                                     IStageObserver& observer) const {
     return runInternal(options, &services, service_trace, observer);
 }
 
-bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
-                                   PipelineServices* services,
-                                   const std::string& service_trace,
-                                   IStageObserver& observer) const {
+common::Status DocumentPipeline::runInternal(const PipelineRunOptions& options,
+                                             PipelineServices* services,
+                                             const std::string& service_trace,
+                                             IStageObserver& observer) const {
     const Clock::time_point run_started = Clock::now();
     const PipelineContext context = PipelineContext::fromOptions(options);
 
@@ -119,9 +119,12 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     PipelineServiceCreationResult service_creation;
     if (services == nullptr) {
         service_creation = createPipelineServices(context.backends);
-        if (!service_creation.ok) {
-            stageFailed(observer, "configure", service_creation.error_stage, service_creation.error_message);
-            return false;
+        if (!service_creation.status.okStatus()) {
+            observer.onStageFailed({service_creation.status.stage(),
+                                    service_creation.status.code(),
+                                    service_creation.status.message(),
+                                    service_creation.status.retryable()});
+            return service_creation.status;
         }
         services = &service_creation.services;
     }
@@ -135,16 +138,14 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     observer.onStageStarted({"open", context.backends.document, 1});
     if (!document.source->open(context.input_path)) {
         spdlog::error("open_document: failed to open input document: {}", context.input_path.string());
-        stageFailed(observer, "open", "open_document_failed", "failed to open input document");
-        return false;
+        return stageFailed(observer, "open", "open_document_failed", "failed to open input document");
     }
     if (options.maximum_pages > 0 && document.source->pageCount() > options.maximum_pages) {
-        stageFailed(observer,
-                    "open",
-                    "maximum_pages_exceeded",
-                    "document has " + std::to_string(document.source->pageCount()) + " pages; limit is " +
-                        std::to_string(options.maximum_pages));
-        return false;
+        return stageFailed(observer,
+                           "open",
+                           "maximum_pages_exceeded",
+                           "document has " + std::to_string(document.source->pageCount()) + " pages; limit is " +
+                               std::to_string(options.maximum_pages));
     }
     observer.onStageProgress({"open", 1, 1});
     observer.onStageCompleted({"open", elapsedMilliseconds(stage_started)});
@@ -155,13 +156,13 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     spdlog::info("debug: {}", context.debug);
     spdlog::info("pages: {}", document.source->pageCount());
 
-    if (deadlineExceeded(options, run_started, observer, "render")) {
-        return false;
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "render");
+        !deadline.okStatus()) {
+        return deadline;
     }
     if (document.renderer == nullptr) {
         spdlog::error("render_pages: document source cannot render pages");
-        stageFailed(observer, "render", "renderer_unavailable", "document source cannot render pages");
-        return false;
+        return stageFailed(observer, "render", "renderer_unavailable", "document source cannot render pages");
     }
 
     stage_started = Clock::now();
@@ -170,8 +171,7 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     if (!document.renderer->renderPages({context.render.dpi, context.output.root, context.output.pages_dir},
                                         rendered_pages)) {
         spdlog::error("render_pages: failed to render page artifacts");
-        stageFailed(observer, "render", "render_failed", "failed to render page artifacts", true);
-        return false;
+        return stageFailed(observer, "render", "render_failed", "failed to render page artifacts", true);
     }
     spdlog::info("rendered pages: {}", rendered_pages.size());
 
@@ -183,14 +183,13 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
 
     if (!preprocessDebugImages(context, rendered_pages)) {
         spdlog::error("preprocess_debug_images: failed to write debug preprocessing images");
-        stageFailed(observer, "render", "preprocess_failed", "failed to write debug preprocessing images");
-        return false;
+        return stageFailed(observer, "render", "preprocess_failed", "failed to write debug preprocessing images");
     }
     observer.onStageCompleted({"render", elapsedMilliseconds(stage_started)});
     spdlog::debug("preprocessed debug images");
 
-    if (deadlineExceeded(options, run_started, observer, "text")) {
-        return false;
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "text"); !deadline.okStatus()) {
+        return deadline;
     }
     stage_started = Clock::now();
     observer.onStageStarted({"text", context.backends.ocr, static_cast<int>(rendered_pages.size())});
@@ -199,15 +198,15 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     common::Status stage_status = text_extraction.extract(context, rendered_pages, page_texts);
     if (!stage_status.okStatus()) {
         spdlog::error("text_extraction: {}", stage_status.message());
-        stageFailed(observer, "text", stage_status.code(), stage_status.message());
-        return false;
+        return stageFailed(observer, "text", stage_status.code(), stage_status.message(), stage_status.retryable());
     }
     observer.onStageProgress({"text", static_cast<int>(page_texts.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"text", elapsedMilliseconds(stage_started)});
     spdlog::info("extracted text pages: {}", page_texts.size());
 
-    if (deadlineExceeded(options, run_started, observer, "layout")) {
-        return false;
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "layout");
+        !deadline.okStatus()) {
+        return deadline;
     }
     stage_started = Clock::now();
     observer.onStageStarted({"layout", context.backends.layout, static_cast<int>(rendered_pages.size())});
@@ -216,16 +215,15 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     stage_status = layout_analysis.analyze(context, rendered_pages, page_texts, page_layouts);
     if (!stage_status.okStatus()) {
         spdlog::error("layout_analysis: {}", stage_status.message());
-        stageFailed(observer, "layout", stage_status.code(), stage_status.message());
-        return false;
+        return stageFailed(observer, "layout", stage_status.code(), stage_status.message(), stage_status.retryable());
     }
     observer.onStageProgress(
         {"layout", static_cast<int>(page_layouts.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"layout", elapsedMilliseconds(stage_started)});
     spdlog::info("analyzed layout pages: {}", page_layouts.size());
 
-    if (deadlineExceeded(options, run_started, observer, "table")) {
-        return false;
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "table"); !deadline.okStatus()) {
+        return deadline;
     }
     stage_started = Clock::now();
     observer.onStageStarted({"table", context.backends.table, static_cast<int>(rendered_pages.size())});
@@ -234,15 +232,15 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     stage_status = table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables);
     if (!stage_status.okStatus()) {
         spdlog::error("table_recognition: {}", stage_status.message());
-        stageFailed(observer, "table", stage_status.code(), stage_status.message());
-        return false;
+        return stageFailed(observer, "table", stage_status.code(), stage_status.message(), stage_status.retryable());
     }
     observer.onStageProgress({"table", static_cast<int>(page_tables.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"table", elapsedMilliseconds(stage_started)});
     spdlog::info("recognized table pages: {}", page_tables.size());
 
-    if (deadlineExceeded(options, run_started, observer, "reading_order")) {
-        return false;
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "reading_order");
+        !deadline.okStatus()) {
+        return deadline;
     }
     stage_started = Clock::now();
     observer.onStageStarted({"reading_order", "docling-like", static_cast<int>(rendered_pages.size())});
@@ -251,16 +249,17 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     stage_status = reading_order.order(context, rendered_pages, page_layouts, page_reading_orders);
     if (!stage_status.okStatus()) {
         spdlog::error("reading_order: {}", stage_status.message());
-        stageFailed(observer, "reading_order", stage_status.code(), stage_status.message());
-        return false;
+        return stageFailed(
+            observer, "reading_order", stage_status.code(), stage_status.message(), stage_status.retryable());
     }
     observer.onStageProgress(
         {"reading_order", static_cast<int>(page_reading_orders.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"reading_order", elapsedMilliseconds(stage_started)});
     spdlog::info("computed reading order pages: {}", page_reading_orders.size());
 
-    if (deadlineExceeded(options, run_started, observer, "assembly")) {
-        return false;
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "assembly");
+        !deadline.okStatus()) {
+        return deadline;
     }
     stage_started = Clock::now();
     observer.onStageStarted({"assembly", "document-assembler", 1});
@@ -281,8 +280,7 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
             parsed_document,
             artifacts)) {
         spdlog::error("document_assembly: failed to assemble document");
-        stageFailed(observer, "assembly", "assembly_failed", "failed to assemble document");
-        return false;
+        return stageFailed(observer, "assembly", "assembly_failed", "failed to assemble document");
     }
     observer.onStageProgress({"assembly", 1, 1});
     observer.onStageCompleted({"assembly", elapsedMilliseconds(stage_started)});
@@ -304,16 +302,16 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
                   detected_furniture >= emitted_furniture ? detected_furniture - emitted_furniture : 0U);
     spdlog::info("assembled document blocks: {}", parsed_document.blocks.size());
 
-    if (deadlineExceeded(options, run_started, observer, "export")) {
-        return false;
+    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "export");
+        !deadline.okStatus()) {
+        return deadline;
     }
     stage_started = Clock::now();
     observer.onStageStarted({"export", "multi-format", 3});
     const auto document_exporter = exporter::createDefaultDocumentExporter();
     if (document_exporter == nullptr) {
         spdlog::error("export: no document exporter is enabled");
-        stageFailed(observer, "export", "exporter_unavailable", "no document exporter is enabled");
-        return false;
+        return stageFailed(observer, "export", "exporter_unavailable", "no document exporter is enabled");
     }
 
     if (!document_exporter->write({
@@ -323,8 +321,7 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
             &artifacts,
         })) {
         spdlog::error("export: failed to write document manifest");
-        stageFailed(observer, "export", "export_failed", "failed to write document output", true);
-        return false;
+        return stageFailed(observer, "export", "export_failed", "failed to write document output", true);
     }
 
     spdlog::info("wrote: {}", context.output.manifest_json.string());
@@ -337,7 +334,7 @@ bool DocumentPipeline::runInternal(const PipelineRunOptions& options,
     observer.onStageCompleted({"export", elapsedMilliseconds(stage_started)});
     spdlog::info("wrote: {}", markdown_path.string());
     spdlog::info("wrote: {}", html_path.string());
-    return true;
+    return common::Status::ok();
 }
 
 } // namespace doc_parser::pipeline

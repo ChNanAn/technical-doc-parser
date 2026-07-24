@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <utility>
 
 namespace {
 
@@ -58,7 +59,7 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAcrossDocuments) {
     doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
     engine_config.backends = backend_options;
     doc_parser::pipeline::DocumentEngine engine(engine_config, registry);
-    ASSERT_TRUE(engine.isReady()) << engine.initializationError();
+    ASSERT_TRUE(engine.isReady()) << engine.initializationStatus().message();
     std::filesystem::remove(registry_config);
 
     const std::filesystem::path output_root = std::filesystem::temp_directory_path() / "tdp_engine_test";
@@ -68,11 +69,19 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAcrossDocuments) {
     first.input_path = std::filesystem::path(DOC_PARSER_TEST_FIXTURE_DIR) / "pdfs" / "pdfjs-basicapi.pdf";
     first.output_directory = output_root / "first";
     first.render.dpi = 72;
-    ASSERT_TRUE(engine.parse(first));
+    ASSERT_TRUE(engine.parse(first).okStatus());
 
     doc_parser::pipeline::PipelineRunOptions second = first;
     second.output_directory = output_root / "second";
-    ASSERT_TRUE(engine.parse(second));
+    ASSERT_TRUE(engine.parse(second).okStatus());
+
+    doc_parser::pipeline::PipelineRunOptions missing = first;
+    missing.input_path = output_root / "missing.pdf";
+    missing.output_directory = output_root / "missing";
+    const doc_parser::common::Status missing_status = engine.parse(missing);
+    EXPECT_FALSE(missing_status.okStatus());
+    EXPECT_EQ(missing_status.stage(), "open");
+    EXPECT_EQ(missing_status.code(), "open_document_failed");
 
     EXPECT_TRUE(std::filesystem::is_regular_file(first.output_directory / "document.json"));
     EXPECT_TRUE(std::filesystem::is_regular_file(second.output_directory / "document.json"));
@@ -83,6 +92,41 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAcrossDocuments) {
 
     std::filesystem::remove_all(output_root);
 }
+
+TEST(DocumentEngineTest, InitializationExposesStructuredBackendFailure) {
+    doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
+    config.backends.document = "pdf";
+    config.backends.ocr = "not-registered";
+    config.backends.layout = "text";
+    config.backends.table = "text";
+
+    doc_parser::pipeline::DocumentEngine engine(std::move(config));
+
+    ASSERT_FALSE(engine.isReady());
+    const doc_parser::common::Status& status = engine.initializationStatus();
+    EXPECT_EQ(status.stage(), "configure");
+    EXPECT_EQ(status.code(), "configure.backend_unknown");
+    EXPECT_NE(status.message().find("not-registered"), std::string::npos);
+}
+
+#if DOC_PARSER_ENABLE_ONNXRUNTIME
+TEST(DocumentEngineTest, InitializationPreservesModelPathFailureReason) {
+    doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
+    config.backends.document = "pdf";
+    config.backends.ocr = "paddle";
+    config.backends.layout = "text";
+    config.backends.table = "text";
+    config.paddle_ocr.detection_model = "/missing/test-det.onnx";
+
+    doc_parser::pipeline::DocumentEngine engine(std::move(config));
+
+    ASSERT_FALSE(engine.isReady());
+    const doc_parser::common::Status& status = engine.initializationStatus();
+    EXPECT_EQ(status.stage(), "configure");
+    EXPECT_EQ(status.code(), "configure.backend_unavailable");
+    EXPECT_NE(status.message().find("/missing/test-det.onnx"), std::string::npos);
+}
+#endif
 
 TEST(DocumentEngineTest, LegacyEnvironmentIsAnExplicitConfigAdapter) {
     ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE", "0.73", 1), 0);

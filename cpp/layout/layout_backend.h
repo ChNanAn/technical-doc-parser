@@ -24,6 +24,8 @@ public:
     virtual ~ILayoutBackend() = default;
 
     virtual bool analyze(const LayoutRequest& request, LayoutResult& result) const = 0;
+    virtual bool isAvailable() const { return true; }
+    virtual std::string unavailableReason() const { return {}; }
 };
 
 class TextLayoutModelBackend final : public ILayoutBackend {
@@ -52,7 +54,8 @@ public:
     DocLayNetOnnxBackend(DocLayNetOnnxBackend&&) noexcept;
     DocLayNetOnnxBackend& operator=(DocLayNetOnnxBackend&&) noexcept;
 
-    bool isAvailable() const;
+    bool isAvailable() const override;
+    std::string unavailableReason() const override;
     const DocLayNetOnnxConfig& config() const;
     bool analyze(const LayoutRequest& request, LayoutResult& result) const override;
 
@@ -82,7 +85,8 @@ public:
     PaddleDocLayoutOnnxBackend(PaddleDocLayoutOnnxBackend&&) noexcept;
     PaddleDocLayoutOnnxBackend& operator=(PaddleDocLayoutOnnxBackend&&) noexcept;
 
-    bool isAvailable() const;
+    bool isAvailable() const override;
+    std::string unavailableReason() const override;
     const PaddleDocLayoutOnnxConfig& config() const;
     bool analyze(const LayoutRequest& request, LayoutResult& result) const override;
 

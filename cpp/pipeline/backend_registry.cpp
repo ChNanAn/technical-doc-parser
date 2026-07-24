@@ -15,14 +15,6 @@
 namespace doc_parser::pipeline {
 namespace {
 
-template <typename Backend, typename... Args> std::unique_ptr<Backend> makeAvailableBackend(Args&&... args) {
-    auto backend = std::make_unique<Backend>(std::forward<Args>(args)...);
-    if (!backend->isAvailable()) {
-        return nullptr;
-    }
-    return backend;
-}
-
 bool validOrder(const std::vector<std::string>& order,
                 const std::function<bool(const std::string&)>& registered,
                 const std::string& stage,
@@ -145,22 +137,22 @@ BackendRegistry createDefaultBackendRegistry(const EngineConfig& config) {
     registry.registerDocument("pdf", [] { return document_source::createDocumentSource("pdf"); });
     registry.registerOcr("noop", [] { return std::make_unique<ocr::NoopOcrBackend>(); });
     registry.registerOcr("tesseract", [backend_config = config.tesseract] {
-        return makeAvailableBackend<ocr::TesseractCliOcrBackend>(backend_config.executable, backend_config.language);
+        return std::make_unique<ocr::TesseractCliOcrBackend>(backend_config.executable, backend_config.language);
     });
     registry.registerLayout("text", [] { return std::make_unique<layout::TextLayoutModelBackend>(); });
     registry.registerTable("text", [] { return std::make_unique<table::TextTableStructureBackend>(); });
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
     registry.registerOcr("paddle", [backend_config = config.paddle_ocr] {
-        return makeAvailableBackend<ocr::PaddleOcrOnnxBackend>(backend_config);
+        return std::make_unique<ocr::PaddleOcrOnnxBackend>(backend_config);
     });
     registry.registerLayout("doclaynet", [backend_config = config.doclaynet] {
-        return makeAvailableBackend<layout::DocLayNetOnnxBackend>(backend_config);
+        return std::make_unique<layout::DocLayNetOnnxBackend>(backend_config);
     });
     registry.registerLayout("paddle-layout", [backend_config = config.paddle_layout] {
-        return makeAvailableBackend<layout::PaddleDocLayoutOnnxBackend>(backend_config);
+        return std::make_unique<layout::PaddleDocLayoutOnnxBackend>(backend_config);
     });
     registry.registerTable("table-transformer", [backend_config = config.table_transformer] {
-        return makeAvailableBackend<table::TableTransformerOnnxBackend>(backend_config);
+        return std::make_unique<table::TableTransformerOnnxBackend>(backend_config);
     });
 #else
     registry.registerOcr("paddle", [] { return std::unique_ptr<ocr::IOcrBackend>{}; });

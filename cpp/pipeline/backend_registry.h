@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace doc_parser::pipeline {
@@ -25,6 +26,7 @@ enum class BackendCreationStatus {
 template <typename Interface> struct BackendCreationResult {
     BackendCreationStatus status = BackendCreationStatus::Unknown;
     std::unique_ptr<Interface> backend;
+    std::string error_message;
 };
 
 template <typename Interface> class TypedBackendRegistry {
@@ -43,13 +45,20 @@ public:
     BackendCreationResult<Interface> create(const std::string& name) const {
         const auto factory = factories_.find(name);
         if (factory == factories_.end()) {
-            return {BackendCreationStatus::Unknown, nullptr};
+            return {BackendCreationStatus::Unknown, nullptr, "backend is not registered"};
         }
         std::unique_ptr<Interface> backend = factory->second();
         if (backend == nullptr) {
-            return {BackendCreationStatus::Unavailable, nullptr};
+            return {BackendCreationStatus::Unavailable, nullptr, "backend factory returned no instance"};
         }
-        return {BackendCreationStatus::Created, std::move(backend)};
+        if (!backend->isAvailable()) {
+            std::string reason = backend->unavailableReason();
+            if (reason.empty()) {
+                reason = "backend reported itself unavailable";
+            }
+            return {BackendCreationStatus::Unavailable, nullptr, std::move(reason)};
+        }
+        return {BackendCreationStatus::Created, std::move(backend), {}};
     }
 
     std::vector<std::string> names() const {

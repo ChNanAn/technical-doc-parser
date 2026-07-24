@@ -28,21 +28,22 @@ DocumentEngine::DocumentEngine(DocumentEngine&&) noexcept = default;
 
 DocumentEngine& DocumentEngine::operator=(DocumentEngine&&) noexcept = default;
 
-bool DocumentEngine::isReady() const { return impl_ != nullptr && impl_->creation.ok; }
+bool DocumentEngine::isReady() const { return impl_ != nullptr && impl_->creation.status.okStatus(); }
 
-const std::string& DocumentEngine::initializationError() const {
-    static const std::string empty;
-    return impl_ == nullptr ? empty : impl_->creation.error_message;
+const common::Status& DocumentEngine::initializationStatus() const {
+    static const common::Status moved_from =
+        common::Status::error("engine.moved_from", "document engine has no implementation", "configure");
+    return impl_ == nullptr ? moved_from : impl_->creation.status;
 }
 
-bool DocumentEngine::parse(PipelineRunOptions options) {
+common::Status DocumentEngine::parse(PipelineRunOptions options) {
     NullStageObserver observer;
     return parse(std::move(options), observer);
 }
 
-bool DocumentEngine::parse(PipelineRunOptions options, IStageObserver& observer) {
+common::Status DocumentEngine::parse(PipelineRunOptions options, IStageObserver& observer) {
     if (!isReady()) {
-        return false;
+        return initializationStatus();
     }
 
     options.backends = impl_->config.backends;

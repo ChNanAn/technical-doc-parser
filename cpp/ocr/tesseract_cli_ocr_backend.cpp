@@ -251,6 +251,14 @@ bool TesseractCliOcrBackend::isAvailable() const {
     return languages.exit_code == 0 && hasRequestedLanguages(languages.output, language_);
 }
 
+std::string TesseractCliOcrBackend::unavailableReason() const {
+    if (isAvailable()) {
+        return {};
+    }
+    return "Tesseract executable or requested languages are unavailable (executable=" + executable_ +
+           ", language=" + language_ + ")";
+}
+
 bool TesseractCliOcrBackend::recognize(const OcrRequest& request, OcrResult& result) const {
     result = {};
     result.page_text = {};

@@ -14,7 +14,8 @@ public:
 
     bool recognize(const OcrRequest& request, OcrResult& result) const override;
 
-    bool isAvailable() const;
+    bool isAvailable() const override;
+    std::string unavailableReason() const override;
 
 private:
     std::string executable_;

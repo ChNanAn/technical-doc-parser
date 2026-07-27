@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 PLATFORM_EVENT_STREAM = "platform-events"
 PROJECTOR_CONSUMER_GROUP = "api-event-projectors"
 
-EVENT_STATUSES = {
+STATE_EVENT_STATUSES = {
     "job_started": "running",
     "stage_started": "running",
     "stage_progress": "running",
@@ -27,6 +27,11 @@ EVENT_STATUSES = {
     "job_failed": "failed",
     "job_cancelled": "cancelled",
 }
+INFORMATION_EVENT_TYPES = {
+    "run_configured",
+    "stage_warning",
+}
+SUPPORTED_EVENT_TYPES = frozenset(STATE_EVENT_STATUSES) | INFORMATION_EVENT_TYPES
 
 
 @dataclass
@@ -76,13 +81,29 @@ async def _read_projector_entries(
     return _stream_entries(messages)
 
 
-def _projected_run_state(event: dict[str, Any]) -> tuple[str, str, str | None, str | None]:
+@dataclass(frozen=True)
+class RunProjection:
+    run_id: str
+    attempt_id: str
+    sequence: int
+    status: str
+    stage: str | None
+    error: str | None
+
+
+def _projected_run_state(event: dict[str, Any]) -> RunProjection | None:
     event_type = event["type"]
     run_id = event["run_id"]
-    if not isinstance(event_type, str) or event_type not in EVENT_STATUSES:
+    attempt_id = event["attempt_id"]
+    sequence = event["sequence"]
+    if not isinstance(event_type, str) or event_type not in SUPPORTED_EVENT_TYPES:
         raise ValueError(f"unsupported event type: {event_type!r}")
     if not isinstance(run_id, str) or not run_id:
         raise ValueError("run_id must be a non-empty string")
+    if not isinstance(attempt_id, str) or not attempt_id:
+        raise ValueError("attempt_id must be a non-empty string")
+    if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 1:
+        raise ValueError("sequence must be a positive integer")
     stage = event.get("stage")
     if stage is not None and not isinstance(stage, str):
         raise ValueError("stage must be a string")
@@ -90,7 +111,16 @@ def _projected_run_state(event: dict[str, Any]) -> tuple[str, str, str | None, s
     if error_payload is not None and not isinstance(error_payload, dict):
         raise ValueError("error must be an object")
     error = error_payload.get("message") if isinstance(error_payload, dict) else None
-    return run_id, EVENT_STATUSES[event_type], stage, error
+    if event_type in INFORMATION_EVENT_TYPES:
+        return None
+    return RunProjection(
+        run_id=run_id,
+        attempt_id=attempt_id,
+        sequence=sequence,
+        status=STATE_EVENT_STATUSES[event_type],
+        stage=stage,
+        error=error,
+    )
 
 
 async def _project_entry(redis: Redis, database: Database, message_id: str, fields: dict[str, str]) -> None:
@@ -99,7 +129,7 @@ async def _project_entry(redis: Redis, database: Database, message_id: str, fiel
         event = json.loads(encoded)
         if not isinstance(event, dict):
             raise ValueError("event payload must be an object")
-        run_id, status, stage, error = _projected_run_state(event)
+        projection = _projected_run_state(event)
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as reason:
         LOGGER.error(
             "discarding malformed worker event stream=%s message_id=%s reason=%s",
@@ -110,7 +140,15 @@ async def _project_entry(redis: Redis, database: Database, message_id: str, fiel
         await redis.xack(PLATFORM_EVENT_STREAM, PROJECTOR_CONSUMER_GROUP, message_id)
         return
 
-    await database.update_run(run_id, status, stage, error)
+    if projection is not None:
+        await database.update_run(
+            projection.run_id,
+            projection.attempt_id,
+            projection.sequence,
+            projection.status,
+            projection.stage,
+            projection.error,
+        )
     await redis.xack(PLATFORM_EVENT_STREAM, PROJECTOR_CONSUMER_GROUP, message_id)
 
 

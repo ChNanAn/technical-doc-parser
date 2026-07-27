@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_run_1_3",
+  "job_id": "job_1",
+  "run_id": "run_1",
+  "attempt_id": "attempt_1",
+  "sequence": 3,
+  "type": "stage_started",
+  "stage": "layout",
+  "backend": "doclaynet->text",
+  "timestamp": "2026-07-22T12:00:03Z"
+}

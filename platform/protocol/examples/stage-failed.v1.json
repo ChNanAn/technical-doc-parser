@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_run_2_4",
+  "job_id": "job_2",
+  "run_id": "run_2",
+  "attempt_id": "attempt_1",
+  "sequence": 4,
+  "type": "stage_failed",
+  "stage": "text",
+  "timestamp": "2026-07-22T12:01:04Z",
+  "error": {
+    "code": "ocr_unavailable",
+    "message": "OCR backend is unavailable",
+    "retryable": false
+  }
+}

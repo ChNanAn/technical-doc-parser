@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_run_1_4",
+  "job_id": "job_1",
+  "run_id": "run_1",
+  "attempt_id": "attempt_1",
+  "sequence": 4,
+  "type": "stage_warning",
+  "stage": "layout",
+  "page_number": 1,
+  "timestamp": "2026-07-22T12:00:04Z",
+  "warning": {
+    "code": "LAYOUT_BACKEND_FALLBACK",
+    "message": "layout inference failed; continued with the configured fallback chain",
+    "details": {
+      "failed_backend": "doclaynet",
+      "fallback_backend": "text",
+      "reason": "inference_failed"
+    }
+  }
+}

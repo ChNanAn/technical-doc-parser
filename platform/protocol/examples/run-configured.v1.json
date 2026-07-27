@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_run_1_2",
+  "job_id": "job_1",
+  "run_id": "run_1",
+  "attempt_id": "attempt_1",
+  "sequence": 2,
+  "type": "run_configured",
+  "timestamp": "2026-07-22T12:00:02Z",
+  "engine": {
+    "name": "technical-doc-parser",
+    "version": "0.1.0",
+    "git_revision": "abcdef123456"
+  },
+  "backends": {
+    "requested": {
+      "document": "auto",
+      "ocr": "auto",
+      "layout": "auto",
+      "table": "auto",
+      "registry_config": ""
+    },
+    "resolved": {
+      "document": "pdf",
+      "ocr": "paddle",
+      "layout": "doclaynet",
+      "table": "table-transformer",
+      "registry_config": ""
+    },
+    "config_source": "builtin"
+  },
+  "models": [
+    {
+      "stage": "text",
+      "backend": "paddle",
+      "role": "recognition",
+      "path": "models/paddleocr/baseline/rec.onnx",
+      "profile": "ppocrv5_mobile"
+    }
+  ]
+}

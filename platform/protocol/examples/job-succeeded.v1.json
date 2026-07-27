@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_run_1_7",
+  "job_id": "job_1",
+  "run_id": "run_1",
+  "attempt_id": "attempt_1",
+  "sequence": 7,
+  "type": "job_succeeded",
+  "timestamp": "2026-07-22T12:00:07Z"
+}

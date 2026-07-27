@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_run_1_5",
+  "job_id": "job_1",
+  "run_id": "run_1",
+  "attempt_id": "attempt_1",
+  "sequence": 5,
+  "type": "artifact_ready",
+  "stage": "render",
+  "artifact_id": "artifact_render_page_image_page_1",
+  "timestamp": "2026-07-22T12:00:05Z"
+}

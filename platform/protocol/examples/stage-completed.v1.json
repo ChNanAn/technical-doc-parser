@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_run_1_6",
+  "job_id": "job_1",
+  "run_id": "run_1",
+  "attempt_id": "attempt_1",
+  "sequence": 6,
+  "type": "stage_completed",
+  "stage": "layout",
+  "duration_ms": 42,
+  "timestamp": "2026-07-22T12:00:06Z"
+}

@@ -6,12 +6,14 @@ from contextlib import suppress
 from typing import Any
 
 from app import projector
+from app.database import Database
 from app.main import (
     PIPELINE_DEBUG_EXTENSION,
     _document_stage_output,
     _enqueue_job,
 )
 from app.projector import (
+    INFORMATION_EVENT_TYPES,
     PLATFORM_EVENT_STREAM,
     PROJECTOR_CONSUMER_GROUP,
     ProjectorState,
@@ -32,12 +34,30 @@ class RecordingRedis:
 class RecordingDatabase:
     def __init__(self, error: Exception | None = None) -> None:
         self.error = error
-        self.updates: list[tuple[str, str, str | None, str | None]] = []
+        self.updates: list[tuple[str, str, int, str, str | None, str | None]] = []
 
-    async def update_run(self, run_id: str, status: str, stage: str | None, error: str | None) -> None:
+    async def update_run(
+        self,
+        run_id: str,
+        attempt_id: str,
+        sequence: int,
+        status: str,
+        stage: str | None,
+        error: str | None,
+    ) -> None:
         if self.error is not None:
             raise self.error
-        self.updates.append((run_id, status, stage, error))
+        self.updates.append((run_id, attempt_id, sequence, status, stage, error))
+
+
+class RecordingPool:
+    def __init__(self, result: str = "UPDATE 1") -> None:
+        self.result = result
+        self.executed: tuple[str, tuple[Any, ...]] | None = None
+
+    async def execute(self, query: str, *arguments: Any) -> str:
+        self.executed = (query, arguments)
+        return self.result
 
 
 def test_stage_output_reads_document_v1_page_and_debug_fields() -> None:
@@ -107,6 +127,8 @@ def test_projector_retries_database_failures_without_acknowledging() -> None:
     event = {
         "type": "stage_completed",
         "run_id": "run_1",
+        "attempt_id": "attempt_1",
+        "sequence": 4,
         "stage": "layout",
     }
 
@@ -125,6 +147,82 @@ def test_projector_retries_database_failures_without_acknowledging() -> None:
 
     asyncio.run(project())
     assert redis.acknowledged == []
+
+
+def test_projector_acknowledges_information_events_without_mutating_run_state() -> None:
+    for sequence, event_type in enumerate(sorted(INFORMATION_EVENT_TYPES), start=1):
+        redis = RecordingRedis()
+        database = RecordingDatabase()
+        event = {
+            "type": event_type,
+            "run_id": "run_1",
+            "attempt_id": "attempt_1",
+            "sequence": sequence,
+        }
+
+        asyncio.run(
+            _project_entry(  # type: ignore[arg-type]
+                redis,
+                database,
+                f"{sequence}-0",
+                {"event": json.dumps(event)},
+            )
+        )
+
+        assert database.updates == []
+        assert redis.acknowledged == [
+            (PLATFORM_EVENT_STREAM, PROJECTOR_CONSUMER_GROUP, f"{sequence}-0")
+        ]
+
+
+def test_projector_passes_attempt_and_sequence_to_state_update() -> None:
+    redis = RecordingRedis()
+    database = RecordingDatabase()
+    event = {
+        "type": "stage_progress",
+        "run_id": "run_1",
+        "attempt_id": "attempt_2",
+        "sequence": 7,
+        "stage": "layout",
+    }
+
+    asyncio.run(
+        _project_entry(  # type: ignore[arg-type]
+            redis,
+            database,
+            "7-0",
+            {"event": json.dumps(event)},
+        )
+    )
+
+    assert database.updates == [
+        ("run_1", "attempt_2", 7, "running", "layout", None)
+    ]
+
+
+def test_database_run_projection_guards_attempt_sequence_and_terminal_state() -> None:
+    pool = RecordingPool()
+    database = Database("postgresql://unused")
+    database._pool = pool  # type: ignore[assignment]
+
+    updated = asyncio.run(
+        database.update_run(
+            "run_1",
+            "attempt_2",
+            7,
+            "running",
+            "layout",
+            None,
+        )
+    )
+
+    assert updated
+    assert pool.executed is not None
+    query, arguments = pool.executed
+    assert "attempt_id=$2" in query
+    assert "last_event_sequence < $3" in query
+    assert "(status NOT IN ('succeeded', 'failed', 'cancelled') OR status=$4)" in query
+    assert arguments == ("run_1", "attempt_2", 7, "running", "layout", None)
 
 
 def test_projector_replays_its_pending_messages_before_reading_new_events() -> None:

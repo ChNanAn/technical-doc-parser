@@ -26,11 +26,13 @@ CREATE TABLE IF NOT EXISTS runs (
     job_path TEXT NOT NULL,
     stage TEXT,
     error TEXT,
+    last_event_sequence BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS stage TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS error TEXT;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS last_event_sequence BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS runs_document_id_idx ON runs(document_id, created_at DESC);
 """
@@ -83,8 +85,26 @@ class Database:
             "SELECT * FROM runs WHERE document_id=$1 ORDER BY created_at DESC", document_id
         )
 
-    async def update_run(self, run_id: str, status: str, stage: str | None, error: str | None) -> None:
-        await self.pool.execute(
-            "UPDATE runs SET status=$2, stage=$3, error=$4, updated_at=NOW() WHERE id=$1",
-            run_id, status, stage, error,
+    async def update_run(
+        self,
+        run_id: str,
+        attempt_id: str,
+        sequence: int,
+        status: str,
+        stage: str | None,
+        error: str | None,
+    ) -> bool:
+        result = await self.pool.execute(
+            """UPDATE runs
+               SET status=$4, stage=COALESCE($5, stage), error=COALESCE($6, error),
+                   last_event_sequence=$3, updated_at=NOW()
+               WHERE id=$1 AND attempt_id=$2 AND last_event_sequence < $3
+                 AND (status NOT IN ('succeeded', 'failed', 'cancelled') OR status=$4)""",
+            run_id,
+            attempt_id,
+            sequence,
+            status,
+            stage,
+            error,
         )
+        return result == "UPDATE 1"

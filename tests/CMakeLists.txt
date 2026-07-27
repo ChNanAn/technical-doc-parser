@@ -126,6 +126,28 @@ if(DOC_PARSER_ENABLE_OPENCV)
 endif()
 
 if(DOC_PARSER_ENABLE_PDFIUM)
+    add_executable(partial_document_contract_producer
+        partial_document_contract_producer.cpp
+    )
+    target_link_libraries(partial_document_contract_producer
+        PRIVATE
+            doc_parser_pipeline
+    )
+    doc_parser_set_common_warnings(partial_document_contract_producer)
+
+    add_test(
+        NAME partial_document_contract
+        COMMAND bash
+            ${CMAKE_CURRENT_SOURCE_DIR}/partial_document_contract_smoke.sh
+            $<TARGET_FILE:partial_document_contract_producer>
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/contract/validate_document.py
+            ${PROJECT_SOURCE_DIR}/schemas/document.v1.schema.json
+            ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/pdfs/pdfjs-basicapi.pdf
+            ${CMAKE_CURRENT_BINARY_DIR}/partial-document-contract-output
+    )
+    set_tests_properties(partial_document_contract PROPERTIES LABELS contract)
+
     add_test(
         NAME cli_render_smoke
         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cli_render_smoke.sh $<TARGET_FILE:document_intelligence_engine>

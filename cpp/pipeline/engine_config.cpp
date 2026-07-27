@@ -115,6 +115,9 @@ EngineConfig defaultEngineConfig() {
 EngineConfig engineConfigFromEnvironment(BackendOptions backends) {
     EngineConfig config = defaultEngineConfig();
     config.backends = std::move(backends);
+    if (config.backends.registry_config.empty()) {
+        applyPath("DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG", config.backends.registry_config);
+    }
 
     const std::string tesseract_executable =
         firstEnvironment("DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_CMD", "DOC_PARSER_TESSERACT_CMD");

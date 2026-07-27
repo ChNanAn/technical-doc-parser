@@ -1,7 +1,7 @@
 #include "pipeline/backend_registry.h"
-#include "pipeline/document_pipeline.h"
 #include "pipeline/engine_config.h"
 #include "redis_client.h"
+#include "worker_document_processor.h"
 #include "worker_stage_observer.h"
 
 #include <atomic>
@@ -94,21 +94,29 @@ void validateJob(const nlohmann::json& job, const std::filesystem::path& runtime
     }
 }
 
-doc_parser::pipeline::PipelineRunOptions optionsFromJob(const nlohmann::json& job) {
+struct WorkerRunOptions {
+    doc_parser::pipeline::DocumentParseOptions parse;
+    doc_parser::pipeline::BackendOptions backends;
+};
+
+WorkerRunOptions optionsFromJob(const nlohmann::json& job,
+                                const doc_parser::pipeline::BackendOptions& default_backends) {
     const nlohmann::json& pipeline = job.at("pipeline");
     const nlohmann::json& backends = pipeline.at("backends");
-    doc_parser::pipeline::PipelineRunOptions options;
-    options.input_path = localFilePath(job.at("input").at("uri").get<std::string>());
-    options.output_directory = job.at("output_directory").get<std::string>();
-    options.render.dpi = pipeline.at("dpi").get<int>();
-    options.debug = pipeline.at("debug").get<bool>();
-    options.backends.document = backends.at("document").get<std::string>();
-    options.backends.ocr = backends.at("ocr").get<std::string>();
-    options.backends.layout = backends.at("layout").get<std::string>();
-    options.backends.table = backends.at("table").get<std::string>();
-    options.backends.registry_config = backends.value("registry_config", "");
-    options.timeout_seconds = job.at("limits").at("timeout_seconds").get<int>();
-    options.maximum_pages = job.at("limits").at("maximum_pages").get<int>();
+    WorkerRunOptions options;
+    options.parse.input_path = localFilePath(job.at("input").at("uri").get<std::string>());
+    options.parse.output_directory = job.at("output_directory").get<std::string>();
+    options.parse.render.dpi = pipeline.at("dpi").get<int>();
+    options.parse.debug = pipeline.at("debug").get<bool>();
+    doc_parser::pipeline::BackendOptions requested_backends;
+    requested_backends.document = backends.at("document").get<std::string>();
+    requested_backends.ocr = backends.at("ocr").get<std::string>();
+    requested_backends.layout = backends.at("layout").get<std::string>();
+    requested_backends.table = backends.at("table").get<std::string>();
+    requested_backends.registry_config = backends.value("registry_config", "");
+    options.backends = doc_parser::platform::effectiveBackendOptions(default_backends, requested_backends);
+    options.parse.timeout_seconds = job.at("limits").at("timeout_seconds").get<int>();
+    options.parse.maximum_pages = job.at("limits").at("maximum_pages").get<int>();
     return options;
 }
 
@@ -144,6 +152,14 @@ std::string availableCapabilities(const doc_parser::pipeline::BackendRegistry& r
 
 nlohmann::json engineConfigJson(const doc_parser::pipeline::EngineConfig& config) {
     return {
+        {"backends",
+         {
+             {"document", config.backends.document},
+             {"ocr", config.backends.ocr},
+             {"layout", config.backends.layout},
+             {"table", config.backends.table},
+             {"registry_config", config.backends.registry_config.string()},
+         }},
         {"tesseract", {{"executable", config.tesseract.executable}, {"language", config.tesseract.language}}},
         {"paddle_ocr",
          {
@@ -266,10 +282,12 @@ int main(int argc, char** argv) {
     const std::string consumer_group = environment("JOB_CONSUMER_GROUP", "document-workers");
     const std::string worker_id = environment("WORKER_ID", "worker-1");
     const std::filesystem::path runtime_root = environment("WORKER_RUNTIME_ROOT", "");
+    const int engine_cache_size = environmentInt("WORKER_ENGINE_CACHE_SIZE", 2);
     const int run_event_stream_maximum_length = environmentInt("RUN_EVENT_STREAM_MAX_LENGTH", 2'000);
     const int platform_event_stream_maximum_length = environmentInt("PLATFORM_EVENT_STREAM_MAX_LENGTH", 100'000);
-    if (run_event_stream_maximum_length <= 0 || platform_event_stream_maximum_length <= 0) {
-        std::cerr << "RUN_EVENT_STREAM_MAX_LENGTH and PLATFORM_EVENT_STREAM_MAX_LENGTH must be positive\n";
+    if (engine_cache_size <= 0 || run_event_stream_maximum_length <= 0 || platform_event_stream_maximum_length <= 0) {
+        std::cerr << "WORKER_ENGINE_CACHE_SIZE, RUN_EVENT_STREAM_MAX_LENGTH, and PLATFORM_EVENT_STREAM_MAX_LENGTH must "
+                     "be positive\n";
         return 2;
     }
 
@@ -282,6 +300,8 @@ int main(int argc, char** argv) {
         const std::string capabilities = availableCapabilities(backend_registry);
         std::cout << "worker engine config: " << engineConfigJson(engine_config).dump() << '\n';
         WorkerHeartbeat heartbeat(redis_host, redis_port, worker_key, capabilities);
+        doc_parser::platform::WorkerDocumentProcessor processor(
+            engine_config, backend_registry, static_cast<std::size_t>(engine_cache_size));
 
         while (running) {
             heartbeat.setIdle();
@@ -314,10 +334,10 @@ int main(int argc, char** argv) {
                     static_cast<std::size_t>(platform_event_stream_maximum_length));
                 heartbeat.setRunning(run_id);
                 observer.publishJobEvent("job_started");
-                const doc_parser::pipeline::DocumentPipeline pipeline;
                 try {
+                    const WorkerRunOptions options = optionsFromJob(job, engine_config.backends);
                     const doc_parser::common::Status status =
-                        pipeline.run(optionsFromJob(job), backend_registry, observer);
+                        processor.process(options.parse, options.backends, observer);
                     observer.publishJobEvent(status.okStatus() ? "job_succeeded" : "job_failed", status.message());
                 } catch (const std::exception& error) {
                     observer.publishJobEvent("job_failed", error.what());

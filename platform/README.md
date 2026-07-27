@@ -33,8 +33,9 @@ not secrets, and authentication, authorization, TLS termination, rate limiting, 
 before exposing it to an untrusted network.
 
 The Worker is a persistent Redis Streams consumer. It processes one Run at a time, which avoids concurrent access
-to non-reentrant backend state. Multiple Worker containers provide horizontal concurrency. Model-session caching is
-the next runtime optimization; the protocol and process lifecycle do not depend on it.
+to non-reentrant backend state. Multiple Worker containers provide horizontal concurrency. Each Worker keeps a
+bounded LRU of reusable `DocumentEngine` instances keyed by the effective backend tuple and registry configuration.
+`WORKER_ENGINE_CACHE_SIZE` defaults to 2; increase it only after accounting for the memory used by each model set.
 
 The Worker resolves the same `DOCUMENT_INTELLIGENCE_ENGINE_*` model-path and inference-tuning compatibility variables
 as the CLI. Inspect the effective configuration without connecting to Redis or loading a model:

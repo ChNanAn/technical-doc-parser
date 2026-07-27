@@ -210,14 +210,23 @@ TEST(DocumentEngineTest, LegacyEnvironmentIsAnExplicitConfigAdapter) {
     ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE", "0.73", 1), 0);
     ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_TABLE_CROP_PADDING", "31", 1), 0);
     ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG", "eng+chi_sim", 1), 0);
+    ASSERT_EQ(setenv("DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG", "/worker/backends.json", 1), 0);
 
     const doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::engineConfigFromEnvironment();
 
     EXPECT_DOUBLE_EQ(config.doclaynet.confidence_threshold, 0.73);
     EXPECT_EQ(config.table_transformer.crop_padding, 31);
     EXPECT_EQ(config.tesseract.language, "eng+chi_sim");
+    EXPECT_EQ(config.backends.registry_config, "/worker/backends.json");
+
+    doc_parser::pipeline::BackendOptions explicit_backends;
+    explicit_backends.registry_config = "/run/backends.json";
+    const doc_parser::pipeline::EngineConfig explicit_config =
+        doc_parser::pipeline::engineConfigFromEnvironment(explicit_backends);
+    EXPECT_EQ(explicit_config.backends.registry_config, "/run/backends.json");
 
     unsetenv("DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE");
     unsetenv("DOCUMENT_INTELLIGENCE_ENGINE_TABLE_CROP_PADDING");
     unsetenv("DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG");
+    unsetenv("DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG");
 }

@@ -1,7 +1,5 @@
 #include "pipeline/pipeline_context.h"
 
-#include <cstdlib>
-
 namespace doc_parser::pipeline {
 
 PipelineContext PipelineContext::fromOptions(const PipelineRunOptions& options) {
@@ -10,11 +8,6 @@ PipelineContext PipelineContext::fromOptions(const PipelineRunOptions& options) 
     context.render = options.render;
     context.debug = options.debug;
     context.backends = options.backends;
-    if (!options.backends.registry_config.empty()) {
-        context.backends.registry_config = options.backends.registry_config;
-    } else if (const char* config = std::getenv("DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG"); config != nullptr) {
-        context.backends.registry_config = config;
-    }
 
     context.output.root = options.output_directory;
     context.output.pages_dir = context.output.root / "pages";

@@ -27,6 +27,7 @@ def main() -> int:
         {
             "DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_CMD": "/worker/bin/tesseract",
             "DOCUMENT_INTELLIGENCE_ENGINE_TESSERACT_LANG": "eng+chi_sim",
+            "DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG": "/worker/backends.json",
             "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_MODEL_DIR": "/worker/models/paddleocr",
             "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_MODEL": "/worker/overrides/det.onnx",
             "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_PROFILE": "ppocrv4_mobile",
@@ -53,6 +54,7 @@ def main() -> int:
     )
     config = json.loads(completed.stdout)
 
+    assert_equal(config["backends"]["registry_config"], "/worker/backends.json", "backends.registry_config")
     assert_equal(config["tesseract"]["executable"], "/worker/bin/tesseract", "tesseract.executable")
     assert_equal(config["tesseract"]["language"], "eng+chi_sim", "tesseract.language")
     assert_equal(config["paddle_ocr"]["detection_model"], "/worker/overrides/det.onnx", "paddle_ocr.det")
@@ -88,17 +90,17 @@ def main() -> int:
     assert_equal(config["table_transformer"]["structure_confidence_threshold"], 0.74, "table.struct_conf")
     assert_equal(config["table_transformer"]["crop_padding"], 29, "table.crop_padding")
 
-    invalid_stream_environment = os.environ.copy()
-    invalid_stream_environment["RUN_EVENT_STREAM_MAX_LENGTH"] = "0"
-    invalid_stream = subprocess.run(
+    invalid_runtime_environment = os.environ.copy()
+    invalid_runtime_environment["WORKER_ENGINE_CACHE_SIZE"] = "0"
+    invalid_runtime = subprocess.run(
         [args.worker],
         capture_output=True,
-        env=invalid_stream_environment,
+        env=invalid_runtime_environment,
         text=True,
     )
-    assert_equal(invalid_stream.returncode, 2, "invalid stream limit exit code")
-    if "must be positive" not in invalid_stream.stderr:
-        raise AssertionError(f"missing stream limit diagnostic: {invalid_stream.stderr!r}")
+    assert_equal(invalid_runtime.returncode, 2, "invalid runtime limit exit code")
+    if "must be positive" not in invalid_runtime.stderr:
+        raise AssertionError(f"missing runtime limit diagnostic: {invalid_runtime.stderr!r}")
     return 0
 
 

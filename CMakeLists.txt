@@ -34,41 +34,79 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(FetchContent)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-FetchContent_Declare(
-    CLI11
-    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-    GIT_TAG v2.4.2
+set(DOCUMENT_INTELLIGENCE_ENGINE_DEPENDENCY_PROVIDER "AUTO" CACHE STRING
+    "Third-party CMake dependency provider: AUTO, PACKAGE, or FETCH"
 )
-FetchContent_MakeAvailable(CLI11)
+set_property(CACHE DOCUMENT_INTELLIGENCE_ENGINE_DEPENDENCY_PROVIDER
+    PROPERTY STRINGS AUTO PACKAGE FETCH
+)
+string(TOUPPER
+    "${DOCUMENT_INTELLIGENCE_ENGINE_DEPENDENCY_PROVIDER}"
+    DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER
+)
+if(DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER STREQUAL "AUTO")
+    if(DEFINED CMAKE_TOOLCHAIN_FILE AND
+       CMAKE_TOOLCHAIN_FILE MATCHES "(^|[/\\\\])vcpkg\\.cmake$")
+        set(DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER "PACKAGE")
+    else()
+        set(DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER "FETCH")
+    endif()
+endif()
+if(NOT DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER STREQUAL "PACKAGE" AND
+   NOT DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER STREQUAL "FETCH")
+    message(FATAL_ERROR
+        "DOCUMENT_INTELLIGENCE_ENGINE_DEPENDENCY_PROVIDER must be AUTO, PACKAGE, or FETCH"
+    )
+endif()
+message(STATUS
+    "Dependency provider: ${DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER}"
+)
 
-FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.3
-)
-FetchContent_MakeAvailable(nlohmann_json)
+if(DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER STREQUAL "PACKAGE")
+    find_package(CLI11 2.4 CONFIG REQUIRED)
+    find_package(nlohmann_json 3.11 CONFIG REQUIRED)
+    find_package(spdlog 1.14 CONFIG REQUIRED)
+else()
+    FetchContent_Declare(
+        CLI11
+        GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+        GIT_TAG v2.4.2
+    )
+    FetchContent_MakeAvailable(CLI11)
 
-FetchContent_Declare(
-    spdlog
-    GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    GIT_TAG v1.14.1
-)
-set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(spdlog)
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+
+    FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.14.1
+    )
+    set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(spdlog)
+endif()
 
 include(CTest)
 
 if(BUILD_TESTING)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.14.0
-        GIT_SHALLOW TRUE
-    )
-    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
+    if(DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER STREQUAL "PACKAGE")
+        find_package(GTest 1.14 CONFIG REQUIRED)
+    else()
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG v1.14.0
+            GIT_SHALLOW TRUE
+        )
+        set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+        set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(googletest)
+    endif()
 endif()
 
 function(doc_parser_set_common_warnings target_name)

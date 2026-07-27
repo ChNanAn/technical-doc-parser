@@ -2,6 +2,39 @@
 
 This project keeps large native dependencies out of git. They are downloaded into `third_party/` by setup scripts and ignored by `.gitignore`.
 
+## C++ Package Manager
+
+vcpkg is the single supported C++ package-manager path. The root
+[`vcpkg.json`](../vcpkg.json) pins CLI11, nlohmann-json, spdlog, the minimal
+OpenCV inference features, and an optional `tests` feature for GoogleTest.
+Conan metadata is intentionally not maintained in parallel.
+
+Set `VCPKG_ROOT`, then configure with a preset:
+
+```bash
+export VCPKG_ROOT=/path/to/vcpkg
+cmake --preset vcpkg-release
+cmake --build --preset vcpkg-release --parallel
+```
+
+For C++ tests, enable the manifest's `tests` feature through the test preset:
+
+```bash
+cmake --preset vcpkg-test
+cmake --build --preset vcpkg-test --parallel
+ctest --preset vcpkg-test
+```
+
+The CMake dependency provider is `AUTO` by default. A vcpkg toolchain resolves
+CLI11, nlohmann-json, spdlog, and GoogleTest with `find_package`; builds without
+that toolchain retain the pinned FetchContent fallback. Set
+`DOCUMENT_INTELLIGENCE_ENGINE_DEPENDENCY_PROVIDER=PACKAGE` to require
+preinstalled CMake packages, or `FETCH` to force the fallback.
+
+vcpkg does not own model weights, PDFium binaries, or the pinned ONNX Runtime
+archive. Those artifacts keep their independent URL, version, license, and
+SHA256 verification described below and in the release manifests.
+
 ## PDFium
 
 PDF rendering uses prebuilt PDFium binaries from [`bblanchon/pdfium-binaries`](https://github.com/bblanchon/pdfium-binaries).

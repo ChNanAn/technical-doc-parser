@@ -20,14 +20,38 @@
       "cacheVariables": {
         "DOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER": "ON"
       }
+    },
+    {
+      "name": "vcpkg-release",
+      "displayName": "Core engine release with vcpkg",
+      "inherits": "core-release",
+      "binaryDir": "${sourceDir}/build/vcpkg-release",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      }
+    },
+    {
+      "name": "vcpkg-test",
+      "displayName": "Core engine tests with vcpkg",
+      "inherits": "core-release",
+      "binaryDir": "${sourceDir}/build/vcpkg-test",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_MANIFEST_FEATURES": "tests"
+      }
     }
   ],
   "buildPresets": [
     {"name": "core-release", "configurePreset": "core-release"},
-    {"name": "platform-release", "configurePreset": "platform-release"}
+    {"name": "platform-release", "configurePreset": "platform-release"},
+    {"name": "vcpkg-release", "configurePreset": "vcpkg-release"},
+    {"name": "vcpkg-test", "configurePreset": "vcpkg-test"}
   ],
   "testPresets": [
     {"name": "core-release", "configurePreset": "core-release", "output": {"outputOnFailure": true}},
-    {"name": "platform-release", "configurePreset": "platform-release", "output": {"outputOnFailure": true}}
+    {"name": "platform-release", "configurePreset": "platform-release", "output": {"outputOnFailure": true}},
+    {"name": "vcpkg-test", "configurePreset": "vcpkg-test", "output": {"outputOnFailure": true}}
   ]
 }

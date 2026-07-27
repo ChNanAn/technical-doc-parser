@@ -52,6 +52,8 @@ ctest --preset core-release
 ```
 
 PDFium, ONNX Runtime, and pinned baseline models are downloaded and verified during configuration when missing. See [Dependency Setup](docs/dependencies.md) for custom paths, optional downloads, and lightweight build options.
+The repository supports one C++ package-manager path, vcpkg; CMake keeps the
+pinned FetchContent path for source builds without a package-manager toolchain.
 
 Parse a document:
 

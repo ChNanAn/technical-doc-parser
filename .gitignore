@@ -1,5 +1,6 @@
 build/
 build-*/
+vcpkg_installed/
 third_party/pdfium/
 third_party/onnxruntime-*/
 

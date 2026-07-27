@@ -17,6 +17,7 @@ target_compile_definitions(doc_parser_pipeline
     PRIVATE
         DOC_PARSER_ENGINE_VERSION="${PROJECT_VERSION}"
         DOC_PARSER_GIT_REVISION="${DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION}"
+        FMT_HEADER_ONLY=1
     INTERFACE
         $<BUILD_INTERFACE:DOC_PARSER_PADDLEOCR_BASELINE_DIR="${DOC_PARSER_PADDLEOCR_BASELINE_DIR}">
         $<BUILD_INTERFACE:DOC_PARSER_DOCLAYNET_MODEL_PATH="${DOC_PARSER_DOCLAYNET_MODEL_PATH}">
@@ -24,12 +25,6 @@ target_compile_definitions(doc_parser_pipeline
         $<BUILD_INTERFACE:DOC_PARSER_TABLE_DETECTION_MODEL_PATH="${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}">
         $<BUILD_INTERFACE:DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH="${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}">
 )
-target_include_directories(doc_parser_pipeline
-    PRIVATE
-        $<BUILD_INTERFACE:${nlohmann_json_SOURCE_DIR}/include>
-        $<BUILD_INTERFACE:${spdlog_SOURCE_DIR}/include>
-)
-
 target_link_libraries(doc_parser_pipeline
     PUBLIC
         doc_parser_assembly
@@ -41,6 +36,9 @@ target_link_libraries(doc_parser_pipeline
         doc_parser_ocr
         doc_parser_reading_order
         doc_parser_table
+    PRIVATE
+        $<BUILD_INTERFACE:nlohmann_json::nlohmann_json>
+        $<BUILD_INTERFACE:spdlog::spdlog_header_only>
 )
 
 if(DOC_PARSER_ENABLE_OPENCV)

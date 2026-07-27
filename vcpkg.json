@@ -1,0 +1,42 @@
+{
+  "name": "technical-doc-parser",
+  "version-semver": "0.1.0",
+  "description": "C++ native document intelligence engine",
+  "license": "MIT",
+  "builtin-baseline": "b781af668027bbf77f2f827f47b5c6cd8d825c08",
+  "dependencies": [
+    "cli11",
+    "nlohmann-json",
+    {
+      "name": "spdlog",
+      "default-features": false,
+      "features": [
+        "fmt"
+      ]
+    }
+  ],
+  "default-features": [
+    "inference"
+  ],
+  "features": {
+    "inference": {
+      "description": "OpenCV image preprocessing required by ONNX inference backends",
+      "dependencies": [
+        {
+          "name": "opencv4",
+          "default-features": false,
+          "features": [
+            "jpeg",
+            "png"
+          ]
+        }
+      ]
+    },
+    "tests": {
+      "description": "C++ unit test dependencies",
+      "dependencies": [
+        "gtest"
+      ]
+    }
+  }
+}

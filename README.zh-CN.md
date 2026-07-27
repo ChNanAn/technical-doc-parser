@@ -52,6 +52,8 @@ ctest --preset core-release
 ```
 
 配置期间会在缺失时下载并校验 PDFium、ONNX Runtime 和固定版本的 baseline 模型。自定义路径、关闭自动下载和轻量构建方式见[依赖说明](docs/dependencies.md)。
+仓库只维护一条 C++ 包管理器路径：vcpkg；没有包管理器 toolchain 时，CMake
+仍保留固定版本的 FetchContent 源码构建路径。
 
 解析文档：
 

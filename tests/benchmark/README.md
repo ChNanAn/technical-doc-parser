@@ -195,12 +195,19 @@ cmake -S . -B build-ort -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PIPELINE_BENCHMARK
 cmake --build build-ort --target document_intelligence_engine pipeline_quality_eval --parallel
 bash scripts/download_quality_baseline.sh
 python3 scripts/prepare_quality_baseline.py --engine build-ort/cpp/app/document_intelligence_engine
-ctest --test-dir build-ort -R '^pipeline_(quality|block_type)_benchmark$' --output-on-failure
+ctest --test-dir build-ort \
+  -R '^(pipeline_(quality|block_type)_benchmark|pipeline_quality_report_v1)$' \
+  --output-on-failure --no-tests=error
 ```
 
 The pinned model policy resolves to PaddleOCR, `doclaynet -> paddle-layout -> text` for layout, and
 `table-transformer -> text` for tables. Predictions record the requested backends, configured fallback order, and
 model paths and thresholds. The current regression baseline is:
+
+`pipeline_quality_report_v1` converts the evaluator output through the versioned
+[`pipeline-quality-v1` profile](profiles/pipeline-quality-v1.json), validates the result against the public Schema,
+and writes `build-ort/tests/pipeline_quality_report.v1.json`. It records source-report and corpus hashes and remains
+`incomplete` until Backend and Product evidence from the same versioned quality suite is available.
 
 | Metric | Baseline | Regression guard |
 | --- | ---: | ---: |

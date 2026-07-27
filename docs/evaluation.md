@@ -81,6 +81,13 @@ metric records a numeric value, unit, direction, and optional threshold, counts,
 Open metric names allow new measurements without changing the Schema. Comparability comes from documented metric
 semantics and versioned corpora, not from a closed enum.
 
+The scheduled Pipeline workflow now turns its evaluator output into a Schema-validated Quality Report through the
+versioned [`pipeline-quality-v1` profile](../tests/benchmark/profiles/pipeline-quality-v1.json). The profile uses
+explicit JSON Pointers for every value and count, so adding metrics does not silently change existing meanings. The
+generator also verifies threshold direction, ratio counts, metric uniqueness, source-report hashes, corpus identity,
+and status semantics. The current report is intentionally `incomplete`: it contains real Pipeline evidence but does
+not pretend that Product measurements already exist.
+
 ## Corpus Strategy
 
 Use three corpus sizes for different feedback loops:
@@ -301,7 +308,8 @@ See the [full olmOCR-Bench report](benchmarks/olmocr-bench.md) for versions, cou
 The Backend baselines and sampled text/order Pipeline gate should remain in CI. The next evaluation work is:
 
 1. Measure success rate, citation completeness, p50/p95 latency, and peak RSS in one repeatable end-to-end runner.
-2. Emit `quality-report.v1` and compare it with a pinned baseline in CI.
+2. Add those Product metrics to the generated `quality-report.v1`, then compare complete reports with a pinned
+   baseline in CI.
 3. Broaden table evaluation with public out-of-domain samples, TEDS, and multi-page continuation cases.
 
 Regression floors should be introduced only after the metric and corpus are stable. A floor prevents known regressions;

@@ -77,6 +77,13 @@ Quality Report v1 固定 `backend`、`pipeline`、`product` 三个层级，但�
 开放指标名允许团队继续增加评测而不修改 Schema。真正保证可比性的是清楚的指标语义和版本化 Corpus，
 不是一份封闭 Enum。
 
+定时 Pipeline Workflow 现在会通过版本化
+[`pipeline-quality-v1` Profile](../tests/benchmark/profiles/pipeline-quality-v1.json)，把 Evaluator 输出转换为
+经过 Schema 校验的 Quality Report。Profile 使用显式 JSON Pointer 指定每个值和计数的来源，增加新指标时
+不会悄悄改变旧指标语义。生成器还会检查 Threshold 方向、Ratio 分子分母、指标重名、源报告 Hash、Corpus
+身份和总状态语义。当前报告有意保持 `incomplete`：它包含真实 Pipeline 证据，但不会假装 Product 指标已经
+存在。
+
 ## 数据集分层
 
 1. **Contract Fixtures**：原生文本、扫描 OCR、复杂表格、多栏阅读顺序。规模足够小，每次 CI 都执行，用于
@@ -194,7 +201,7 @@ Table 和公式导出的改进可以沿同一条独立曲线比较。版本、�
 ## 接下来实施顺序
 
 1. 在统一端到端 Runner 中测量成功率、RAG 引用完整率、p50/p95 耗时和 Peak RSS。
-2. 输出 `quality-report.v1`，并在 CI 中与固定 Baseline 比较。
+2. 把这些 Product 指标加入已生成的 `quality-report.v1`，再在 CI 中用完整报告对比固定 Baseline。
 3. 用公开域外样本、TEDS 和跨页延续表格扩大 Table Evaluation。
 
 只有当 Metric 和 Corpus 都稳定后才设置 Regression Floor。下限用于防止已知回退，不应自动被当作生产验收线。

@@ -1,0 +1,123 @@
+{
+  "profile_version": 1,
+  "profile_id": "pipeline-quality-baseline-v1",
+  "report_id_prefix": "quality_pipeline_baseline_v1",
+  "subject": {
+    "name": "technical-doc-parser",
+    "configuration_id": "cpu-auto-200dpi-pinned-v1"
+  },
+  "corpus": {
+    "name": "technical-doc-parser/quality-baseline-15",
+    "version": "v2",
+    "split": "regression",
+    "sample_count": {
+      "input": "pipeline_text",
+      "pointer": "/summary/samples"
+    }
+  },
+  "required_layers": [
+    "backend",
+    "pipeline",
+    "product"
+  ],
+  "inputs": {
+    "pipeline_text": {
+      "version": 2,
+      "task": "pipeline_text_order",
+      "dataset": "technical-doc-parser/quality-baseline-15"
+    }
+  },
+  "layers": {
+    "pipeline": {
+      "notes": [
+        "Text completeness is measured from 77 reviewed anchors, not as full-text recall.",
+        "Full-text metrics cover 11 of 15 pages; reference coverage is reported explicitly.",
+        "Backend and product layers are not emitted because this corpus run does not measure them."
+      ],
+      "metrics": [
+        {
+          "name": "text_completeness",
+          "input": "pipeline_text",
+          "value": "/summary/text_completeness",
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": "/summary/samples",
+          "numerator": "/summary/aligned_characters",
+          "denominator": "/summary/reference_characters",
+          "threshold": {
+            "operator": "gte",
+            "value": 0.88
+          },
+          "description": "Reviewed anchor characters aligned to final ordered document blocks."
+        },
+        {
+          "name": "reading_order_anchor_recall",
+          "input": "pipeline_text",
+          "value": "/summary/reading_order_anchor_recall",
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": "/summary/samples",
+          "numerator": "/summary/matched_anchors",
+          "denominator": "/summary/anchors",
+          "threshold": {
+            "operator": "gte",
+            "value": 0.84
+          },
+          "description": "Reviewed anchors matched strongly enough to participate in order scoring."
+        },
+        {
+          "name": "reading_order_score",
+          "input": "pipeline_text",
+          "value": "/summary/reading_order_score",
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": "/summary/samples",
+          "numerator": "/summary/correct_pairs",
+          "denominator": "/summary/comparable_pairs",
+          "threshold": {
+            "operator": "gte",
+            "value": 0.92
+          },
+          "description": "Correctly ordered matched-anchor pairs divided by all comparable pairs."
+        },
+        {
+          "name": "text_duplication_rate",
+          "input": "pipeline_text",
+          "value": "/summary/text_duplication_rate",
+          "unit": "ratio",
+          "direction": "lower_is_better",
+          "sample_count": "/summary/full_text_reference_samples",
+          "numerator": "/summary/extra_characters",
+          "denominator": "/summary/full_text_predicted_characters",
+          "threshold": {
+            "operator": "lte",
+            "value": 0.16
+          },
+          "description": "Output characters exceeding the normalized full-text reference multiset."
+        },
+        {
+          "name": "full_text_reference_coverage",
+          "input": "pipeline_text",
+          "value": "/summary/full_text_reference_coverage",
+          "unit": "ratio",
+          "direction": "higher_is_better",
+          "sample_count": "/summary/samples",
+          "numerator": "/summary/full_text_reference_samples",
+          "denominator": "/summary/samples",
+          "description": "Pages with a complete independently pinned text reference."
+        },
+        {
+          "name": "full_text_cer",
+          "input": "pipeline_text",
+          "value": "/summary/full_text_cer",
+          "unit": "ratio",
+          "direction": "lower_is_better",
+          "sample_count": "/summary/full_text_reference_samples",
+          "numerator": "/summary/full_text_char_edit_distance",
+          "denominator": "/summary/full_text_reference_characters",
+          "description": "Corpus character error rate on pages with full-text references."
+        }
+      ]
+    }
+  }
+}

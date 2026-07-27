@@ -55,6 +55,11 @@ add_test(
 )
 
 add_test(
+    NAME quality_report_generator_tests
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/test_quality_report.py
+)
+
+add_test(
     NAME benchmark_ocr_evaluator_smoke
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_ocr.py
@@ -83,6 +88,7 @@ add_test(
 set_tests_properties(
     benchmark_corpus_integrity
     benchmark_evaluator_tests
+    quality_report_generator_tests
     benchmark_ocr_evaluator_smoke
     benchmark_layout_evaluator_smoke
     benchmark_table_evaluator_smoke
@@ -346,6 +352,26 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
                 0.16
         )
         set_tests_properties(pipeline_quality_benchmark PROPERTIES LABELS "benchmark;pipeline")
+
+        set(PIPELINE_QUALITY_V1_REPORT "${CMAKE_CURRENT_BINARY_DIR}/pipeline_quality_report.v1.json")
+        add_test(
+            NAME pipeline_quality_report_v1
+            COMMAND python3
+                ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/generate_quality_report.py
+                --profile ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/profiles/pipeline-quality-v1.json
+                --input "pipeline_text=${PIPELINE_QUALITY_REPORT}"
+                --subject-version ${PROJECT_VERSION}
+                --git-revision "${DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION}"
+                --corpus-manifest
+                    ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/pipeline_quality/ground_truth.json
+                --schema ${PROJECT_SOURCE_DIR}/schemas/quality-report.v1.schema.json
+                --output ${PIPELINE_QUALITY_V1_REPORT}
+        )
+        set_tests_properties(pipeline_quality_report_v1
+            PROPERTIES
+                DEPENDS pipeline_quality_benchmark
+                LABELS "benchmark;pipeline"
+        )
 
         set(PIPELINE_BLOCK_TYPE_ROOT "${PIPELINE_QUALITY_ROOT}/pipeline_doclaynet")
         set(PIPELINE_BLOCK_TYPE_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/pipeline_block_type_predictions.json")

@@ -3,7 +3,7 @@
   "schema_version": 1,
   "report_id": "quality_2026_07_24_main",
   "generated_at": "2026-07-24T08:00:00Z",
-  "status": "incomplete",
+  "status": "passed",
   "subject": {
     "name": "technical-doc-parser",
     "version": "0.1.0",
@@ -135,6 +135,17 @@
       "media_type": "application/json"
     }
   ],
-  "metadata": {},
+  "metadata": {
+    "required_layers": [
+      "backend",
+      "pipeline",
+      "product"
+    ],
+    "missing_layers": [],
+    "thresholds": {
+      "evaluated": 1,
+      "failed": []
+    }
+  },
   "extensions": {}
 }

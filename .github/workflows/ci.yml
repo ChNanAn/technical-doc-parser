@@ -40,16 +40,23 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLEOCR_BASELINE=ON -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON -DDOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPDFium_DIR=third_party/pdfium -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLEOCR_BASELINE=ON -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON -DDOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS=ON -DDOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER=ON
 
-      - name: Verify required PaddleOCR models
-        run: test -s models/paddleocr/baseline/det.onnx && test -s models/paddleocr/baseline/rec.onnx && test -s models/paddleocr/baseline/ppocrv5_dict.txt
+      - name: Verify required benchmark models
+        run: |
+          test -s models/paddleocr/baseline/det.onnx
+          test -s models/paddleocr/baseline/rec.onnx
+          test -s models/paddleocr/baseline/ppocrv5_dict.txt
+          test -s models/layout/doclaynet/model.onnx
+          test -s models/layout/paddle/pp-doclayout-v3.onnx
+          test -s models/table/table-transformer/detection.onnx
+          test -s models/table/table-transformer/structure.onnx
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure --no-tests=error
 
       - name: Upload OCR benchmark report
         if: always()

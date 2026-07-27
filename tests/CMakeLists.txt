@@ -167,6 +167,27 @@ if(DOC_PARSER_ENABLE_PDFIUM)
 endif()
 
 if(DOC_PARSER_ENABLE_ONNXRUNTIME)
+    if(DOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS)
+        set(REQUIRED_BENCHMARK_MODEL_FILES
+            "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/det.onnx"
+            "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/rec.onnx"
+            "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/ppocrv5_dict.txt"
+            "${DOC_PARSER_DOCLAYNET_MODEL_PATH}"
+            "${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}"
+            "${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}"
+            "${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}"
+        )
+        foreach(model_file IN LISTS REQUIRED_BENCHMARK_MODEL_FILES)
+            if(NOT EXISTS "${model_file}")
+                message(FATAL_ERROR "Required benchmark model is missing: ${model_file}")
+            endif()
+            file(SIZE "${model_file}" model_size)
+            if(model_size EQUAL 0)
+                message(FATAL_ERROR "Required benchmark model is empty: ${model_file}")
+            endif()
+        endforeach()
+    endif()
+
     add_executable(paddle_ocr_onnx_baseline
         paddle_ocr_onnx_baseline.cpp
     )
@@ -332,8 +353,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     set_tests_properties(doclaynet_layout_benchmark
         PROPERTIES
             LABELS benchmark
-            SKIP_RETURN_CODE 77
     )
+    if(NOT DOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS)
+        set_tests_properties(doclaynet_layout_benchmark PROPERTIES SKIP_RETURN_CODE 77)
+    endif()
 
     set(PADDLE_LAYOUT_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/paddle_layout_predictions.json")
     set(PADDLE_LAYOUT_REPORT "${CMAKE_CURRENT_BINARY_DIR}/paddle_layout_report.json")
@@ -353,8 +376,10 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     set_tests_properties(paddle_layout_benchmark
         PROPERTIES
             LABELS benchmark
-            SKIP_RETURN_CODE 77
     )
+    if(NOT DOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS)
+        set_tests_properties(paddle_layout_benchmark PROPERTIES SKIP_RETURN_CODE 77)
+    endif()
 
     set(PUBTABLES_TABLE_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/pubtables_table_predictions.json")
     set(PUBTABLES_TABLE_REPORT "${CMAKE_CURRENT_BINARY_DIR}/pubtables_table_report.json")
@@ -374,6 +399,8 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     set_tests_properties(pubtables_table_benchmark
         PROPERTIES
             LABELS benchmark
-            SKIP_RETURN_CODE 77
     )
+    if(NOT DOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS)
+        set_tests_properties(pubtables_table_benchmark PROPERTIES SKIP_RETURN_CODE 77)
+    endif()
 endif()

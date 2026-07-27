@@ -32,6 +32,7 @@ jobs:
           -DPDFium_DIR=third_party/pdfium
           -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=ON
           -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PIPELINE_BENCHMARK=ON
+          -DDOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS=ON
 
       - name: Build
         run: cmake --build build --config Release --target document_intelligence_engine pipeline_quality_eval --parallel
@@ -42,7 +43,7 @@ jobs:
           python3 scripts/prepare_quality_baseline.py --engine build/cpp/app/document_intelligence_engine
 
       - name: Evaluate pipeline
-        run: ctest --test-dir build -R '^pipeline_(quality|block_type)_benchmark$' --output-on-failure
+        run: ctest --test-dir build -R '^pipeline_(quality|block_type)_benchmark$' --output-on-failure --no-tests=error
 
       - name: Upload report
         if: always()

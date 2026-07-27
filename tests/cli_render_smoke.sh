@@ -20,6 +20,11 @@ test -f "$PNG_PATH"
 test -f "$JSON_PATH"
 test -f "$DEBUG_JSON_PATH"
 
+python3 "$ROOT_DIR/tests/contract/validate_document.py" \
+  --schema "$ROOT_DIR/schemas/document.v1.schema.json" \
+  "$JSON_PATH" \
+  "$DEBUG_JSON_PATH"
+
 python3 - <<'PY'
 import json
 from pathlib import Path

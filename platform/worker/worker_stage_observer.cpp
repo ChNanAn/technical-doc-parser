@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
 #include <utility>
 
 namespace doc_parser::platform {
@@ -43,17 +44,22 @@ nlohmann::json backendOptions(const pipeline::BackendOptions& options) {
 
 } // namespace
 
-WorkerStageObserver::WorkerStageObserver(RedisClient& redis,
+WorkerStageObserver::WorkerStageObserver(IRedisEventWriter& redis,
                                          std::string job_id,
                                          std::string run_id,
                                          std::string attempt_id,
                                          std::filesystem::path run_directory,
                                          std::size_t run_event_stream_maximum_length,
-                                         std::size_t platform_event_stream_maximum_length)
+                                         std::size_t platform_event_stream_maximum_length,
+                                         int run_retention_seconds)
     : redis_(redis), job_id_(std::move(job_id)), run_id_(std::move(run_id)), attempt_id_(std::move(attempt_id)),
       run_directory_(std::move(run_directory)), event_stream_("run-events:" + run_id_),
       run_event_stream_maximum_length_(run_event_stream_maximum_length),
-      platform_event_stream_maximum_length_(platform_event_stream_maximum_length) {
+      platform_event_stream_maximum_length_(platform_event_stream_maximum_length),
+      run_retention_seconds_(run_retention_seconds) {
+    if (run_retention_seconds_ <= 0) {
+        throw std::invalid_argument("run retention must be positive");
+    }
     std::filesystem::create_directories(run_directory_ / "artifacts");
 }
 
@@ -68,8 +74,11 @@ void WorkerStageObserver::publish(nlohmann::json event) {
     event["timestamp"] = timestamp();
     const std::string encoded = event.dump();
     (void)redis_.addEvent(event_stream_, encoded, run_event_stream_maximum_length_);
+    redis_.expire(event_stream_, run_retention_seconds_);
     (void)redis_.addEvent("platform-events", encoded, platform_event_stream_maximum_length_);
-    redis_.setHash("run:" + run_id_, {{"last_event", encoded}, {"updated_at", event["timestamp"]}});
+    const std::string run_key = "run:" + run_id_;
+    redis_.setHash(run_key, {{"last_event", encoded}, {"updated_at", event["timestamp"]}});
+    redis_.expire(run_key, run_retention_seconds_);
     std::ofstream log(run_directory_ / "events.ndjson", std::ios::app);
     log << encoded << '\n';
 }

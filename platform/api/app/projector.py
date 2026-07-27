@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 from dataclasses import dataclass
 from typing import Any
 
@@ -38,7 +39,25 @@ SUPPORTED_EVENT_TYPES = frozenset(STATE_EVENT_STATUSES) | INFORMATION_EVENT_TYPE
 class ProjectorState:
     active: bool = False
     restart_count: int = 0
+    consecutive_failures: int = 0
+    next_restart_delay_seconds: float | None = None
     last_error: str | None = None
+
+
+def _projector_backoff_seconds(
+    initial_delay_seconds: float,
+    maximum_delay_seconds: float,
+    consecutive_failures: int,
+) -> float:
+    if initial_delay_seconds <= 0 or maximum_delay_seconds < initial_delay_seconds:
+        raise ValueError("projector backoff bounds are invalid")
+    if consecutive_failures < 1:
+        raise ValueError("projector consecutive failures must be positive")
+    ceiling = min(
+        maximum_delay_seconds,
+        initial_delay_seconds * (2 ** min(consecutive_failures - 1, 30)),
+    )
+    return random.uniform(ceiling / 2, ceiling)
 
 
 def _stream_entries(messages: Any) -> list[tuple[str, dict[str, str]]]:
@@ -182,10 +201,14 @@ async def supervise_worker_event_projector(
     state: ProjectorState,
     claim_idle_milliseconds: int,
     restart_delay_seconds: float,
+    maximum_restart_delay_seconds: float,
+    restart_reset_seconds: float,
 ) -> None:
     while True:
         state.active = True
+        state.next_restart_delay_seconds = None
         state.last_error = None
+        started = asyncio.get_running_loop().time()
         try:
             await _project_worker_events(redis, database, consumer, claim_idle_milliseconds)
             raise RuntimeError("worker event projector stopped unexpectedly")
@@ -193,13 +216,24 @@ async def supervise_worker_event_projector(
             state.active = False
             raise
         except Exception as error:
+            elapsed = asyncio.get_running_loop().time() - started
+            if elapsed >= restart_reset_seconds:
+                state.consecutive_failures = 0
             state.active = False
             state.restart_count += 1
+            state.consecutive_failures += 1
             state.last_error = str(error)
+            state.next_restart_delay_seconds = _projector_backoff_seconds(
+                restart_delay_seconds,
+                maximum_restart_delay_seconds,
+                state.consecutive_failures,
+            )
             LOGGER.exception(
-                "worker event projector failed; restarting consumer=%s restart_count=%d delay_seconds=%s",
+                "worker event projector failed; restarting consumer=%s restart_count=%d "
+                "consecutive_failures=%d delay_seconds=%s",
                 consumer,
                 state.restart_count,
-                restart_delay_seconds,
+                state.consecutive_failures,
+                state.next_restart_delay_seconds,
             )
-            await asyncio.sleep(restart_delay_seconds)
+            await asyncio.sleep(state.next_restart_delay_seconds)

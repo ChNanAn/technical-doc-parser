@@ -12,13 +12,14 @@ namespace doc_parser::platform {
 
 class WorkerStageObserver final : public pipeline::IStageObserver {
 public:
-    WorkerStageObserver(RedisClient& redis,
+    WorkerStageObserver(IRedisEventWriter& redis,
                         std::string job_id,
                         std::string run_id,
                         std::string attempt_id,
                         std::filesystem::path run_directory,
                         std::size_t run_event_stream_maximum_length,
-                        std::size_t platform_event_stream_maximum_length);
+                        std::size_t platform_event_stream_maximum_length,
+                        int run_retention_seconds);
 
     void publishJobEvent(const std::string& type, const std::string& message = {});
     void onRunConfigured(const pipeline::RunProvenance& provenance) override;
@@ -32,7 +33,7 @@ public:
 private:
     void publish(nlohmann::json event);
 
-    RedisClient& redis_;
+    IRedisEventWriter& redis_;
     std::string job_id_;
     std::string run_id_;
     std::string attempt_id_;
@@ -40,6 +41,7 @@ private:
     std::string event_stream_;
     std::size_t run_event_stream_maximum_length_;
     std::size_t platform_event_stream_maximum_length_;
+    int run_retention_seconds_;
     std::string last_error_code_;
     std::string last_error_;
     bool last_error_retryable_ = false;

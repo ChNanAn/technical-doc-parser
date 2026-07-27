@@ -3,9 +3,11 @@ import io
 
 import pytest
 from fastapi import HTTPException, UploadFile
+from pydantic import ValidationError
 
 from app.main import _common_worker_capabilities, _save_upload
 from app.models import RunCreate
+from app.settings import Settings
 
 
 def test_backend_selection_is_independent_per_stage() -> None:
@@ -29,6 +31,14 @@ def test_worker_capabilities_are_intersected_for_shared_queue() -> None:
         {"capabilities": {"document": ["auto", "pdf"], "ocr": ["auto", "noop"], "layout": ["auto", "text"], "table": ["auto", "text"]}},
     ])
     assert available["ocr"] == ["auto", "noop"]
+
+
+def test_projector_backoff_settings_reject_maximum_below_initial_delay() -> None:
+    with pytest.raises(ValidationError, match="maximum delay"):
+        Settings(
+            projector_restart_delay_seconds=2.0,
+            projector_restart_max_delay_seconds=1.0,
+        )
 
 
 def test_upload_rejects_content_without_pdf_signature(tmp_path) -> None:

@@ -153,6 +153,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 projector_state,
                 resolved.projector_claim_idle_milliseconds,
                 resolved.projector_restart_delay_seconds,
+                resolved.projector_restart_max_delay_seconds,
+                resolved.projector_restart_reset_seconds,
             ),
             name="worker-event-projector",
         )

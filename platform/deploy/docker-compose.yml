@@ -38,6 +38,8 @@ services:
       DIE_RUNTIME_ROOT: /runtime
       DIE_CORS_ORIGINS: http://localhost:8080
       DIE_JOB_STREAM_MAX_LENGTH: "10000"
+      DIE_PROJECTOR_RESTART_MAX_DELAY_SECONDS: "30"
+      DIE_PROJECTOR_RESTART_RESET_SECONDS: "60"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +65,7 @@ services:
       WORKER_ENGINE_CACHE_SIZE: "2"
       RUN_EVENT_STREAM_MAX_LENGTH: "2000"
       PLATFORM_EVENT_STREAM_MAX_LENGTH: "100000"
+      RUN_RETENTION_SECONDS: "604800"
     depends_on:
       redis:
         condition: service_healthy

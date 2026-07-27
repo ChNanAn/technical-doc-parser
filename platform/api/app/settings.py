@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,8 +16,16 @@ class Settings(BaseSettings):
     job_stream_max_length: int = Field(default=10_000, ge=1)
     projector_claim_idle_milliseconds: int = Field(default=30_000, ge=1)
     projector_restart_delay_seconds: float = Field(default=1.0, gt=0)
+    projector_restart_max_delay_seconds: float = Field(default=30.0, gt=0)
+    projector_restart_reset_seconds: float = Field(default=60.0, gt=0)
     maximum_upload_bytes: int = 100 * 1024 * 1024
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
+
+    @model_validator(mode="after")
+    def validate_projector_backoff(self) -> "Settings":
+        if self.projector_restart_max_delay_seconds < self.projector_restart_delay_seconds:
+            raise ValueError("projector restart maximum delay must be at least the initial delay")
+        return self
 
     @property
     def allowed_origins(self) -> list[str]:

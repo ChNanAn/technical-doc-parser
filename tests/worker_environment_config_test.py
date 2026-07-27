@@ -91,7 +91,7 @@ def main() -> int:
     assert_equal(config["table_transformer"]["crop_padding"], 29, "table.crop_padding")
 
     invalid_runtime_environment = os.environ.copy()
-    invalid_runtime_environment["WORKER_ENGINE_CACHE_SIZE"] = "0"
+    invalid_runtime_environment["RUN_RETENTION_SECONDS"] = "0"
     invalid_runtime = subprocess.run(
         [args.worker],
         capture_output=True,
@@ -99,7 +99,7 @@ def main() -> int:
         text=True,
     )
     assert_equal(invalid_runtime.returncode, 2, "invalid runtime limit exit code")
-    if "must be positive" not in invalid_runtime.stderr:
+    if "RUN_RETENTION_SECONDS must be positive" not in invalid_runtime.stderr:
         raise AssertionError(f"missing runtime limit diagnostic: {invalid_runtime.stderr!r}")
     return 0
 

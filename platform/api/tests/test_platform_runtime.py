@@ -17,6 +17,7 @@ from app.projector import (
     PLATFORM_EVENT_STREAM,
     PROJECTOR_CONSUMER_GROUP,
     ProjectorState,
+    _projector_backoff_seconds,
     _project_entry,
     _read_projector_entries,
     supervise_worker_event_projector,
@@ -319,6 +320,8 @@ def test_projector_supervisor_restarts_after_transient_failure(monkeypatch: Any)
                 state,
                 30_000,
                 0.001,
+                0.01,
+                1.0,
             )
         )
         await asyncio.wait_for(restarted.wait(), timeout=1)
@@ -332,3 +335,28 @@ def test_projector_supervisor_restarts_after_transient_failure(monkeypatch: Any)
         assert not state.active
 
     asyncio.run(supervise())
+
+
+def test_projector_backoff_is_exponential_jittered_and_bounded(monkeypatch: Any) -> None:
+    jitter_bounds: list[tuple[float, float]] = []
+
+    def use_ceiling(lower: float, upper: float) -> float:
+        jitter_bounds.append((lower, upper))
+        return upper
+
+    monkeypatch.setattr(projector.random, "uniform", use_ceiling)
+
+    delays = [
+        _projector_backoff_seconds(1.0, 10.0, failure_count)
+        for failure_count in range(1, 7)
+    ]
+
+    assert delays == [1.0, 2.0, 4.0, 8.0, 10.0, 10.0]
+    assert jitter_bounds == [
+        (0.5, 1.0),
+        (1.0, 2.0),
+        (2.0, 4.0),
+        (4.0, 8.0),
+        (5.0, 10.0),
+        (5.0, 10.0),
+    ]

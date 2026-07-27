@@ -286,9 +286,11 @@ int main(int argc, char** argv) {
     const int engine_cache_size = environmentInt("WORKER_ENGINE_CACHE_SIZE", 2);
     const int run_event_stream_maximum_length = environmentInt("RUN_EVENT_STREAM_MAX_LENGTH", 2'000);
     const int platform_event_stream_maximum_length = environmentInt("PLATFORM_EVENT_STREAM_MAX_LENGTH", 100'000);
-    if (engine_cache_size <= 0 || run_event_stream_maximum_length <= 0 || platform_event_stream_maximum_length <= 0) {
-        std::cerr << "WORKER_ENGINE_CACHE_SIZE, RUN_EVENT_STREAM_MAX_LENGTH, and PLATFORM_EVENT_STREAM_MAX_LENGTH must "
-                     "be positive\n";
+    const int run_retention_seconds = environmentInt("RUN_RETENTION_SECONDS", 7 * 24 * 60 * 60);
+    if (engine_cache_size <= 0 || run_event_stream_maximum_length <= 0 || platform_event_stream_maximum_length <= 0 ||
+        run_retention_seconds <= 0) {
+        std::cerr << "WORKER_ENGINE_CACHE_SIZE, RUN_EVENT_STREAM_MAX_LENGTH, PLATFORM_EVENT_STREAM_MAX_LENGTH, and "
+                     "RUN_RETENTION_SECONDS must be positive\n";
         return 2;
     }
 
@@ -300,6 +302,7 @@ int main(int argc, char** argv) {
         const std::string worker_key = "worker:" + worker_id;
         const std::string capabilities = availableCapabilities(backend_registry);
         std::cout << "worker engine config: " << engineConfigJson(engine_config).dump() << '\n';
+        std::cout << "worker run retention: seconds=" << run_retention_seconds << '\n';
         WorkerHeartbeat heartbeat(redis_host, redis_port, worker_key, capabilities);
         doc_parser::platform::WorkerDocumentProcessor processor(
             engine_config, backend_registry, static_cast<std::size_t>(engine_cache_size));
@@ -332,7 +335,8 @@ int main(int argc, char** argv) {
                     attempt_id,
                     run_directory,
                     static_cast<std::size_t>(run_event_stream_maximum_length),
-                    static_cast<std::size_t>(platform_event_stream_maximum_length));
+                    static_cast<std::size_t>(platform_event_stream_maximum_length),
+                    run_retention_seconds);
                 heartbeat.setRunning(run_id);
                 observer.publishJobEvent("job_started");
                 try {
@@ -348,7 +352,9 @@ int main(int argc, char** argv) {
                 std::cerr << "job " << message->id << " failed: " << error.what() << '\n';
                 const auto run_id = message->fields.find("run_id");
                 if (run_id != message->fields.end()) {
-                    redis.setHash("run:" + run_id->second, {{"status", "failed"}, {"error", error.what()}});
+                    const std::string run_key = "run:" + run_id->second;
+                    redis.setHash(run_key, {{"status", "failed"}, {"error", error.what()}});
+                    redis.expire(run_key, run_retention_seconds);
                 }
                 redis.acknowledge(job_stream, consumer_group, message->id);
             }

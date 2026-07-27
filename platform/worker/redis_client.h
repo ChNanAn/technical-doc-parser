@@ -13,7 +13,16 @@ struct RedisStreamMessage {
     std::map<std::string, std::string> fields;
 };
 
-class RedisClient {
+class IRedisEventWriter {
+public:
+    virtual ~IRedisEventWriter() = default;
+
+    virtual std::string addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length) = 0;
+    virtual void setHash(const std::string& key, const std::map<std::string, std::string>& values) = 0;
+    virtual void expire(const std::string& key, int seconds) = 0;
+};
+
+class RedisClient final : public IRedisEventWriter {
 public:
     RedisClient(std::string host, int port);
     ~RedisClient();
@@ -24,10 +33,11 @@ public:
     void ensureConsumerGroup(const std::string& stream, const std::string& group);
     std::optional<RedisStreamMessage>
     readGroup(const std::string& stream, const std::string& group, const std::string& consumer, int block_milliseconds);
-    std::string addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length);
+    std::string
+    addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length) override;
     void acknowledge(const std::string& stream, const std::string& group, const std::string& message_id);
-    void setHash(const std::string& key, const std::map<std::string, std::string>& values);
-    void expire(const std::string& key, int seconds);
+    void setHash(const std::string& key, const std::map<std::string, std::string>& values) override;
+    void expire(const std::string& key, int seconds) override;
 
 private:
     struct Value;

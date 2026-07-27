@@ -28,6 +28,8 @@ if(BUILD_TESTING)
     add_executable(platform_worker_unit_tests
         ${DOCUMENT_INTELLIGENCE_WORKER_ENGINE_SOURCES}
         document_engine_cache_test.cpp
+        worker_stage_observer.cpp
+        worker_stage_observer_test.cpp
     )
 
     target_include_directories(platform_worker_unit_tests

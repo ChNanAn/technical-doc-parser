@@ -25,8 +25,6 @@ struct DocumentEngine::Impl {
     PipelineServiceCreationResult creation;
 };
 
-DocumentEngine::DocumentEngine() : DocumentEngine(defaultEngineConfig()) {}
-
 DocumentEngine::DocumentEngine(EngineConfig config) : DocumentEngine(config, createDefaultBackendRegistry(config)) {}
 
 DocumentEngine::DocumentEngine(EngineConfig config, const BackendRegistry& registry)

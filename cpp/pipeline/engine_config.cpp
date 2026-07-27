@@ -9,26 +9,6 @@
 namespace doc_parser::pipeline {
 namespace {
 
-#ifndef DOC_PARSER_PADDLEOCR_BASELINE_DIR
-#define DOC_PARSER_PADDLEOCR_BASELINE_DIR "models/paddleocr/baseline"
-#endif
-
-#ifndef DOC_PARSER_DOCLAYNET_MODEL_PATH
-#define DOC_PARSER_DOCLAYNET_MODEL_PATH "models/layout/doclaynet/model.onnx"
-#endif
-
-#ifndef DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH
-#define DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH "models/layout/paddle/pp-doclayout-v3.onnx"
-#endif
-
-#ifndef DOC_PARSER_TABLE_DETECTION_MODEL_PATH
-#define DOC_PARSER_TABLE_DETECTION_MODEL_PATH "models/table/table-transformer/detection.onnx"
-#endif
-
-#ifndef DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH
-#define DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH "models/table/table-transformer/structure.onnx"
-#endif
-
 std::string environment(const char* name) {
     const char* value = std::getenv(name);
     return value == nullptr ? std::string{} : std::string(value);
@@ -99,22 +79,7 @@ void applyProbability(const char* name, double& target) {
 
 } // namespace
 
-EngineConfig defaultEngineConfig() {
-    EngineConfig config;
-    const std::filesystem::path paddle_ocr_dir = DOC_PARSER_PADDLEOCR_BASELINE_DIR;
-    config.paddle_ocr.detection_model = paddle_ocr_dir / "det.onnx";
-    config.paddle_ocr.recognition_model = paddle_ocr_dir / "rec.onnx";
-    config.paddle_ocr.character_dict = paddle_ocr_dir / "ppocrv5_dict.txt";
-    config.doclaynet.model_path = DOC_PARSER_DOCLAYNET_MODEL_PATH;
-    config.paddle_layout.model_path = DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH;
-    config.table_transformer.detection_model_path = DOC_PARSER_TABLE_DETECTION_MODEL_PATH;
-    config.table_transformer.structure_model_path = DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH;
-    return config;
-}
-
-EngineConfig engineConfigFromEnvironment(BackendOptions backends) {
-    EngineConfig config = defaultEngineConfig();
-    config.backends = std::move(backends);
+EngineConfig engineConfigFromEnvironment(EngineConfig config) {
     if (config.backends.registry_config.empty()) {
         applyPath("DOCUMENT_INTELLIGENCE_ENGINE_BACKEND_CONFIG", config.backends.registry_config);
     }

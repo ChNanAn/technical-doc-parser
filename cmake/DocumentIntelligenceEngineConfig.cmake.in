@@ -15,5 +15,15 @@ if(@DOC_PARSER_ENABLE_ONNXRUNTIME@)
     find_dependency(ONNXRuntime MODULE)
 endif()
 
+set(DocumentIntelligenceEngine_MODEL_DIR "@PACKAGE_DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR@")
+
 include("${CMAKE_CURRENT_LIST_DIR}/DocumentIntelligenceEngineTargets.cmake")
+set_property(TARGET DocumentIntelligenceEngine::engine APPEND PROPERTY
+    INTERFACE_COMPILE_DEFINITIONS
+        "DOC_PARSER_PADDLEOCR_BASELINE_DIR=\"${DocumentIntelligenceEngine_MODEL_DIR}/paddleocr/baseline\""
+        "DOC_PARSER_DOCLAYNET_MODEL_PATH=\"${DocumentIntelligenceEngine_MODEL_DIR}/layout/doclaynet/model.onnx\""
+        "DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH=\"${DocumentIntelligenceEngine_MODEL_DIR}/layout/paddle/pp-doclayout-v3.onnx\""
+        "DOC_PARSER_TABLE_DETECTION_MODEL_PATH=\"${DocumentIntelligenceEngine_MODEL_DIR}/table/table-transformer/detection.onnx\""
+        "DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH=\"${DocumentIntelligenceEngine_MODEL_DIR}/table/table-transformer/structure.onnx\""
+)
 check_required_components(DocumentIntelligenceEngine)

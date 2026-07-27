@@ -71,8 +71,6 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_compile_definitions(doc_parser_ocr
         PUBLIC
             DOC_PARSER_ENABLE_ONNXRUNTIME=1
-        PRIVATE
-            DOC_PARSER_PADDLEOCR_BASELINE_DIR="${DOC_PARSER_PADDLEOCR_BASELINE_DIR}"
     )
 endif()
 

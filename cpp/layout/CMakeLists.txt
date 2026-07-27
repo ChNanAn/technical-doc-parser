@@ -89,9 +89,6 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_compile_definitions(doc_parser_layout
         PUBLIC
             DOC_PARSER_ENABLE_ONNXRUNTIME=1
-        PRIVATE
-            DOC_PARSER_DOCLAYNET_MODEL_PATH="${DOC_PARSER_DOCLAYNET_MODEL_PATH}"
-            DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH="${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}"
     )
 else()
     target_compile_definitions(doc_parser_layout PUBLIC DOC_PARSER_ENABLE_ONNXRUNTIME=0)

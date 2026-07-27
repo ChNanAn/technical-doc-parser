@@ -1,7 +1,5 @@
 #include "pipeline/backend_registry.h"
 
-#include "pipeline/engine_config.h"
-
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
 #include "ocr/paddle_ocr_onnx_backend.h"
 #endif
@@ -129,8 +127,6 @@ BackendCreationResult<layout::ILayoutBackend> BackendRegistry::createLayout(cons
 BackendCreationResult<table::ITableBackend> BackendRegistry::createTable(const std::string& name) const {
     return table_.create(name);
 }
-
-BackendRegistry createDefaultBackendRegistry() { return createDefaultBackendRegistry(defaultEngineConfig()); }
 
 BackendRegistry createDefaultBackendRegistry(const EngineConfig& config) {
     BackendRegistry registry;

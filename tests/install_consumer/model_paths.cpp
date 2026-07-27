@@ -1,0 +1,63 @@
+#include "pipeline/backend_registry.h"
+#include "pipeline/engine_config.h"
+
+#include <filesystem>
+#include <iostream>
+#include <string>
+#include <vector>
+
+namespace {
+
+bool isInside(const std::filesystem::path& path, const std::filesystem::path& root) {
+    std::error_code error;
+    const std::filesystem::path resolved_path = std::filesystem::weakly_canonical(path, error);
+    if (error) {
+        return false;
+    }
+    const std::filesystem::path resolved_root = std::filesystem::weakly_canonical(root, error);
+    if (error) {
+        return false;
+    }
+    return resolved_path == resolved_root || resolved_path.string().rfind(resolved_root.string() + '/', 0) == 0;
+}
+
+} // namespace
+
+int main() {
+    const doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
+    const std::filesystem::path model_root = EXPECTED_MODEL_DIR;
+    const std::vector<std::filesystem::path> model_files{
+        config.paddle_ocr.detection_model,
+        config.paddle_ocr.recognition_model,
+        config.paddle_ocr.character_dict,
+        config.doclaynet.model_path,
+        config.paddle_layout.model_path,
+        config.table_transformer.detection_model_path,
+        config.table_transformer.structure_model_path,
+    };
+
+    for (const std::filesystem::path& model_file : model_files) {
+        if (!isInside(model_file, model_root)) {
+            std::cerr << "default model path escapes relocated package: " << model_file << '\n';
+            return 1;
+        }
+#if EXPECT_INSTALLED_MODELS
+        if (!std::filesystem::is_regular_file(model_file)) {
+            std::cerr << "installed default model is missing: " << model_file << '\n';
+            return 1;
+        }
+#endif
+    }
+
+#if EXPECT_INSTALLED_MODELS
+    doc_parser::pipeline::BackendRegistry registry = doc_parser::pipeline::createDefaultBackendRegistry();
+    const auto ocr = registry.createOcr("paddle");
+    if (ocr.status != doc_parser::pipeline::BackendCreationStatus::Created) {
+        std::cerr << "default registry cannot load installed PaddleOCR models: " << ocr.error_message << '\n';
+        return 1;
+    }
+#endif
+
+    std::cout << model_root << '\n';
+    return 0;
+}

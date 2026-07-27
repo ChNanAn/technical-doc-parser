@@ -69,7 +69,7 @@ function(doc_parser_set_public_includes target_name)
     target_include_directories(${target_name}
         ${include_scope}
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/cpp>
-            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine>
     )
 endfunction()
 
@@ -252,10 +252,43 @@ install(TARGETS ${DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 install(DIRECTORY cpp/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine
     FILES_MATCHING PATTERN "*.h"
     PATTERN "app" EXCLUDE
 )
+
+set(DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR
+    "${CMAKE_INSTALL_DATADIR}/DocumentIntelligenceEngine/models"
+)
+if(DOC_PARSER_ENABLE_ONNXRUNTIME)
+    install(FILES
+        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/det.onnx"
+        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/rec.onnx"
+        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/ppocrv5_dict.txt"
+        DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR}/paddleocr/baseline"
+        OPTIONAL
+    )
+    install(FILES "${DOC_PARSER_DOCLAYNET_MODEL_PATH}"
+        DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR}/layout/doclaynet"
+        RENAME model.onnx
+        OPTIONAL
+    )
+    install(FILES "${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}"
+        DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR}/layout/paddle"
+        RENAME pp-doclayout-v3.onnx
+        OPTIONAL
+    )
+    install(FILES "${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}"
+        DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR}/table/table-transformer"
+        RENAME detection.onnx
+        OPTIONAL
+    )
+    install(FILES "${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}"
+        DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR}/table/table-transformer"
+        RENAME structure.onnx
+        OPTIONAL
+    )
+endif()
 
 set(DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR
     "${CMAKE_INSTALL_LIBDIR}/cmake/DocumentIntelligenceEngine"
@@ -264,6 +297,7 @@ configure_package_config_file(
     cmake/DocumentIntelligenceEngineConfig.cmake.in
     "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfig.cmake"
     INSTALL_DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR}"
+    PATH_VARS DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR
 )
 write_basic_package_version_file(
     "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfigVersion.cmake"

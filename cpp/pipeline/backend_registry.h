@@ -3,6 +3,7 @@
 #include "document_source/document_source_factory.h"
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
+#include "pipeline/engine_config.h"
 #include "table/table_backend.h"
 
 #include <filesystem>
@@ -14,8 +15,6 @@
 #include <vector>
 
 namespace doc_parser::pipeline {
-
-struct EngineConfig;
 
 enum class BackendCreationStatus {
     Created,
@@ -125,8 +124,8 @@ struct BackendRegistryConfigResult {
     std::string error;
 };
 
-BackendRegistry createDefaultBackendRegistry();
 BackendRegistry createDefaultBackendRegistry(const EngineConfig& config);
+inline BackendRegistry createDefaultBackendRegistry() { return createDefaultBackendRegistry(defaultEngineConfig()); }
 BackendRegistryConfigResult loadBackendRegistryConfig(const std::filesystem::path& path,
                                                       const BackendRegistry& registry);
 

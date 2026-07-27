@@ -83,8 +83,10 @@ JSON, Markdown, and HTML export is an explicit caller choice. See the runnable [
 and its standalone [CMake project](examples/CMakeLists.txt).
 
 PDFium and, when enabled, ONNX Runtime remain external package dependencies. Set `PDFium_DIR` and
-`ONNXRuntime_ROOT` when configuring a downstream project if they are not installed in standard locations. Model
-files are runtime data; SDK applications should provide their paths through `EngineConfig`.
+`ONNXRuntime_ROOT` when configuring a downstream project if they are not installed in standard locations. Available
+default models are installed under `share/DocumentIntelligenceEngine/models`; the relocatable package exposes that
+path as `DocumentIntelligenceEngine_MODEL_DIR`, and `defaultEngineConfig()` uses it automatically. Applications can
+still override every model path explicitly through `EngineConfig`.
 
 ## Output
 

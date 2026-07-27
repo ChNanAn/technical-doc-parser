@@ -11,6 +11,20 @@ if(TARGET document_intelligence_worker)
 endif()
 
 if(DOC_PARSER_ENABLE_PDFIUM)
+    set(DOCUMENT_INTELLIGENCE_ENGINE_EXPECT_INSTALLED_MODELS "${DOC_PARSER_ENABLE_ONNXRUNTIME}")
+    foreach(default_model
+        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/det.onnx"
+        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/rec.onnx"
+        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/ppocrv5_dict.txt"
+        "${DOC_PARSER_DOCLAYNET_MODEL_PATH}"
+        "${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}"
+        "${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}"
+        "${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}"
+    )
+        if(NOT EXISTS "${default_model}")
+            set(DOCUMENT_INTELLIGENCE_ENGINE_EXPECT_INSTALLED_MODELS OFF)
+        endif()
+    endforeach()
     add_test(
         NAME cmake_install_consumer
         COMMAND
@@ -22,6 +36,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
             "-DCONSUMER_OUTPUT_DIR=${PROJECT_BINARY_DIR}/install-consumer-output"
             "-DPDFium_DIR=${PDFium_DIR}"
             "-DENABLE_ONNXRUNTIME=${DOC_PARSER_ENABLE_ONNXRUNTIME}"
+            "-DEXPECT_INSTALLED_MODELS=${DOCUMENT_INTELLIGENCE_ENGINE_EXPECT_INSTALLED_MODELS}"
             "-DONNXRuntime_ROOT=${ONNXRuntime_ROOT}"
             "-DTEST_PDF=${PROJECT_SOURCE_DIR}/tests/fixtures/pdfs/pdfjs-basicapi.pdf"
             -P "${PROJECT_SOURCE_DIR}/tests/install_consumer/run.cmake"

@@ -67,9 +67,6 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_compile_definitions(doc_parser_table
         PUBLIC
             DOC_PARSER_ENABLE_ONNXRUNTIME=1
-        PRIVATE
-            DOC_PARSER_TABLE_DETECTION_MODEL_PATH="${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}"
-            DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH="${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}"
     )
 else()
     target_compile_definitions(doc_parser_table PUBLIC DOC_PARSER_ENABLE_ONNXRUNTIME=0)

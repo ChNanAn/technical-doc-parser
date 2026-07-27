@@ -1,4 +1,5 @@
 #include "pipeline/backend_registry.h"
+#include "pipeline/document_engine_internal.h"
 #include "document_intelligence_engine/document_engine.h"
 
 #include <filesystem>
@@ -160,7 +161,8 @@ int main(int argc, char** argv) {
         std::cerr << "Backend policy initialization failed: " << policy.error << '\n';
         return 1;
     }
-    doc_parser::pipeline::DocumentEngine engine(config, registry);
+    doc_parser::pipeline::DocumentEngine engine =
+        doc_parser::pipeline::DocumentEngineInternalAccess::create(config, registry);
     if (!engine.isReady()) {
         std::cerr << "Document engine initialization failed: " << engine.initializationStatus().message() << '\n';
         return 1;

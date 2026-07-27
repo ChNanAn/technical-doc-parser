@@ -4,6 +4,7 @@
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/backend_registry.h"
+#include "pipeline/document_engine_internal.h"
 #include "document_intelligence_engine/document_engine.h"
 #include "pipeline/document_pipeline.h"
 #include "table/table_backend.h"
@@ -148,7 +149,8 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAndLeavesExportToCaller) {
     backend_options.registry_config = registry_config;
     doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
     engine_config.backends = backend_options;
-    doc_parser::pipeline::DocumentEngine engine(engine_config, registry);
+    doc_parser::pipeline::DocumentEngine engine =
+        doc_parser::pipeline::DocumentEngineInternalAccess::create(engine_config, registry);
     ASSERT_TRUE(engine.isReady()) << engine.initializationStatus().message();
     std::filesystem::remove(registry_config);
 
@@ -220,7 +222,8 @@ TEST(DocumentEngineTest, RuntimeFallbackProducesExplainedPartialResultAndProvena
     config.backends.layout = "auto";
     config.backends.table = "text";
     config.backends.registry_config = registry_config;
-    doc_parser::pipeline::DocumentEngine engine(config, registry);
+    doc_parser::pipeline::DocumentEngine engine =
+        doc_parser::pipeline::DocumentEngineInternalAccess::create(config, registry);
     ASSERT_TRUE(engine.isReady()) << engine.initializationStatus().message();
 
     doc_parser::pipeline::DocumentParseOptions options;

@@ -7,7 +7,8 @@
 #include "document/table_model.h"
 #include "document/text_model.h"
 
-#include <filesystem>
+#include <document_intelligence_engine/engine_config.h>
+
 #include <memory>
 #include <vector>
 
@@ -36,14 +37,6 @@ public:
 class TextTableStructureBackend final : public ITableBackend {
 public:
     bool recognize(const TableRequest& request, TableResult& result) const override;
-};
-
-struct TableTransformerOnnxConfig {
-    std::filesystem::path detection_model_path;
-    std::filesystem::path structure_model_path;
-    double detection_confidence_threshold = 0.9;
-    double structure_confidence_threshold = 0.5;
-    int crop_padding = 20;
 };
 
 class TableTransformerOnnxBackend final : public ITableBackend {

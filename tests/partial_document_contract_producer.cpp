@@ -4,6 +4,7 @@
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/backend_registry.h"
+#include "pipeline/document_engine_internal.h"
 #include "document_intelligence_engine/document_engine.h"
 #include "table/table_backend.h"
 
@@ -72,7 +73,8 @@ int main(int argc, char** argv) {
     config.backends.layout = "auto";
     config.backends.table = "text";
     config.backends.registry_config = registry_config;
-    doc_parser::pipeline::DocumentEngine engine(std::move(config), registry);
+    doc_parser::pipeline::DocumentEngine engine =
+        doc_parser::pipeline::DocumentEngineInternalAccess::create(std::move(config), registry);
     if (!engine.isReady()) {
         return fail("engine initialization failed: " + engine.initializationStatus().message());
     }

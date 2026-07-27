@@ -127,6 +127,7 @@ function(doc_parser_set_public_includes target_name)
     target_include_directories(${target_name}
         ${include_scope}
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/cpp>
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/sdk/cpp/include>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine>
     )
 endfunction()
@@ -329,11 +330,22 @@ install(TARGETS ${DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     COMPONENT Development
 )
-install(DIRECTORY cpp/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine
+install(FILES
+    cpp/common/diagnostic.h
+    cpp/common/status.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine/common
     COMPONENT Development
-    FILES_MATCHING PATTERN "*.h"
-    PATTERN "app" EXCLUDE
+)
+install(FILES
+    cpp/document/document_block.h
+    cpp/document/layout_model.h
+    cpp/document/page_artifact.h
+    cpp/document/parsed_document.h
+    cpp/document/reading_order_model.h
+    cpp/document/table_model.h
+    cpp/document/text_model.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine/document
+    COMPONENT Development
 )
 install(DIRECTORY sdk/cpp/include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}

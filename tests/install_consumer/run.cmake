@@ -15,11 +15,40 @@ if(NOT install_result EQUAL 0)
 endif()
 
 file(RENAME "${INSTALL_PREFIX}" "${RELOCATED_INSTALL_PREFIX}")
-set(namespaced_include
-    "${RELOCATED_INSTALL_PREFIX}/include/document_intelligence_engine/document_engine.h"
+set(include_root
+    "${RELOCATED_INSTALL_PREFIX}/include"
 )
-if(NOT EXISTS "${namespaced_include}")
-    message(FATAL_ERROR "Installed SDK header is missing from its namespace: ${namespaced_include}")
+set(expected_headers
+    document_intelligence_engine/c_api.h
+    document_intelligence_engine/common/diagnostic.h
+    document_intelligence_engine/common/status.h
+    document_intelligence_engine/document/document_block.h
+    document_intelligence_engine/document/layout_model.h
+    document_intelligence_engine/document/page_artifact.h
+    document_intelligence_engine/document/parsed_document.h
+    document_intelligence_engine/document/reading_order_model.h
+    document_intelligence_engine/document/table_model.h
+    document_intelligence_engine/document/text_model.h
+    document_intelligence_engine/document_engine.h
+    document_intelligence_engine/engine_config.h
+    document_intelligence_engine/options.h
+    document_intelligence_engine/provenance.h
+    document_intelligence_engine/stage_observer.h
+)
+file(GLOB_RECURSE installed_headers
+    RELATIVE "${include_root}"
+    "${include_root}/*.h"
+)
+list(SORT expected_headers)
+list(SORT installed_headers)
+if(NOT installed_headers STREQUAL expected_headers)
+    string(JOIN "\n  " expected_headers_text ${expected_headers})
+    string(JOIN "\n  " installed_headers_text ${installed_headers})
+    message(FATAL_ERROR
+        "Installed public header boundary changed.\n"
+        "Expected:\n  ${expected_headers_text}\n"
+        "Actual:\n  ${installed_headers_text}"
+    )
 endif()
 foreach(polluting_directory common document pipeline export layout ocr table)
     if(EXISTS "${RELOCATED_INSTALL_PREFIX}/include/${polluting_directory}")

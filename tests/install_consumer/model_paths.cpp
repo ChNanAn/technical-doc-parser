@@ -1,12 +1,11 @@
 #include <document_intelligence_engine/document_engine.h>
 #include <document_intelligence_engine/engine_config.h>
 
-#include "pipeline/backend_registry.h"
-
 #include <filesystem>
 #include <iostream>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -59,10 +58,12 @@ int main() {
     }
 
 #if EXPECT_INSTALLED_MODELS
-    doc_parser::pipeline::BackendRegistry registry = doc_parser::pipeline::createDefaultBackendRegistry();
-    const auto ocr = registry.createOcr("paddle");
-    if (ocr.status != doc_parser::pipeline::BackendCreationStatus::Created) {
-        std::cerr << "default registry cannot load installed PaddleOCR models: " << ocr.error_message << '\n';
+    doc_parser::pipeline::EngineConfig engine_config = config;
+    engine_config.backends = {"pdf", "paddle", "text", "text", {}};
+    const doc_parser::pipeline::DocumentEngine engine(std::move(engine_config));
+    if (!engine.isReady()) {
+        std::cerr << "public SDK cannot load installed PaddleOCR models: "
+                  << engine.initializationStatus().message() << '\n';
         return 1;
     }
 #endif

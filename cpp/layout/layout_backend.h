@@ -6,7 +6,8 @@
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 
-#include <filesystem>
+#include <document_intelligence_engine/engine_config.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -40,13 +41,6 @@ public:
 document::LayoutBlockType mapDocLayNetLabel(const std::string& label);
 document::LayoutBlockType mapPaddleDocLayoutLabel(const std::string& label);
 
-struct DocLayNetOnnxConfig {
-    std::filesystem::path model_path;
-    int input_width = 576;
-    int input_height = 576;
-    double confidence_threshold = 0.5;
-};
-
 class DocLayNetOnnxBackend final : public ILayoutBackend {
 public:
     DocLayNetOnnxBackend();
@@ -69,13 +63,6 @@ private:
 
     DocLayNetOnnxConfig config_;
     std::unique_ptr<ModelBundle> model_;
-};
-
-struct PaddleDocLayoutOnnxConfig {
-    std::filesystem::path model_path;
-    int input_width = 800;
-    int input_height = 800;
-    double confidence_threshold = 0.5;
 };
 
 class PaddleDocLayoutOnnxBackend final : public ILayoutBackend {

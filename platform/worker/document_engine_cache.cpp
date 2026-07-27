@@ -1,5 +1,7 @@
 #include "document_engine_cache.h"
 
+#include "pipeline/document_engine_internal.h"
+
 #include <filesystem>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
@@ -72,7 +74,7 @@ DocumentEngineLookup DocumentEngineCache::get(const pipeline::BackendOptions& ba
 
     pipeline::EngineConfig config = base_config_;
     config.backends = normalized;
-    auto engine = std::make_unique<pipeline::DocumentEngine>(std::move(config), registry_);
+    auto engine = pipeline::DocumentEngineInternalAccess::createUnique(std::move(config), registry_);
     if (!engine->isReady()) {
         const common::Status status = engine->initializationStatus();
         spdlog::warn("worker engine cache rejected: {} code={} reason={}",

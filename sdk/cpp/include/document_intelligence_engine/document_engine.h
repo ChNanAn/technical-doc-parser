@@ -4,16 +4,14 @@
 
 #include "document/parsed_document.h"
 #include "document_intelligence_engine/engine_config.h"
-#include "pipeline/pipeline_options.h"
-#include "pipeline/run_provenance.h"
-#include "pipeline/stage_observer.h"
+#include "document_intelligence_engine/options.h"
+#include "document_intelligence_engine/provenance.h"
+#include "document_intelligence_engine/stage_observer.h"
 
 #include <memory>
 #include <string>
 
 namespace doc_parser::pipeline {
-
-class BackendRegistry;
 
 enum class DocumentEngineState {
     Ready,
@@ -38,7 +36,6 @@ class DocumentEngine {
 public:
     DocumentEngine() = delete;
     explicit DocumentEngine(EngineConfig config);
-    DocumentEngine(EngineConfig config, const BackendRegistry& registry);
     ~DocumentEngine();
 
     DocumentEngine(const DocumentEngine&) = delete;
@@ -53,11 +50,11 @@ public:
     ParseResult parse(DocumentParseOptions options);
     ParseResult parse(DocumentParseOptions options, IStageObserver& observer);
 
-    ParseResult parse(PipelineRunOptions options) = delete;
-    ParseResult parse(PipelineRunOptions options, IStageObserver& observer) = delete;
-
 private:
+    friend class DocumentEngineInternalAccess;
+
     struct Impl;
+    explicit DocumentEngine(std::unique_ptr<Impl> impl);
     std::unique_ptr<Impl> impl_;
 };
 

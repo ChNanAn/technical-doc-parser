@@ -1,5 +1,6 @@
 #include "document_intelligence_engine/document_engine.h"
 
+#include "pipeline/document_engine_internal.h"
 #include "pipeline/document_pipeline.h"
 #include "pipeline/pipeline_service_factory.h"
 
@@ -40,10 +41,10 @@ struct DocumentEngine::Impl {
     std::atomic<bool> parsing{false};
 };
 
-DocumentEngine::DocumentEngine(EngineConfig config) : DocumentEngine(config, createDefaultBackendRegistry(config)) {}
+DocumentEngine::DocumentEngine(EngineConfig config)
+    : DocumentEngine(std::make_unique<Impl>(config, createDefaultBackendRegistry(config))) {}
 
-DocumentEngine::DocumentEngine(EngineConfig config, const BackendRegistry& registry)
-    : impl_(std::make_unique<Impl>(std::move(config), registry)) {}
+DocumentEngine::DocumentEngine(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
 DocumentEngine::~DocumentEngine() = default;
 
@@ -107,6 +108,16 @@ ParseResult DocumentEngine::parse(DocumentParseOptions options, IStageObserver& 
             common::Status::error("engine.parse_exception", "document parsing raised an unknown exception", "engine");
     }
     return result;
+}
+
+DocumentEngine DocumentEngineInternalAccess::create(EngineConfig config, const BackendRegistry& registry) {
+    return DocumentEngine(std::make_unique<DocumentEngine::Impl>(std::move(config), registry));
+}
+
+std::unique_ptr<DocumentEngine>
+DocumentEngineInternalAccess::createUnique(EngineConfig config, const BackendRegistry& registry) {
+    return std::unique_ptr<DocumentEngine>(
+        new DocumentEngine(std::make_unique<DocumentEngine::Impl>(std::move(config), registry)));
 }
 
 } // namespace doc_parser::pipeline

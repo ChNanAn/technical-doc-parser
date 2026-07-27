@@ -109,6 +109,12 @@ runtime fallback, parsing succeeds with `document.status == partial`, a machine-
 entry in `ParseResult::provenance`. Callers can provide `DocumentParseOptions::run_id` to correlate the result with
 their own job or trace.
 
+### C ABI
+
+The versioned shared C ABI is the boundary for the planned Java/JNI binding.
+It uses opaque engine/document/error handles, strict JSON configuration,
+structured errors, and owned Document v1 JSON results. See [C ABI v1](docs/c-api-v1.md).
+
 ## Output
 
 ```text
@@ -206,6 +212,7 @@ Additional input formats, more interchangeable models, multi-tenant SaaS feature
 - [Document Contract v1](docs/document-contract-v1.md)
 - [Warning Code Registry](docs/warning-codes.md)
 - [C++ SDK Lifecycle and Errors](docs/sdk-lifecycle.md)
+- [C ABI v1](docs/c-api-v1.md)
 - [Quality Report v1](schemas/quality-report.v1.schema.json)
 - [Text Model](docs/text-model.md)
 - [Optional Platform](platform/README.md)

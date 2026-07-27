@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(document_intelligence_engine
     VERSION 0.1.0
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 set(DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION "" CACHE STRING
@@ -30,6 +30,7 @@ include(GNUInstallDirs)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(FetchContent)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -279,6 +280,7 @@ endif()
 
 add_subdirectory(cpp/document_source)
 add_subdirectory(cpp/pipeline)
+add_subdirectory(cpp/c_api)
 add_subdirectory(cpp/app)
 
 if(DOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER)
@@ -291,6 +293,8 @@ endif()
 
 add_library(DocumentIntelligenceEngine::engine ALIAS doc_parser_pipeline)
 set_target_properties(doc_parser_pipeline PROPERTIES EXPORT_NAME engine)
+add_library(DocumentIntelligenceEngine::c_api ALIAS document_intelligence_engine_c)
+set_target_properties(document_intelligence_engine_c PROPERTIES EXPORT_NAME c_api)
 
 set(DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS
     doc_parser_assembly
@@ -303,6 +307,7 @@ set(DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS
     doc_parser_pipeline
     doc_parser_reading_order
     doc_parser_table
+    document_intelligence_engine_c
 )
 if(DOC_PARSER_ENABLE_PDFIUM)
     list(APPEND DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS doc_parser_document_source_pdf)

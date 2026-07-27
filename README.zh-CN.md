@@ -106,6 +106,12 @@ PDFium 以及启用时的 ONNX Runtime 仍是外部 Package 依赖。如果它�
 但 `document.status` 为 `partial`，同时产生机器可读 Warning，并在 `ParseResult::provenance` 中记录 fallback。
 调用方可通过 `DocumentParseOptions::run_id` 将解析结果关联到自己的任务或 Trace。
 
+### C ABI
+
+带版本的共享 C ABI 是后续 Java/JNI binding 的稳定边界。接口只暴露 opaque
+engine/document/error handle、严格 JSON 配置、结构化错误和自有生命周期的
+Document v1 JSON 结果，详见 [C ABI v1](docs/c-api-v1.md)。
+
 ## 输出
 
 ```text
@@ -201,6 +207,7 @@ docker compose -f platform/deploy/docker-compose.yml up --build
 - [评测说明](docs/evaluation.zh-CN.md)
 - [Document Contract v1](docs/document-contract-v1.zh-CN.md)
 - [C++ SDK 生命周期与错误契约](docs/sdk-lifecycle.md)
+- [C ABI v1](docs/c-api-v1.md)
 - [Quality Report v1](schemas/quality-report.v1.schema.json)
 - [文本模型](docs/text-model.md)
 - [可选平台](platform/README.md)

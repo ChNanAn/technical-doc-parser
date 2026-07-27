@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(document_engine_install_consumer LANGUAGES CXX)
+project(document_engine_install_consumer LANGUAGES C CXX)
 
 find_package(DocumentIntelligenceEngine 0.1 CONFIG REQUIRED)
 
@@ -14,4 +14,12 @@ target_compile_definitions(install_model_paths
     PRIVATE
         EXPECTED_MODEL_DIR="${DocumentIntelligenceEngine_MODEL_DIR}"
         EXPECT_INSTALLED_MODELS=$<BOOL:${EXPECT_INSTALLED_MODELS}>
+)
+
+add_executable(install_c_consumer c_consumer.c)
+target_link_libraries(install_c_consumer PRIVATE DocumentIntelligenceEngine::c_api)
+set_target_properties(install_c_consumer PROPERTIES
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF
 )

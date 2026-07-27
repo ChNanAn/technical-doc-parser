@@ -1,0 +1,6 @@
+DIE_1.0 {
+    global:
+        die_*;
+    local:
+        *;
+};

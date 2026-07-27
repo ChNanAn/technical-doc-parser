@@ -72,3 +72,22 @@ execute_process(
 if(NOT run_result EQUAL 0)
     message(FATAL_ERROR "Installed-package consumer run failed with exit code ${run_result}")
 endif()
+
+set(c_api_consumer_command "${CONSUMER_BUILD_DIR}/install_c_consumer")
+if(UNIX AND NOT APPLE)
+    set(c_api_consumer_command
+        "${CMAKE_COMMAND}" -E env
+        "LD_LIBRARY_PATH=${PDFium_DIR}/lib:${ONNXRuntime_ROOT}/lib:$ENV{LD_LIBRARY_PATH}"
+        "${CONSUMER_BUILD_DIR}/install_c_consumer"
+    )
+endif()
+execute_process(
+    COMMAND
+        ${c_api_consumer_command}
+        "${TEST_PDF}"
+        "${CONSUMER_OUTPUT_DIR}/c-api"
+    RESULT_VARIABLE c_run_result
+)
+if(NOT c_run_result EQUAL 0)
+    message(FATAL_ERROR "Installed C API consumer run failed with exit code ${c_run_result}")
+endif()

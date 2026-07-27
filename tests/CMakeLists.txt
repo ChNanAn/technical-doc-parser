@@ -126,6 +126,36 @@ if(DOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS)
     )
 endif()
 
+add_executable(c_api_smoke c_api_smoke.c)
+target_link_libraries(c_api_smoke PRIVATE document_intelligence_engine_c)
+set_target_properties(c_api_smoke PROPERTIES
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF
+)
+doc_parser_set_common_warnings(c_api_smoke)
+if(DOC_PARSER_ENABLE_PDFIUM)
+    add_test(
+        NAME c_api_smoke
+        COMMAND c_api_smoke
+            "${PROJECT_SOURCE_DIR}/tests/fixtures/pdfs/pdfjs-basicapi.pdf"
+            "${PROJECT_BINARY_DIR}/c-api-smoke-output"
+    )
+    set_tests_properties(c_api_smoke PROPERTIES LABELS "c_api;contract")
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(
+        NAME c_api_exports
+        COMMAND
+            ${CMAKE_COMMAND}
+            "-DNM_EXECUTABLE=${CMAKE_NM}"
+            "-DC_API_LIBRARY=$<TARGET_FILE:document_intelligence_engine_c>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/check_c_api_exports.cmake"
+    )
+    set_tests_properties(c_api_exports PROPERTIES LABELS "c_api;contract")
+endif()
+
 if(DOC_PARSER_ENABLE_OPENCV)
     add_executable(image_preprocessor_smoke
         image_preprocessor_smoke.cpp

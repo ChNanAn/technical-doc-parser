@@ -39,8 +39,8 @@ common::Status WorkerDocumentProcessor::process(const pipeline::DocumentParseOpt
                                                 pipeline::IStageObserver& observer) {
     const Clock::time_point run_started = Clock::now();
     const DocumentEngineLookup lookup = engines_.get(backends);
-    if (!lookup.engine->isReady()) {
-        const common::Status& status = lookup.engine->initializationStatus();
+    if (!lookup.ok()) {
+        const common::Status& status = lookup.status;
         observer.onStageStarted({"configure", "registry", 1});
         return stageFailed(observer,
                            status.stage().empty() ? "configure" : status.stage(),

@@ -125,8 +125,7 @@ TEST(DocumentEngineCacheTest, ReusesNormalizedBackendKeysAndEvictsLeastRecentlyU
 
     doc_parser::pipeline::BackendOptions first_options = cacheBackends(config, "ocr-a");
     const doc_parser::platform::DocumentEngineLookup first = cache.get(first_options);
-    ASSERT_NE(first.engine, nullptr);
-    ASSERT_TRUE(first.engine->isReady()) << first.engine->initializationStatus().message();
+    ASSERT_TRUE(first.ok()) << first.status.message();
     EXPECT_FALSE(first.cache_hit);
 
     first_options.registry_config = root / "nested" / ".." / "backends.json";
@@ -144,6 +143,31 @@ TEST(DocumentEngineCacheTest, ReusesNormalizedBackendKeysAndEvictsLeastRecentlyU
     EXPECT_EQ(counts->ocr["ocr-a"], 1);
     EXPECT_EQ(counts->ocr["ocr-b"], 2);
     EXPECT_EQ(counts->ocr["ocr-c"], 1);
+
+    std::filesystem::remove_all(root);
+}
+
+TEST(DocumentEngineCacheTest, FailedCandidateDoesNotEvictReadyEngines) {
+    const std::filesystem::path root = testRoot("tdp_worker_engine_cache_failure_test");
+    std::filesystem::remove_all(root);
+    const std::filesystem::path config = writeCacheRegistryConfig(root);
+    const auto counts = std::make_shared<FactoryCounts>();
+    const doc_parser::pipeline::BackendRegistry registry = cacheTestRegistry(counts);
+    doc_parser::platform::DocumentEngineCache cache(doc_parser::pipeline::defaultEngineConfig(), registry, 2);
+
+    ASSERT_TRUE(cache.get(cacheBackends(config, "ocr-a")).ok());
+    ASSERT_TRUE(cache.get(cacheBackends(config, "ocr-b")).ok());
+
+    const doc_parser::platform::DocumentEngineLookup failed = cache.get(cacheBackends(config, "missing"));
+    EXPECT_FALSE(failed.ok());
+    EXPECT_EQ(failed.engine, nullptr);
+    EXPECT_EQ(failed.status.code(), "configure.backend_unknown");
+    EXPECT_NE(failed.status.message().find("missing"), std::string::npos);
+    EXPECT_EQ(cache.size(), 2U);
+    EXPECT_TRUE(cache.get(cacheBackends(config, "ocr-a")).cache_hit);
+    EXPECT_TRUE(cache.get(cacheBackends(config, "ocr-b")).cache_hit);
+    EXPECT_EQ(counts->ocr["ocr-a"], 1);
+    EXPECT_EQ(counts->ocr["ocr-b"], 1);
 
     std::filesystem::remove_all(root);
 }

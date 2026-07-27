@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/status.h"
 #include "pipeline/backend_registry.h"
 #include "pipeline/document_engine.h"
 #include "pipeline/engine_config.h"
@@ -15,7 +16,11 @@ pipeline::BackendOptions effectiveBackendOptions(const pipeline::BackendOptions&
 
 struct DocumentEngineLookup {
     pipeline::DocumentEngine* engine = nullptr;
+    common::Status status =
+        common::Status::error("worker.engine_lookup_not_started", "engine lookup has not started", "configure");
     bool cache_hit = false;
+
+    bool ok() const { return engine != nullptr && status.okStatus(); }
 };
 
 class DocumentEngineCache {

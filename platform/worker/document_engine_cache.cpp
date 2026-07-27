@@ -67,7 +67,19 @@ DocumentEngineLookup DocumentEngineCache::get(const pipeline::BackendOptions& ba
         }
         entries_.splice(entries_.begin(), entries_, entry);
         spdlog::info("worker engine cache hit: {}", backendSummary(normalized));
-        return {entries_.front().engine.get(), true};
+        return {entries_.front().engine.get(), common::Status::ok(), true};
+    }
+
+    pipeline::EngineConfig config = base_config_;
+    config.backends = normalized;
+    auto engine = std::make_unique<pipeline::DocumentEngine>(std::move(config), registry_);
+    if (!engine->isReady()) {
+        const common::Status status = engine->initializationStatus();
+        spdlog::warn("worker engine cache rejected: {} code={} reason={}",
+                     backendSummary(normalized),
+                     status.code(),
+                     status.message());
+        return {nullptr, status, false};
     }
 
     if (entries_.size() == capacity_) {
@@ -75,13 +87,10 @@ DocumentEngineLookup DocumentEngineCache::get(const pipeline::BackendOptions& ba
         entries_.pop_back();
     }
 
-    pipeline::EngineConfig config = base_config_;
-    config.backends = normalized;
-    auto engine = std::make_unique<pipeline::DocumentEngine>(std::move(config), registry_);
     pipeline::DocumentEngine* value = engine.get();
     entries_.push_front({std::move(normalized), std::move(engine)});
     spdlog::info("worker engine cache miss: {}", backendSummary(entries_.front().backends));
-    return {value, false};
+    return {value, common::Status::ok(), false};
 }
 
 std::size_t DocumentEngineCache::size() const { return entries_.size(); }

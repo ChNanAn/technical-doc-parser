@@ -643,20 +643,19 @@ common::Status validateCoreModel(const document::ParsedDocument& document) {
 
 } // namespace
 
-common::Status JsonDocumentExporter::write(const DocumentExportRequest& request) const {
+JsonDocumentSerializationResult
+JsonDocumentExporter::serialize(const JsonDocumentSerializationRequest& request) const {
+    JsonDocumentSerializationResult result;
     if (request.document == nullptr) {
-        return common::Status::error(
+        result.status = common::Status::error(
             "export.json.document_missing", "document export request has no document", "export");
-    }
-    if (request.output_path.empty()) {
-        return common::Status::error(
-            "export.json.output_path_missing", "document export request has no output path", "export");
+        return result;
     }
     if (common::Status status = validateCoreModel(*request.document); !status.okStatus()) {
-        return status;
+        result.status = std::move(status);
+        return result;
     }
 
-    std::string serialized_manifest;
     try {
         const document::ParsedDocument& document = *request.document;
         const std::string filename =
@@ -716,20 +715,41 @@ common::Status JsonDocumentExporter::write(const DocumentExportRequest& request)
         if (!document.relations.empty()) {
             manifest["relations"] = relationsToJson(document.relations);
         }
-        serialized_manifest = manifest.dump(2);
+        result.json = manifest.dump(2);
     } catch (const nlohmann::json::exception& error) {
-        return common::Status::error("export.json.serialization_failed",
-                                     "failed to serialize JSON document: " + std::string(error.what()),
-                                     "export");
+        result.status = common::Status::error("export.json.serialization_failed",
+                                              "failed to serialize JSON document: " + std::string(error.what()),
+                                              "export");
+        return result;
     }
+    result.status = common::Status::ok();
+    return result;
+}
 
+common::Status JsonDocumentExporter::write(const DocumentExportRequest& request) const {
+    if (request.document == nullptr) {
+        return common::Status::error(
+            "export.json.document_missing", "document export request has no document", "export");
+    }
+    if (request.output_path.empty()) {
+        return common::Status::error(
+            "export.json.output_path_missing", "document export request has no output path", "export");
+    }
+    JsonDocumentSerializationResult serialization = serialize({
+        request.debug,
+        request.document,
+        request.artifacts,
+    });
+    if (!serialization.ok()) {
+        return serialization.status;
+    }
     std::ofstream manifest_file(request.output_path);
     if (!manifest_file) {
         return common::Status::error(
             "export.json.open_failed", "failed to open JSON output: " + request.output_path.string(), "export", true);
     }
 
-    manifest_file << serialized_manifest << '\n';
+    manifest_file << serialization.json << '\n';
     manifest_file.flush();
     if (!manifest_file) {
         return common::Status::error(

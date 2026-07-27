@@ -256,6 +256,22 @@ TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
     std::filesystem::remove(output_path);
 }
 
+TEST(JsonDocumentExporterTest, SerializesDocumentV1InMemoryWithoutWritingAFile) {
+    const DocumentFixture fixture = makeDocumentFixture();
+    const doc_parser::exporter::JsonDocumentSerializationResult result =
+        JsonDocumentExporter().serialize({
+            false,
+            &fixture.document,
+            &fixture.artifacts,
+        });
+
+    ASSERT_TRUE(result.ok()) << result.status.message();
+    const nlohmann::json manifest = nlohmann::json::parse(result.json);
+    EXPECT_EQ(manifest["schema_version"], 1);
+    EXPECT_EQ(manifest["document_id"], "fixture_document");
+    EXPECT_EQ(manifest["blocks"].size(), 2U);
+}
+
 TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     const auto output_path = tempManifestPath("tdp_json_document_exporter_debug_test.json");
     std::filesystem::remove(output_path);

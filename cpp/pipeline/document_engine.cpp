@@ -3,6 +3,8 @@
 #include "pipeline/document_pipeline.h"
 #include "pipeline/pipeline_service_factory.h"
 
+#include <atomic>
+#include <exception>
 #include <utility>
 
 namespace doc_parser::pipeline {
@@ -15,6 +17,18 @@ PipelineRunOptions pipelineOptions(DocumentParseOptions options, const BackendOp
     return pipeline_options;
 }
 
+class ParseLease {
+public:
+    explicit ParseLease(std::atomic<bool>& parsing) : parsing_(parsing) {}
+    ~ParseLease() { parsing_.store(false); }
+
+    ParseLease(const ParseLease&) = delete;
+    ParseLease& operator=(const ParseLease&) = delete;
+
+private:
+    std::atomic<bool>& parsing_;
+};
+
 } // namespace
 
 struct DocumentEngine::Impl {
@@ -23,6 +37,7 @@ struct DocumentEngine::Impl {
 
     EngineConfig config;
     PipelineServiceCreationResult creation;
+    std::atomic<bool> parsing{false};
 };
 
 DocumentEngine::DocumentEngine(EngineConfig config) : DocumentEngine(config, createDefaultBackendRegistry(config)) {}
@@ -37,6 +52,16 @@ DocumentEngine::DocumentEngine(DocumentEngine&&) noexcept = default;
 DocumentEngine& DocumentEngine::operator=(DocumentEngine&&) noexcept = default;
 
 bool DocumentEngine::isReady() const { return impl_ != nullptr && impl_->creation.status.okStatus(); }
+
+DocumentEngineState DocumentEngine::state() const {
+    if (impl_ == nullptr) {
+        return DocumentEngineState::MovedFrom;
+    }
+    if (!impl_->creation.status.okStatus()) {
+        return DocumentEngineState::InitializationFailed;
+    }
+    return impl_->parsing.load() ? DocumentEngineState::Parsing : DocumentEngineState::Ready;
+}
 
 const common::Status& DocumentEngine::initializationStatus() const {
     static const common::Status moved_from =
@@ -56,15 +81,31 @@ ParseResult DocumentEngine::parse(DocumentParseOptions options, IStageObserver& 
         return result;
     }
 
-    PipelineRunOptions pipeline_options = pipelineOptions(std::move(options), impl_->config.backends);
-    const DocumentPipeline pipeline;
-    result.status = pipeline.parse(pipeline_options,
-                                   impl_->creation.services,
-                                   impl_->creation.provenance,
-                                   result.document,
-                                   result.artifacts,
-                                   result.provenance,
-                                   observer);
+    bool expected = false;
+    if (!impl_->parsing.compare_exchange_strong(expected, true)) {
+        result.status = common::Status::error(
+            "engine.busy", "document engine is already parsing another document", "engine", true);
+        return result;
+    }
+    const ParseLease parse_lease(impl_->parsing);
+
+    try {
+        PipelineRunOptions pipeline_options = pipelineOptions(std::move(options), impl_->config.backends);
+        const DocumentPipeline pipeline;
+        result.status = pipeline.parse(pipeline_options,
+                                       impl_->creation.services,
+                                       impl_->creation.provenance,
+                                       result.document,
+                                       result.artifacts,
+                                       result.provenance,
+                                       observer);
+    } catch (const std::exception& error) {
+        result.status = common::Status::error(
+            "engine.parse_exception", "document parsing raised an exception: " + std::string(error.what()), "engine");
+    } catch (...) {
+        result.status =
+            common::Status::error("engine.parse_exception", "document parsing raised an unknown exception", "engine");
+    }
     return result;
 }
 

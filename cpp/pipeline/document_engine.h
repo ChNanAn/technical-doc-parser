@@ -15,8 +15,16 @@ namespace doc_parser::pipeline {
 
 class BackendRegistry;
 
+enum class DocumentEngineState {
+    Ready,
+    Parsing,
+    InitializationFailed,
+    MovedFrom,
+};
+
 struct ParseResult {
-    common::Status status;
+    common::Status status =
+        common::Status::error("engine.not_started", "document parsing has not started", "engine");
     document::ParsedDocument document;
     document::PipelineArtifacts artifacts;
     RunProvenance provenance;
@@ -39,6 +47,7 @@ public:
     DocumentEngine& operator=(DocumentEngine&&) noexcept;
 
     bool isReady() const;
+    DocumentEngineState state() const;
     const common::Status& initializationStatus() const;
 
     ParseResult parse(DocumentParseOptions options);

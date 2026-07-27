@@ -205,6 +205,7 @@ Additional input formats, more interchangeable models, multi-tenant SaaS feature
 - [Evaluation](docs/evaluation.md)
 - [Document Contract v1](docs/document-contract-v1.md)
 - [Warning Code Registry](docs/warning-codes.md)
+- [C++ SDK Lifecycle and Errors](docs/sdk-lifecycle.md)
 - [Quality Report v1](schemas/quality-report.v1.schema.json)
 - [Text Model](docs/text-model.md)
 - [Optional Platform](platform/README.md)

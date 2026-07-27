@@ -200,6 +200,7 @@ docker compose -f platform/deploy/docker-compose.yml up --build
 - [依赖说明](docs/dependencies.md)
 - [评测说明](docs/evaluation.zh-CN.md)
 - [Document Contract v1](docs/document-contract-v1.zh-CN.md)
+- [C++ SDK 生命周期与错误契约](docs/sdk-lifecycle.md)
 - [Quality Report v1](schemas/quality-report.v1.schema.json)
 - [文本模型](docs/text-model.md)
 - [可选平台](platform/README.md)

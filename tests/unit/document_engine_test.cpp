@@ -11,9 +11,13 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -48,6 +52,65 @@ public:
     doc_parser::pipeline::RunProvenance provenance;
     std::vector<doc_parser::common::Diagnostic> diagnostics;
 };
+
+class BlockingObserver final : public doc_parser::pipeline::IStageObserver {
+public:
+    void onStageStarted(const doc_parser::pipeline::StageStartedInfo&) override {
+        std::unique_lock<std::mutex> lock(mutex_);
+        started_ = true;
+        changed_.notify_all();
+        changed_.wait(lock, [this] { return released_; });
+    }
+    void onStageProgress(const doc_parser::pipeline::StageProgressInfo&) override {}
+    void onArtifactReady(const doc_parser::pipeline::StageArtifactInfo&) override {}
+    void onStageCompleted(const doc_parser::pipeline::StageCompletedInfo&) override {}
+    void onStageFailed(const doc_parser::pipeline::StageFailedInfo&) override {}
+
+    void waitUntilStarted() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        changed_.wait(lock, [this] { return started_; });
+    }
+
+    void release() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        released_ = true;
+        changed_.notify_all();
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable changed_;
+    bool started_ = false;
+    bool released_ = false;
+};
+
+class ThrowingObserver final : public doc_parser::pipeline::IStageObserver {
+public:
+    void onStageStarted(const doc_parser::pipeline::StageStartedInfo&) override {
+        throw std::runtime_error("observer test failure");
+    }
+    void onStageProgress(const doc_parser::pipeline::StageProgressInfo&) override {}
+    void onArtifactReady(const doc_parser::pipeline::StageArtifactInfo&) override {}
+    void onStageCompleted(const doc_parser::pipeline::StageCompletedInfo&) override {}
+    void onStageFailed(const doc_parser::pipeline::StageFailedInfo&) override {}
+};
+
+doc_parser::pipeline::EngineConfig fallbackEngineConfig() {
+    doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
+    config.backends.document = "pdf";
+    config.backends.ocr = "noop";
+    config.backends.layout = "text";
+    config.backends.table = "text";
+    return config;
+}
+
+doc_parser::pipeline::DocumentParseOptions fixtureParseOptions(const std::filesystem::path& output_directory) {
+    doc_parser::pipeline::DocumentParseOptions options;
+    options.input_path = std::filesystem::path(DOC_PARSER_TEST_FIXTURE_DIR) / "pdfs" / "pdfjs-basicapi.pdf";
+    options.output_directory = output_directory;
+    options.render.dpi = 72;
+    return options;
+}
 
 } // namespace
 
@@ -276,6 +339,72 @@ TEST(DocumentEngineTest, InitializationExposesStructuredBackendFailure) {
     EXPECT_EQ(status.stage(), "configure");
     EXPECT_EQ(status.code(), "configure.backend_unknown");
     EXPECT_NE(status.message().find("not-registered"), std::string::npos);
+}
+
+TEST(DocumentEngineTest, RejectsConcurrentParseWithRetryableBusyStatus) {
+    const std::filesystem::path output_root = std::filesystem::temp_directory_path() / "tdp_engine_busy_test";
+    std::filesystem::remove_all(output_root);
+    doc_parser::pipeline::DocumentEngine engine(fallbackEngineConfig());
+    ASSERT_TRUE(engine.isReady()) << engine.initializationStatus().message();
+    EXPECT_EQ(engine.state(), doc_parser::pipeline::DocumentEngineState::Ready);
+
+    BlockingObserver observer;
+    doc_parser::pipeline::ParseResult first_result;
+    std::thread first_parse([&] {
+        first_result = engine.parse(fixtureParseOptions(output_root / "first"), observer);
+    });
+    observer.waitUntilStarted();
+
+    EXPECT_EQ(engine.state(), doc_parser::pipeline::DocumentEngineState::Parsing);
+    const doc_parser::pipeline::ParseResult busy_result =
+        engine.parse(fixtureParseOptions(output_root / "second"));
+    EXPECT_FALSE(busy_result.ok());
+    EXPECT_EQ(busy_result.status.code(), "engine.busy");
+    EXPECT_EQ(busy_result.status.stage(), "engine");
+    EXPECT_TRUE(busy_result.status.retryable());
+
+    observer.release();
+    first_parse.join();
+    EXPECT_TRUE(first_result.ok()) << first_result.status.message();
+    EXPECT_EQ(engine.state(), doc_parser::pipeline::DocumentEngineState::Ready);
+    std::filesystem::remove_all(output_root);
+}
+
+TEST(DocumentEngineTest, ConvertsObserverExceptionAndReleasesParseLease) {
+    const std::filesystem::path output_root = std::filesystem::temp_directory_path() / "tdp_engine_exception_test";
+    std::filesystem::remove_all(output_root);
+    doc_parser::pipeline::DocumentEngine engine(fallbackEngineConfig());
+    ASSERT_TRUE(engine.isReady()) << engine.initializationStatus().message();
+
+    ThrowingObserver observer;
+    const doc_parser::pipeline::ParseResult failed =
+        engine.parse(fixtureParseOptions(output_root / "failed"), observer);
+    EXPECT_FALSE(failed.ok());
+    EXPECT_EQ(failed.status.code(), "engine.parse_exception");
+    EXPECT_EQ(failed.status.stage(), "engine");
+    EXPECT_FALSE(failed.status.retryable());
+    EXPECT_NE(failed.status.message().find("observer test failure"), std::string::npos);
+    EXPECT_EQ(engine.state(), doc_parser::pipeline::DocumentEngineState::Ready);
+
+    const doc_parser::pipeline::ParseResult recovered =
+        engine.parse(fixtureParseOptions(output_root / "recovered"));
+    EXPECT_TRUE(recovered.ok()) << recovered.status.message();
+    std::filesystem::remove_all(output_root);
+}
+
+TEST(DocumentEngineTest, MovedFromEngineHasStableStateAndError) {
+    doc_parser::pipeline::DocumentEngine source(fallbackEngineConfig());
+    ASSERT_TRUE(source.isReady()) << source.initializationStatus().message();
+
+    doc_parser::pipeline::DocumentEngine destination(std::move(source));
+    EXPECT_EQ(source.state(), doc_parser::pipeline::DocumentEngineState::MovedFrom);
+    EXPECT_FALSE(source.isReady());
+    EXPECT_EQ(source.initializationStatus().code(), "engine.moved_from");
+    const doc_parser::pipeline::ParseResult moved_from_result =
+        source.parse(fixtureParseOptions(std::filesystem::temp_directory_path() / "tdp_engine_moved_test"));
+    EXPECT_FALSE(moved_from_result.ok());
+    EXPECT_EQ(moved_from_result.status.code(), "engine.moved_from");
+    EXPECT_EQ(destination.state(), doc_parser::pipeline::DocumentEngineState::Ready);
 }
 
 #if DOC_PARSER_ENABLE_ONNXRUNTIME

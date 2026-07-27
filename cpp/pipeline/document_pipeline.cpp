@@ -148,30 +148,15 @@ bool preprocessDebugImages(const PipelineContext& context, std::vector<document:
 
 } // namespace
 
-common::Status DocumentPipeline::run(const PipelineRunOptions& options) const {
-    NullStageObserver observer;
-    return run(options, observer);
-}
-
-common::Status DocumentPipeline::run(const PipelineRunOptions& options, IStageObserver& observer) const {
-    return runWithRegistry(options, nullptr, observer);
-}
-
 common::Status DocumentPipeline::run(const PipelineRunOptions& options,
                                      const BackendRegistry& registry,
                                      IStageObserver& observer) const {
-    return runWithRegistry(options, &registry, observer);
-}
-
-common::Status DocumentPipeline::runWithRegistry(const PipelineRunOptions& options,
-                                                 const BackendRegistry* registry,
-                                                 IStageObserver& observer) const {
     const Clock::time_point run_started = Clock::now();
     document::ParsedDocument document;
     document::PipelineArtifacts artifacts;
     RunProvenance provenance;
     common::Status status =
-        parseInternal(options, nullptr, nullptr, document, artifacts, provenance, observer, registry);
+        parseInternal(options, nullptr, nullptr, document, artifacts, provenance, observer, &registry);
     if (!status.okStatus()) {
         return status;
     }
@@ -208,8 +193,13 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     observer.onStageStarted({"configure", "registry", 1});
     PipelineServiceCreationResult service_creation;
     if (services == nullptr) {
-        service_creation = registry == nullptr ? createPipelineServices(context.backends)
-                                               : createPipelineServices(context.backends, *registry);
+        if (registry == nullptr) {
+            return stageFailed(observer,
+                               "configure",
+                               "configure.backend_registry_required",
+                               "pipeline service creation requires an explicit backend registry");
+        }
+        service_creation = createPipelineServices(context.backends, *registry);
         if (!service_creation.status.okStatus()) {
             observer.onStageFailed({service_creation.status.stage(),
                                     service_creation.status.code(),

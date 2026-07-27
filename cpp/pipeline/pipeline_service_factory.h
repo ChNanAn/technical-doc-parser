@@ -33,7 +33,7 @@ struct PipelineServiceCreationResult {
     PipelineServices services;
 };
 
-PipelineServiceCreationResult createPipelineServices(const BackendOptions& options);
+PipelineServiceCreationResult createPipelineServices(const BackendOptions& options) = delete;
 PipelineServiceCreationResult createPipelineServices(const BackendOptions& options, const BackendRegistry& registry);
 PipelineServiceCreationResult createPipelineServices(const EngineConfig& config);
 PipelineServiceCreationResult createPipelineServices(const EngineConfig& config, const BackendRegistry& registry);

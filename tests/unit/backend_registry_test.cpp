@@ -59,9 +59,11 @@ TEST(BackendRegistryTest, LoadsValidatedAutoOrderAndDrivesServiceSelection) {
                     R"({"version":1,"auto_order":{"ocr":["noop"],"layout":["text"],"table":["text"]}})");
     doc_parser::pipeline::BackendOptions options;
     options.registry_config = config_path;
+    doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
+    engine_config.backends = options;
 
     const doc_parser::pipeline::PipelineServiceCreationResult result =
-        doc_parser::pipeline::createPipelineServices(options);
+        doc_parser::pipeline::createPipelineServices(engine_config);
     ASSERT_TRUE(result.status.okStatus()) << result.status.message();
     EXPECT_NE(result.trace_message.find("ocr=noop"), std::string::npos);
     EXPECT_NE(result.trace_message.find("layout=text"), std::string::npos);

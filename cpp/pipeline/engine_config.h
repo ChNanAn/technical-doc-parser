@@ -45,7 +45,9 @@ struct EngineConfig {
     table::TableTransformerOnnxConfig table_transformer;
 };
 
-inline EngineConfig defaultEngineConfig() {
+// Package model paths are injected into each consumer; internal linkage prevents
+// installed consumers and the static library from defining one function differently.
+static inline EngineConfig defaultEngineConfig() {
     EngineConfig config;
     const std::filesystem::path paddle_ocr_dir = DOC_PARSER_PADDLEOCR_BASELINE_DIR;
     config.paddle_ocr.detection_model = paddle_ocr_dir / "det.onnx";
@@ -62,7 +64,7 @@ inline EngineConfig defaultEngineConfig() {
 // The engine itself never reads model configuration from the environment.
 EngineConfig engineConfigFromEnvironment(EngineConfig config);
 
-inline EngineConfig engineConfigFromEnvironment(BackendOptions backends = {}) {
+static inline EngineConfig engineConfigFromEnvironment(BackendOptions backends = {}) {
     EngineConfig config = defaultEngineConfig();
     config.backends = std::move(backends);
     return engineConfigFromEnvironment(std::move(config));

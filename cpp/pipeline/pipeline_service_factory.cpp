@@ -199,11 +199,6 @@ void addConfiguredModels(const EngineConfig& config, RunProvenance& provenance) 
 
 } // namespace
 
-PipelineServiceCreationResult createPipelineServices(const BackendOptions& options) {
-    const BackendRegistry registry = createDefaultBackendRegistry();
-    return createPipelineServices(options, registry);
-}
-
 PipelineServiceCreationResult createPipelineServices(const EngineConfig& config) {
     const BackendRegistry registry = createDefaultBackendRegistry(config);
     return createPipelineServices(config, registry);

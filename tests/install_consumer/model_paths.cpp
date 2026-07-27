@@ -1,9 +1,11 @@
 #include "pipeline/backend_registry.h"
+#include "pipeline/document_engine.h"
 #include "pipeline/engine_config.h"
 
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace {
@@ -24,6 +26,7 @@ bool isInside(const std::filesystem::path& path, const std::filesystem::path& ro
 } // namespace
 
 int main() {
+    static_assert(!std::is_default_constructible_v<doc_parser::pipeline::DocumentEngine>);
     const doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
     const std::filesystem::path model_root = EXPECTED_MODEL_DIR;
     const std::vector<std::filesystem::path> model_files{

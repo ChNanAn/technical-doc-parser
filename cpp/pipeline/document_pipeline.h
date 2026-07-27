@@ -15,16 +15,13 @@ struct PipelineServices;
 
 class DocumentPipeline {
 public:
-    common::Status run(const PipelineRunOptions& options) const;
-    common::Status run(const PipelineRunOptions& options, IStageObserver& observer) const;
+    common::Status run(const PipelineRunOptions& options) const = delete;
+    common::Status run(const PipelineRunOptions& options, IStageObserver& observer) const = delete;
     common::Status
     run(const PipelineRunOptions& options, const BackendRegistry& registry, IStageObserver& observer) const;
 
 private:
     friend class DocumentEngine;
-
-    common::Status
-    runWithRegistry(const PipelineRunOptions& options, const BackendRegistry* registry, IStageObserver& observer) const;
 
     common::Status parse(const PipelineRunOptions& options,
                          PipelineServices& services,

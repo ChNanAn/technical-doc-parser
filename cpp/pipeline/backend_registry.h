@@ -125,7 +125,9 @@ struct BackendRegistryConfigResult {
 };
 
 BackendRegistry createDefaultBackendRegistry(const EngineConfig& config);
-inline BackendRegistry createDefaultBackendRegistry() { return createDefaultBackendRegistry(defaultEngineConfig()); }
+static inline BackendRegistry createDefaultBackendRegistry() {
+    return createDefaultBackendRegistry(defaultEngineConfig());
+}
 BackendRegistryConfigResult loadBackendRegistryConfig(const std::filesystem::path& path,
                                                       const BackendRegistry& registry);
 

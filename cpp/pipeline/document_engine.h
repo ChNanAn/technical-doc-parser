@@ -28,7 +28,7 @@ struct ParseResult {
 // for sequential parsing; create one instance per concurrently parsing thread.
 class DocumentEngine {
 public:
-    DocumentEngine() : DocumentEngine(defaultEngineConfig()) {}
+    DocumentEngine() = delete;
     explicit DocumentEngine(EngineConfig config);
     DocumentEngine(EngineConfig config, const BackendRegistry& registry);
     ~DocumentEngine();

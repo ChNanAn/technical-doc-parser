@@ -363,6 +363,7 @@ TEST(JsonDocumentExporterTest, WritesExplainedPartialDocument) {
         "text",
         "page_1",
         "doc_page_1_block_1",
+        {{"backend", "paddle"}},
     });
 
     ASSERT_TRUE(JsonDocumentExporter()
@@ -379,6 +380,7 @@ TEST(JsonDocumentExporterTest, WritesExplainedPartialDocument) {
     EXPECT_EQ(manifest["warnings"][0]["code"], "OCR_LOW_CONFIDENCE");
     EXPECT_EQ(manifest["warnings"][0]["page_id"], "page_1");
     EXPECT_EQ(manifest["warnings"][0]["block_id"], "doc_page_1_block_1");
+    EXPECT_EQ(manifest["warnings"][0]["details"]["backend"], "paddle");
 
     std::filesystem::remove(output_path);
 }

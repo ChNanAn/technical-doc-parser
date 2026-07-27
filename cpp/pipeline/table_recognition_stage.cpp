@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <set>
 #include <string>
+#include <utility>
 
 namespace doc_parser::pipeline {
 namespace {
@@ -92,33 +94,38 @@ void linkCrossPageTables(const std::vector<document::PageArtifact>& pages,
 
 TableRecognitionStage::TableRecognitionStage(const table::ITableBackend& table) : table_(table) {}
 
-common::Status TableRecognitionStage::recognize(const PipelineContext& context,
-                                                const std::vector<document::PageArtifact>& pages,
-                                                const std::vector<document::PageText>& page_texts,
-                                                std::vector<document::PageLayout>& page_layouts,
-                                                std::vector<document::PageTables>& page_tables) const {
+StageResult<std::vector<document::PageTables>>
+TableRecognitionStage::recognize(const PipelineContext& context,
+                                 const std::vector<document::PageArtifact>& pages,
+                                 const std::vector<document::PageText>& page_texts,
+                                 std::vector<document::PageLayout>& page_layouts) const {
     (void)context;
-    page_tables.clear();
+    StageResult<std::vector<document::PageTables>> recognition;
 
     if (pages.size() != page_texts.size() || pages.size() != page_layouts.size()) {
-        return common::Status::error("table.page_count_mismatch",
-                                     "page, text, and layout counts must match before table recognition");
+        recognition.status = common::Status::error("table.page_count_mismatch",
+                                                   "page, text, and layout counts must match before table recognition");
+        return recognition;
     }
 
-    page_tables.reserve(pages.size());
+    recognition.value.reserve(pages.size());
     for (std::size_t index = 0; index < pages.size(); ++index) {
         table::TableResult result;
         if (!table_.recognize({pages[index], page_texts[index], page_layouts[index]}, result)) {
-            return common::Status::error("table.recognition_failed",
-                                         "table recognition failed for page " + std::to_string(index + 1));
+            recognition.status = common::Status::error(
+                "table.recognition_failed", "table recognition failed for page " + std::to_string(index + 1));
+            return recognition;
         }
         attachDetectedTables(page_texts[index], page_layouts[index], result.tables);
-        page_tables.push_back(result.tables);
+        recognition.value.push_back(std::move(result.tables));
+        recognition.diagnostics.insert(recognition.diagnostics.end(),
+                                       std::make_move_iterator(result.diagnostics.begin()),
+                                       std::make_move_iterator(result.diagnostics.end()));
     }
 
-    linkCrossPageTables(pages, page_tables);
+    linkCrossPageTables(pages, recognition.value);
 
-    return common::Status::ok();
+    return recognition;
 }
 
 } // namespace doc_parser::pipeline

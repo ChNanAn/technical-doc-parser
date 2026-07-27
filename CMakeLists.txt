@@ -5,6 +5,25 @@ project(document_intelligence_engine
     LANGUAGES CXX
 )
 
+set(DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION "" CACHE STRING
+    "Source revision recorded in document and quality provenance"
+)
+if(DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION STREQUAL "")
+    execute_process(
+        COMMAND git rev-parse --verify HEAD
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        RESULT_VARIABLE DOCUMENT_INTELLIGENCE_ENGINE_GIT_RESULT
+        OUTPUT_VARIABLE DOCUMENT_INTELLIGENCE_ENGINE_DETECTED_GIT_REVISION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(DOCUMENT_INTELLIGENCE_ENGINE_GIT_RESULT EQUAL 0)
+        set(DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION
+            "${DOCUMENT_INTELLIGENCE_ENGINE_DETECTED_GIT_REVISION}"
+        )
+    endif()
+endif()
+
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 

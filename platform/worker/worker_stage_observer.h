@@ -21,6 +21,8 @@ public:
                         std::size_t platform_event_stream_maximum_length);
 
     void publishJobEvent(const std::string& type, const std::string& message = {});
+    void onRunConfigured(const pipeline::RunProvenance& provenance) override;
+    void onStageWarning(const common::Diagnostic& diagnostic) override;
     void onStageStarted(const pipeline::StageStartedInfo& info) override;
     void onStageProgress(const pipeline::StageProgressInfo& info) override;
     void onArtifactReady(const pipeline::StageArtifactInfo& info) override;

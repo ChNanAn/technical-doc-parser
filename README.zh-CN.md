@@ -78,12 +78,20 @@ cmake --install build/core-release --prefix build/sdk
 ```
 
 下游项目可使用 `find_package(DocumentIntelligenceEngine CONFIG REQUIRED)`，并链接
-`DocumentIntelligenceEngine::engine`。`DocumentEngine::parse()` 直接返回内存中的文档与 Pipeline Artifacts；
-是否导出 JSON、Markdown 或 HTML 由调用方显式决定。可运行代码见[嵌入示例](examples/embed_document.cpp)和独立的
-[CMake 项目](examples/CMakeLists.txt)。
+`DocumentIntelligenceEngine::engine`。`DocumentEngine` 只需配置一次，并在多次调用之间复用模型 Session。
+`DocumentEngine::parse()` 返回 `ParseResult`，其中包含归一化文档、Pipeline Artifacts、结构化 Status 和运行
+Provenance；是否导出 JSON、Markdown 或 HTML 由调用方显式决定。可运行代码见
+[嵌入示例](examples/embed_document.cpp)和独立的 [CMake 项目](examples/CMakeLists.txt)。
 
 PDFium 以及启用时的 ONNX Runtime 仍是外部 Package 依赖。如果它们不在系统标准路径，下游配置时需要设置
-`PDFium_DIR` 和 `ONNXRuntime_ROOT`。模型文件属于运行时数据，SDK 应用应通过 `EngineConfig` 传入模型路径。
+`PDFium_DIR` 和 `ONNXRuntime_ROOT`。默认模型会安装到
+`share/DocumentIntelligenceEngine/models`，可迁移的 Package 通过
+`DocumentIntelligenceEngine_MODEL_DIR` 暴露该路径，`defaultEngineConfig()` 会自动使用它；应用仍可通过
+`EngineConfig` 显式覆盖任意模型路径。
+
+硬失败通过 `ParseResult::status` 返回。当 Pipeline 在运行时 fallback 后仍能保留可用结果时，解析会成功，
+但 `document.status` 为 `partial`，同时产生机器可读 Warning，并在 `ParseResult::provenance` 中记录 fallback。
+调用方可通过 `DocumentParseOptions::run_id` 将解析结果关联到自己的任务或 Trace。
 
 ## 输出
 
@@ -100,7 +108,8 @@ output/
 
 普通 JSON 输出遵循 Document Contract v1，包含按最终阅读顺序排列、可定位到页面的 Blocks。启用 `--debug`
 后，归一化文本、Layout Blocks、Reading Order、表格结构和图像预处理产物会写入页面的命名空间
-`extensions` 字段。
+`extensions` 字段。`--run-id` 可把调用方提供的关联 ID 写入 `producer`；可用但发生降级的结果使用
+`status: "partial"`，并通过 `warnings` 解释降级原因。
 
 ```json
 {
@@ -148,6 +157,9 @@ output/
 - 带 Stage Event 的常驻 C++ Worker。
 - PostgreSQL Run 元数据。
 - 用于选择 Backend 和检查 Artifact 的 React 界面。
+
+Worker 会发出 `run_configured` 和 `stage_warning` 事件，记录每次运行请求与实际采用的 Backend、模型路径与
+Profile，以及运行时 fallback 诊断。
 
 ```bash
 cmake --preset platform-release

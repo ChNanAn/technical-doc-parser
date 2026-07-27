@@ -31,6 +31,16 @@ std::string mediaType(const std::string& kind) {
     return "application/json";
 }
 
+nlohmann::json backendOptions(const pipeline::BackendOptions& options) {
+    return {
+        {"document", options.document},
+        {"ocr", options.ocr},
+        {"layout", options.layout},
+        {"table", options.table},
+        {"registry_config", options.registry_config.string()},
+    };
+}
+
 } // namespace
 
 WorkerStageObserver::WorkerStageObserver(RedisClient& redis,
@@ -89,6 +99,55 @@ void WorkerStageObserver::publishJobEvent(const std::string& type, const std::st
         state["error"] = effective_error;
     }
     redis_.setHash("run:" + run_id_, state);
+}
+
+void WorkerStageObserver::onRunConfigured(const pipeline::RunProvenance& provenance) {
+    nlohmann::json models = nlohmann::json::array();
+    for (const pipeline::ModelProvenance& model : provenance.models) {
+        nlohmann::json value{
+            {"stage", model.stage},
+            {"backend", model.backend},
+            {"role", model.role},
+            {"path", model.path.string()},
+        };
+        if (!model.profile.empty()) {
+            value["profile"] = model.profile;
+        }
+        models.push_back(std::move(value));
+    }
+    publish({
+        {"type", "run_configured"},
+        {"engine",
+         {
+             {"name", provenance.engine_name},
+             {"version", provenance.engine_version},
+             {"git_revision", provenance.git_revision},
+         }},
+        {"backends",
+         {
+             {"requested", backendOptions(provenance.backends.requested)},
+             {"resolved", backendOptions(provenance.backends.resolved)},
+             {"config_source", provenance.backends.config_source},
+         }},
+        {"models", std::move(models)},
+    });
+}
+
+void WorkerStageObserver::onStageWarning(const common::Diagnostic& diagnostic) {
+    nlohmann::json event{
+        {"type", "stage_warning"},
+        {"stage", diagnostic.stage},
+        {"warning",
+         {
+             {"code", diagnostic.code},
+             {"message", diagnostic.message},
+             {"details", diagnostic.details},
+         }},
+    };
+    if (diagnostic.page_number > 0) {
+        event["page_number"] = diagnostic.page_number;
+    }
+    publish(std::move(event));
 }
 
 void WorkerStageObserver::onStageStarted(const pipeline::StageStartedInfo& info) {

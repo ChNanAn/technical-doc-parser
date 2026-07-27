@@ -39,6 +39,7 @@ if(BUILD_TESTING)
         PRIVATE
             doc_parser_pipeline
             GTest::gtest_main
+            nlohmann_json::nlohmann_json
             spdlog::spdlog
     )
 

@@ -106,6 +106,7 @@ WorkerRunOptions optionsFromJob(const nlohmann::json& job,
     WorkerRunOptions options;
     options.parse.input_path = localFilePath(job.at("input").at("uri").get<std::string>());
     options.parse.output_directory = job.at("output_directory").get<std::string>();
+    options.parse.run_id = job.at("run_id").get<std::string>();
     options.parse.render.dpi = pipeline.at("dpi").get<int>();
     options.parse.debug = pipeline.at("debug").get<bool>();
     doc_parser::pipeline::BackendOptions requested_backends;

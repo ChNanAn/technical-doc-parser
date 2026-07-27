@@ -24,6 +24,7 @@ struct DocumentParseOptions {
     bool debug = false;
     int timeout_seconds = 0;
     int maximum_pages = 0;
+    std::string run_id;
 };
 
 struct PipelineRunOptions : DocumentParseOptions {

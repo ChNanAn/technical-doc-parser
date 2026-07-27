@@ -6,7 +6,9 @@
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/backend_registry.h"
+#include "pipeline/engine_config.h"
 #include "pipeline/pipeline_context.h"
+#include "pipeline/run_provenance.h"
 #include "reading_order/reading_order_backend.h"
 #include "table/table_backend.h"
 
@@ -27,10 +29,13 @@ struct PipelineServiceCreationResult {
     common::Status status =
         common::Status::error("configure.not_started", "pipeline services were not configured", "configure");
     std::string trace_message;
+    RunProvenance provenance;
     PipelineServices services;
 };
 
 PipelineServiceCreationResult createPipelineServices(const BackendOptions& options);
 PipelineServiceCreationResult createPipelineServices(const BackendOptions& options, const BackendRegistry& registry);
+PipelineServiceCreationResult createPipelineServices(const EngineConfig& config);
+PipelineServiceCreationResult createPipelineServices(const EngineConfig& config, const BackendRegistry& registry);
 
 } // namespace doc_parser::pipeline

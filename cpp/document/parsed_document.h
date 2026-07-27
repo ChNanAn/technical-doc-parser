@@ -7,6 +7,7 @@
 #include "document/table_model.h"
 #include "document/text_model.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -54,6 +55,7 @@ struct DocumentWarning {
     std::string stage;
     std::string page_id;
     std::string block_id;
+    std::map<std::string, std::string> details;
 };
 
 struct PipelinePageArtifacts {

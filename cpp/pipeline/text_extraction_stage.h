@@ -1,12 +1,11 @@
 #pragma once
 
-#include "common/status.h"
-
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 #include "document_source/document_source_interfaces.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/pipeline_context.h"
+#include "pipeline/stage_result.h"
 
 #include <vector>
 
@@ -18,9 +17,8 @@ public:
     TextExtractionStage(const document_source::INativeTextExtractor* native_text_extractor,
                         const ocr::IOcrBackend& ocr);
 
-    common::Status extract(const PipelineContext& context,
-                           const std::vector<document::PageArtifact>& pages,
-                           std::vector<document::PageText>& page_texts) const;
+    StageResult<std::vector<document::PageText>> extract(const PipelineContext& context,
+                                                         const std::vector<document::PageArtifact>& pages) const;
 
 private:
     const document_source::INativeTextExtractor* native_text_extractor_ = nullptr;

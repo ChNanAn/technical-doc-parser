@@ -14,6 +14,7 @@
 #include <fstream>
 #include <memory>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -22,6 +23,29 @@ struct FactoryCounts {
     int ocr = 0;
     int layout = 0;
     int table = 0;
+};
+
+class FailingLayoutBackend final : public doc_parser::layout::ILayoutBackend {
+public:
+    bool analyze(const doc_parser::layout::LayoutRequest&, doc_parser::layout::LayoutResult&) const override {
+        return false;
+    }
+};
+
+class DiagnosticObserver final : public doc_parser::pipeline::IStageObserver {
+public:
+    void onRunConfigured(const doc_parser::pipeline::RunProvenance& value) override { provenance = value; }
+    void onStageWarning(const doc_parser::common::Diagnostic& diagnostic) override {
+        diagnostics.push_back(diagnostic);
+    }
+    void onStageStarted(const doc_parser::pipeline::StageStartedInfo&) override {}
+    void onStageProgress(const doc_parser::pipeline::StageProgressInfo&) override {}
+    void onArtifactReady(const doc_parser::pipeline::StageArtifactInfo&) override {}
+    void onStageCompleted(const doc_parser::pipeline::StageCompletedInfo&) override {}
+    void onStageFailed(const doc_parser::pipeline::StageFailedInfo&) override {}
+
+    doc_parser::pipeline::RunProvenance provenance;
+    std::vector<doc_parser::common::Diagnostic> diagnostics;
 };
 
 } // namespace
@@ -103,6 +127,81 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAndLeavesExportToCaller) {
     EXPECT_EQ(counts->table, 1);
 
     std::filesystem::remove_all(output_root);
+}
+
+TEST(DocumentEngineTest, RuntimeFallbackProducesExplainedPartialResultAndProvenance) {
+    doc_parser::pipeline::BackendRegistry registry;
+    ASSERT_TRUE(
+        registry.registerDocument("pdf", [] { return doc_parser::document_source::createDocumentSource("pdf"); }));
+    ASSERT_TRUE(registry.registerOcr("noop", [] { return std::make_unique<doc_parser::ocr::NoopOcrBackend>(); }));
+    ASSERT_TRUE(registry.registerLayout("failing-layout", [] { return std::make_unique<FailingLayoutBackend>(); }));
+    ASSERT_TRUE(
+        registry.registerLayout("text", [] { return std::make_unique<doc_parser::layout::TextLayoutModelBackend>(); }));
+    ASSERT_TRUE(registry.registerTable(
+        "text", [] { return std::make_unique<doc_parser::table::TextTableStructureBackend>(); }));
+
+    const std::filesystem::path root = std::filesystem::temp_directory_path() / "tdp_engine_fallback_test";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root);
+    const std::filesystem::path registry_config = root / "backends.json";
+    {
+        std::ofstream output(registry_config);
+        output
+            << R"({"version":1,"auto_order":{"document":["pdf"],"ocr":["noop"],"layout":["failing-layout","text"],"table":["text"]}})";
+    }
+
+    doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
+    config.backends.document = "pdf";
+    config.backends.ocr = "noop";
+    config.backends.layout = "auto";
+    config.backends.table = "text";
+    config.backends.registry_config = registry_config;
+    doc_parser::pipeline::DocumentEngine engine(config, registry);
+    ASSERT_TRUE(engine.isReady()) << engine.initializationStatus().message();
+
+    doc_parser::pipeline::DocumentParseOptions options;
+    options.input_path = std::filesystem::path(DOC_PARSER_TEST_FIXTURE_DIR) / "pdfs" / "pdfjs-basicapi.pdf";
+    options.output_directory = root / "output";
+    options.run_id = "run_fallback_test";
+    options.render.dpi = 72;
+    DiagnosticObserver observer;
+    const doc_parser::pipeline::ParseResult result = engine.parse(options, observer);
+
+    ASSERT_TRUE(result.ok()) << result.status.message();
+    EXPECT_EQ(result.document.status, doc_parser::document::DocumentStatus::Partial);
+    ASSERT_EQ(result.document.warnings.size(), 3U);
+    for (std::size_t index = 0; index < result.document.warnings.size(); ++index) {
+        const auto& warning = result.document.warnings[index];
+        EXPECT_EQ(warning.code, "LAYOUT_BACKEND_FALLBACK");
+        EXPECT_EQ(warning.stage, "layout");
+        EXPECT_EQ(warning.page_id, "page_" + std::to_string(index + 1));
+        EXPECT_EQ(warning.details.at("failed_backend"), "failing-layout");
+        EXPECT_EQ(warning.details.at("fallback_backend"), "text");
+    }
+    EXPECT_EQ(result.document.producer.run_id, options.run_id);
+    EXPECT_EQ(result.document.producer.version, "0.1.0");
+    EXPECT_EQ(result.document.producer.git_revision, result.provenance.git_revision);
+    if (!result.provenance.git_revision.empty()) {
+        EXPECT_GE(result.provenance.git_revision.size(), 7U);
+    }
+    EXPECT_EQ(result.provenance.run_id, options.run_id);
+    EXPECT_EQ(result.provenance.backends.requested.layout, "auto");
+    EXPECT_EQ(result.provenance.backends.resolved.layout, "failing-layout->text");
+    ASSERT_EQ(result.provenance.fallbacks.size(), 3U);
+    EXPECT_EQ(result.provenance.fallbacks[0].failed_backend, "failing-layout");
+    EXPECT_EQ(result.provenance.fallbacks[0].fallback_backend, "text");
+    EXPECT_EQ(observer.provenance.run_id, options.run_id);
+    EXPECT_EQ(observer.provenance.backends.resolved.layout, "failing-layout->text");
+    ASSERT_EQ(observer.diagnostics.size(), 3U);
+    EXPECT_EQ(observer.diagnostics[0].code, "LAYOUT_BACKEND_FALLBACK");
+
+    const auto document_exporter = doc_parser::exporter::createDefaultDocumentExporter();
+    ASSERT_NE(document_exporter, nullptr);
+    ASSERT_TRUE(document_exporter
+                    ->write({false, options.output_directory / "document.json", &result.document, &result.artifacts})
+                    .okStatus());
+    EXPECT_TRUE(std::filesystem::is_regular_file(options.output_directory / "document.json"));
+    std::filesystem::remove_all(root);
 }
 
 TEST(DocumentPipelineTest, RunUsesTheExplicitBackendRegistry) {

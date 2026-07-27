@@ -78,15 +78,21 @@ cmake --install build/core-release --prefix build/sdk
 ```
 
 Downstream projects can call `find_package(DocumentIntelligenceEngine CONFIG REQUIRED)` and link
-`DocumentIntelligenceEngine::engine`. `DocumentEngine::parse()` returns the document and pipeline artifacts in memory;
-JSON, Markdown, and HTML export is an explicit caller choice. See the runnable [embedding example](examples/embed_document.cpp)
-and its standalone [CMake project](examples/CMakeLists.txt).
+`DocumentIntelligenceEngine::engine`. A `DocumentEngine` is configured once and reuses model sessions across calls.
+`DocumentEngine::parse()` returns a `ParseResult` containing the normalized document, pipeline artifacts, structured
+status, and run provenance; JSON, Markdown, and HTML export is an explicit caller choice. See the runnable
+[embedding example](examples/embed_document.cpp) and its standalone [CMake project](examples/CMakeLists.txt).
 
 PDFium and, when enabled, ONNX Runtime remain external package dependencies. Set `PDFium_DIR` and
 `ONNXRuntime_ROOT` when configuring a downstream project if they are not installed in standard locations. Available
 default models are installed under `share/DocumentIntelligenceEngine/models`; the relocatable package exposes that
 path as `DocumentIntelligenceEngine_MODEL_DIR`, and `defaultEngineConfig()` uses it automatically. Applications can
 still override every model path explicitly through `EngineConfig`.
+
+Hard failures are returned through `ParseResult::status`. When the pipeline can preserve usable output after a
+runtime fallback, parsing succeeds with `document.status == partial`, a machine-readable warning, and a fallback
+entry in `ParseResult::provenance`. Callers can provide `DocumentParseOptions::run_id` to correlate the result with
+their own job or trace.
 
 ## Output
 
@@ -103,7 +109,8 @@ output/
 
 The normal JSON output follows Document Contract v1 and contains page-grounded blocks in final reading order.
 `--debug` adds normalized text, layout blocks, reading order, table structures, and preprocessing artifacts under a
-namespaced page `extensions` field.
+namespaced page `extensions` field. `--run-id` records a caller-provided correlation ID under `producer`; usable but
+degraded results use `status: "partial"` and explain the degradation through `warnings`.
 
 ```json
 {
@@ -152,6 +159,9 @@ The standalone C++ engine is the default deliverable. An optional platform under
 - A persistent C++ worker with stage events.
 - PostgreSQL run metadata.
 - A React interface for backend selection and artifact inspection.
+
+The worker emits `run_configured` and `stage_warning` events so each run records requested and resolved backends,
+model paths and profiles, and runtime fallback diagnostics.
 
 ```bash
 cmake --preset platform-release

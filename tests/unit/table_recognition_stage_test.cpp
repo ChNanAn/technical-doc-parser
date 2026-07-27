@@ -56,8 +56,9 @@ TEST(TableRecognitionStageTest, AddsDetectedRegionsToLayoutAndLinksCrossPageTabl
     }
 
     doc_parser::pipeline::PipelineContext context;
-    std::vector<doc_parser::document::PageTables> tables;
-    ASSERT_TRUE(stage.recognize(context, pages, texts, layouts, tables).okStatus());
+    const auto result = stage.recognize(context, pages, texts, layouts);
+    ASSERT_TRUE(result.ok());
+    const auto& tables = result.value;
 
     ASSERT_EQ(layouts[0].blocks.size(), 1U);
     EXPECT_EQ(layouts[0].blocks[0].type, doc_parser::document::LayoutBlockType::Table);

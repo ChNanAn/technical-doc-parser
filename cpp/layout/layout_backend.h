@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/diagnostic.h"
+
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
 #include "document/text_model.h"
@@ -7,6 +9,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace doc_parser::layout {
 
@@ -17,6 +20,7 @@ struct LayoutRequest {
 
 struct LayoutResult {
     document::PageLayout layout;
+    std::vector<common::Diagnostic> diagnostics;
 };
 
 class ILayoutBackend {

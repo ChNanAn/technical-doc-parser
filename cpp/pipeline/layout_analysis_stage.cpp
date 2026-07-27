@@ -1,33 +1,41 @@
 #include "pipeline/layout_analysis_stage.h"
 
+#include <iterator>
 #include <string>
+#include <utility>
 
 namespace doc_parser::pipeline {
 
 LayoutAnalysisStage::LayoutAnalysisStage(const layout::ILayoutBackend& layout) : layout_(layout) {}
 
-common::Status LayoutAnalysisStage::analyze(const PipelineContext& context,
-                                            const std::vector<document::PageArtifact>& pages,
-                                            const std::vector<document::PageText>& page_texts,
-                                            std::vector<document::PageLayout>& page_layouts) const {
+StageResult<std::vector<document::PageLayout>>
+LayoutAnalysisStage::analyze(const PipelineContext& context,
+                             const std::vector<document::PageArtifact>& pages,
+                             const std::vector<document::PageText>& page_texts) const {
     (void)context;
-    page_layouts.clear();
+    StageResult<std::vector<document::PageLayout>> analysis;
 
     if (pages.size() != page_texts.size()) {
-        return common::Status::error("layout.page_count_mismatch", "text page count does not match page artifacts");
+        analysis.status =
+            common::Status::error("layout.page_count_mismatch", "text page count does not match page artifacts");
+        return analysis;
     }
 
-    page_layouts.reserve(pages.size());
+    analysis.value.reserve(pages.size());
     for (std::size_t index = 0; index < pages.size(); ++index) {
         layout::LayoutResult result;
         if (!layout_.analyze({pages[index], page_texts[index]}, result)) {
-            return common::Status::error("layout.analysis_failed",
-                                         "layout analysis failed for page " + std::to_string(index + 1));
+            analysis.status = common::Status::error("layout.analysis_failed",
+                                                    "layout analysis failed for page " + std::to_string(index + 1));
+            return analysis;
         }
-        page_layouts.push_back(result.layout);
+        analysis.value.push_back(std::move(result.layout));
+        analysis.diagnostics.insert(analysis.diagnostics.end(),
+                                    std::make_move_iterator(result.diagnostics.begin()),
+                                    std::make_move_iterator(result.diagnostics.end()));
     }
 
-    return common::Status::ok();
+    return analysis;
 }
 
 } // namespace doc_parser::pipeline

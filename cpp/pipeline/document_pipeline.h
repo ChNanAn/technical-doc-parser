@@ -4,6 +4,7 @@
 
 #include "document/parsed_document.h"
 #include "pipeline/pipeline_options.h"
+#include "pipeline/run_provenance.h"
 #include "pipeline/stage_observer.h"
 
 namespace doc_parser::pipeline {
@@ -27,15 +28,17 @@ private:
 
     common::Status parse(const PipelineRunOptions& options,
                          PipelineServices& services,
-                         const std::string& service_trace,
+                         const RunProvenance& service_provenance,
                          document::ParsedDocument& document,
                          document::PipelineArtifacts& artifacts,
+                         RunProvenance& run_provenance,
                          IStageObserver& observer) const;
     common::Status parseInternal(const PipelineRunOptions& options,
                                  PipelineServices* services,
-                                 const std::string& service_trace,
+                                 const RunProvenance* service_provenance,
                                  document::ParsedDocument& document,
                                  document::PipelineArtifacts& artifacts,
+                                 RunProvenance& run_provenance,
                                  IStageObserver& observer,
                                  const BackendRegistry* registry) const;
     common::Status exportResult(const PipelineRunOptions& options,

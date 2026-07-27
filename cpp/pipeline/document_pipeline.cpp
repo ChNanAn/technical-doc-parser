@@ -17,6 +17,7 @@
 #include <chrono>
 #include <spdlog/spdlog.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace doc_parser::pipeline {
@@ -48,6 +49,62 @@ common::Status deadlineStatus(const PipelineRunOptions& options,
                        next_stage,
                        "run_timeout",
                        "pipeline exceeded its " + std::to_string(options.timeout_seconds) + " second deadline");
+}
+
+std::string configuredServicesTrace(const RunProvenance& provenance) {
+    const BackendResolution& backends = provenance.backends;
+    return "registry=" + backends.config_source + ", document=" + backends.resolved.document +
+           ", ocr=" + backends.resolved.ocr + ", layout=" + backends.resolved.layout +
+           ", table=" + backends.resolved.table;
+}
+
+const std::string& resolvedBackend(const std::string& resolved, const std::string& requested) {
+    return resolved.empty() ? requested : resolved;
+}
+
+void recordDiagnostics(const std::vector<common::Diagnostic>& diagnostics,
+                       std::vector<common::Diagnostic>& run_diagnostics,
+                       RunProvenance& provenance,
+                       IStageObserver& observer) {
+    for (const common::Diagnostic& diagnostic : diagnostics) {
+        run_diagnostics.push_back(diagnostic);
+        observer.onStageWarning(diagnostic);
+        const auto failed = diagnostic.details.find("failed_backend");
+        const auto fallback = diagnostic.details.find("fallback_backend");
+        if (failed != diagnostic.details.end() && fallback != diagnostic.details.end()) {
+            const auto reason = diagnostic.details.find("reason");
+            provenance.fallbacks.push_back({
+                diagnostic.stage,
+                diagnostic.page_number,
+                failed->second,
+                fallback->second,
+                reason == diagnostic.details.end() ? diagnostic.message : reason->second,
+            });
+        }
+    }
+}
+
+void applyRunMetadata(const PipelineRunOptions& options,
+                      const std::vector<common::Diagnostic>& diagnostics,
+                      const RunProvenance& provenance,
+                      document::ParsedDocument& document) {
+    document.producer.name = provenance.engine_name;
+    document.producer.version = provenance.engine_version;
+    document.producer.git_revision = provenance.git_revision;
+    document.producer.run_id = options.run_id;
+    for (const common::Diagnostic& diagnostic : diagnostics) {
+        document.warnings.push_back({
+            diagnostic.code,
+            diagnostic.message,
+            diagnostic.stage,
+            diagnostic.page_number > 0 ? "page_" + std::to_string(diagnostic.page_number) : std::string{},
+            {},
+            diagnostic.details,
+        });
+    }
+    if (!document.warnings.empty()) {
+        document.status = document::DocumentStatus::Partial;
+    }
 }
 
 #if DOC_PARSER_ENABLE_OPENCV
@@ -112,7 +169,9 @@ common::Status DocumentPipeline::runWithRegistry(const PipelineRunOptions& optio
     const Clock::time_point run_started = Clock::now();
     document::ParsedDocument document;
     document::PipelineArtifacts artifacts;
-    common::Status status = parseInternal(options, nullptr, {}, document, artifacts, observer, registry);
+    RunProvenance provenance;
+    common::Status status =
+        parseInternal(options, nullptr, nullptr, document, artifacts, provenance, observer, registry);
     if (!status.okStatus()) {
         return status;
     }
@@ -125,18 +184,21 @@ common::Status DocumentPipeline::runWithRegistry(const PipelineRunOptions& optio
 
 common::Status DocumentPipeline::parse(const PipelineRunOptions& options,
                                        PipelineServices& services,
-                                       const std::string& service_trace,
+                                       const RunProvenance& service_provenance,
                                        document::ParsedDocument& document,
                                        document::PipelineArtifacts& artifacts,
+                                       RunProvenance& run_provenance,
                                        IStageObserver& observer) const {
-    return parseInternal(options, &services, service_trace, document, artifacts, observer, nullptr);
+    return parseInternal(
+        options, &services, &service_provenance, document, artifacts, run_provenance, observer, nullptr);
 }
 
 common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options,
                                                PipelineServices* services,
-                                               const std::string& service_trace,
+                                               const RunProvenance* service_provenance,
                                                document::ParsedDocument& parsed_document,
                                                document::PipelineArtifacts& artifacts,
+                                               RunProvenance& run_provenance,
                                                IStageObserver& observer,
                                                const BackendRegistry* registry) const {
     const Clock::time_point run_started = Clock::now();
@@ -157,14 +219,19 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         }
         services = &service_creation.services;
     }
+    run_provenance = service_provenance == nullptr ? service_creation.provenance : *service_provenance;
+    run_provenance.run_id = options.run_id;
     observer.onStageProgress({"configure", 1, 1});
     observer.onStageCompleted({"configure", elapsedMilliseconds(stage_started)});
-    spdlog::info("configured services: {}", service_trace.empty() ? service_creation.trace_message : service_trace);
+    observer.onRunConfigured(run_provenance);
+    spdlog::info("configured services: {}", configuredServicesTrace(run_provenance));
 
     auto& document = services->document;
+    std::vector<common::Diagnostic> run_diagnostics;
 
     stage_started = Clock::now();
-    observer.onStageStarted({"open", context.backends.document, 1});
+    observer.onStageStarted(
+        {"open", resolvedBackend(run_provenance.backends.resolved.document, context.backends.document), 1});
     if (!document.source->open(context.input_path)) {
         spdlog::error("open_document: failed to open input document: {}", context.input_path.string());
         return stageFailed(observer, "open", "open_document_failed", "failed to open input document");
@@ -195,7 +262,9 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     }
 
     stage_started = Clock::now();
-    observer.onStageStarted({"render", context.backends.document, document.source->pageCount()});
+    observer.onStageStarted({"render",
+                             resolvedBackend(run_provenance.backends.resolved.document, context.backends.document),
+                             document.source->pageCount()});
     std::vector<document::PageArtifact> rendered_pages;
     if (!document.renderer->renderPages({context.render.dpi, context.output.root, context.output.pages_dir},
                                         rendered_pages)) {
@@ -221,14 +290,18 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         return deadline;
     }
     stage_started = Clock::now();
-    observer.onStageStarted({"text", context.backends.ocr, static_cast<int>(rendered_pages.size())});
+    observer.onStageStarted({"text",
+                             resolvedBackend(run_provenance.backends.resolved.ocr, context.backends.ocr),
+                             static_cast<int>(rendered_pages.size())});
     const TextExtractionStage text_extraction(document.native_text_extractor, *services->ocr);
-    std::vector<document::PageText> page_texts;
-    common::Status stage_status = text_extraction.extract(context, rendered_pages, page_texts);
-    if (!stage_status.okStatus()) {
-        spdlog::error("text_extraction: {}", stage_status.message());
-        return stageFailed(observer, "text", stage_status.code(), stage_status.message(), stage_status.retryable());
+    StageResult<std::vector<document::PageText>> text_result = text_extraction.extract(context, rendered_pages);
+    if (!text_result.ok()) {
+        spdlog::error("text_extraction: {}", text_result.status.message());
+        return stageFailed(
+            observer, "text", text_result.status.code(), text_result.status.message(), text_result.status.retryable());
     }
+    recordDiagnostics(text_result.diagnostics, run_diagnostics, run_provenance, observer);
+    std::vector<document::PageText> page_texts = std::move(text_result.value);
     observer.onStageProgress({"text", static_cast<int>(page_texts.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"text", elapsedMilliseconds(stage_started)});
     spdlog::info("extracted text pages: {}", page_texts.size());
@@ -238,14 +311,22 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         return deadline;
     }
     stage_started = Clock::now();
-    observer.onStageStarted({"layout", context.backends.layout, static_cast<int>(rendered_pages.size())});
+    observer.onStageStarted({"layout",
+                             resolvedBackend(run_provenance.backends.resolved.layout, context.backends.layout),
+                             static_cast<int>(rendered_pages.size())});
     const LayoutAnalysisStage layout_analysis(*services->layout);
-    std::vector<document::PageLayout> page_layouts;
-    stage_status = layout_analysis.analyze(context, rendered_pages, page_texts, page_layouts);
-    if (!stage_status.okStatus()) {
-        spdlog::error("layout_analysis: {}", stage_status.message());
-        return stageFailed(observer, "layout", stage_status.code(), stage_status.message(), stage_status.retryable());
+    StageResult<std::vector<document::PageLayout>> layout_result =
+        layout_analysis.analyze(context, rendered_pages, page_texts);
+    if (!layout_result.ok()) {
+        spdlog::error("layout_analysis: {}", layout_result.status.message());
+        return stageFailed(observer,
+                           "layout",
+                           layout_result.status.code(),
+                           layout_result.status.message(),
+                           layout_result.status.retryable());
     }
+    recordDiagnostics(layout_result.diagnostics, run_diagnostics, run_provenance, observer);
+    std::vector<document::PageLayout> page_layouts = std::move(layout_result.value);
     observer.onStageProgress(
         {"layout", static_cast<int>(page_layouts.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"layout", elapsedMilliseconds(stage_started)});
@@ -255,14 +336,22 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         return deadline;
     }
     stage_started = Clock::now();
-    observer.onStageStarted({"table", context.backends.table, static_cast<int>(rendered_pages.size())});
+    observer.onStageStarted({"table",
+                             resolvedBackend(run_provenance.backends.resolved.table, context.backends.table),
+                             static_cast<int>(rendered_pages.size())});
     const TableRecognitionStage table_recognition(*services->table);
-    std::vector<document::PageTables> page_tables;
-    stage_status = table_recognition.recognize(context, rendered_pages, page_texts, page_layouts, page_tables);
-    if (!stage_status.okStatus()) {
-        spdlog::error("table_recognition: {}", stage_status.message());
-        return stageFailed(observer, "table", stage_status.code(), stage_status.message(), stage_status.retryable());
+    StageResult<std::vector<document::PageTables>> table_result =
+        table_recognition.recognize(context, rendered_pages, page_texts, page_layouts);
+    if (!table_result.ok()) {
+        spdlog::error("table_recognition: {}", table_result.status.message());
+        return stageFailed(observer,
+                           "table",
+                           table_result.status.code(),
+                           table_result.status.message(),
+                           table_result.status.retryable());
     }
+    recordDiagnostics(table_result.diagnostics, run_diagnostics, run_provenance, observer);
+    std::vector<document::PageTables> page_tables = std::move(table_result.value);
     observer.onStageProgress({"table", static_cast<int>(page_tables.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"table", elapsedMilliseconds(stage_started)});
     spdlog::info("recognized table pages: {}", page_tables.size());
@@ -274,13 +363,18 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     stage_started = Clock::now();
     observer.onStageStarted({"reading_order", "docling-like", static_cast<int>(rendered_pages.size())});
     const ReadingOrderStage reading_order(*services->reading_order);
-    std::vector<document::PageReadingOrder> page_reading_orders;
-    stage_status = reading_order.order(context, rendered_pages, page_layouts, page_reading_orders);
-    if (!stage_status.okStatus()) {
-        spdlog::error("reading_order: {}", stage_status.message());
-        return stageFailed(
-            observer, "reading_order", stage_status.code(), stage_status.message(), stage_status.retryable());
+    StageResult<std::vector<document::PageReadingOrder>> reading_order_result =
+        reading_order.order(context, rendered_pages, page_layouts);
+    if (!reading_order_result.ok()) {
+        spdlog::error("reading_order: {}", reading_order_result.status.message());
+        return stageFailed(observer,
+                           "reading_order",
+                           reading_order_result.status.code(),
+                           reading_order_result.status.message(),
+                           reading_order_result.status.retryable());
     }
+    recordDiagnostics(reading_order_result.diagnostics, run_diagnostics, run_provenance, observer);
+    std::vector<document::PageReadingOrder> page_reading_orders = std::move(reading_order_result.value);
     observer.onStageProgress(
         {"reading_order", static_cast<int>(page_reading_orders.size()), static_cast<int>(rendered_pages.size())});
     observer.onStageCompleted({"reading_order", elapsedMilliseconds(stage_started)});
@@ -309,6 +403,7 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         spdlog::error("document_assembly: failed to assemble document");
         return stageFailed(observer, "assembly", "assembly_failed", "failed to assemble document");
     }
+    applyRunMetadata(options, run_diagnostics, run_provenance, parsed_document);
     observer.onStageProgress({"assembly", 1, 1});
     observer.onStageCompleted({"assembly", elapsedMilliseconds(stage_started)});
     std::size_t detected_furniture = 0;

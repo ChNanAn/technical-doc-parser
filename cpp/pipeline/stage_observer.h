@@ -1,5 +1,9 @@
 #pragma once
 
+#include "common/diagnostic.h"
+
+#include "pipeline/run_provenance.h"
+
 #include <filesystem>
 #include <string>
 
@@ -40,6 +44,8 @@ class IStageObserver {
 public:
     virtual ~IStageObserver() = default;
 
+    virtual void onRunConfigured(const RunProvenance&) {}
+    virtual void onStageWarning(const common::Diagnostic&) {}
     virtual void onStageStarted(const StageStartedInfo& info) = 0;
     virtual void onStageProgress(const StageProgressInfo& info) = 0;
     virtual void onArtifactReady(const StageArtifactInfo& info) = 0;

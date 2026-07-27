@@ -14,6 +14,9 @@ add_library(doc_parser_pipeline
 
 doc_parser_set_public_includes(doc_parser_pipeline)
 target_compile_definitions(doc_parser_pipeline
+    PRIVATE
+        DOC_PARSER_ENGINE_VERSION="${PROJECT_VERSION}"
+        DOC_PARSER_GIT_REVISION="${DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION}"
     INTERFACE
         $<BUILD_INTERFACE:DOC_PARSER_PADDLEOCR_BASELINE_DIR="${DOC_PARSER_PADDLEOCR_BASELINE_DIR}">
         $<BUILD_INTERFACE:DOC_PARSER_DOCLAYNET_MODEL_PATH="${DOC_PARSER_DOCLAYNET_MODEL_PATH}">

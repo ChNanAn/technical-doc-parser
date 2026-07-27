@@ -67,6 +67,11 @@ TEST(BackendRegistryTest, LoadsValidatedAutoOrderAndDrivesServiceSelection) {
     EXPECT_NE(result.trace_message.find("layout=text"), std::string::npos);
     EXPECT_NE(result.trace_message.find("table=text"), std::string::npos);
     EXPECT_NE(result.trace_message.find(config_path.string()), std::string::npos);
+    EXPECT_EQ(result.provenance.backends.requested.registry_config, config_path);
+    EXPECT_EQ(result.provenance.backends.resolved.ocr, "noop");
+    EXPECT_EQ(result.provenance.backends.resolved.layout, "text");
+    EXPECT_EQ(result.provenance.backends.resolved.table, "text");
+    EXPECT_EQ(result.provenance.backends.config_source, config_path.string());
     std::filesystem::remove(config_path);
 }
 

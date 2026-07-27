@@ -97,8 +97,9 @@ TEST(TextExtractionStageTest, KeepsNativeTextWhenPresent) {
     const RecordingOcrBackend ocr_backend;
     const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
 
-    std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+    ASSERT_TRUE(result.ok());
+    const auto& page_texts = result.value;
 
     EXPECT_EQ(native_text_extractor.extract_native_text_calls, 1);
     EXPECT_EQ(ocr_backend.recognize_calls, 0);
@@ -122,8 +123,9 @@ TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextIsEmpty) {
     const RecordingOcrBackend ocr_backend;
     const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
 
-    std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+    ASSERT_TRUE(result.ok());
+    const auto& page_texts = result.value;
 
     EXPECT_EQ(native_text_extractor.extract_native_text_calls, 1);
     EXPECT_EQ(ocr_backend.recognize_calls, 1);
@@ -141,8 +143,9 @@ TEST(TextExtractionStageTest, UsesOcrBackendWhenNativeTextExtractorIsUnavailable
     const RecordingOcrBackend ocr_backend;
     const doc_parser::pipeline::TextExtractionStage stage(nullptr, ocr_backend);
 
-    std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+    ASSERT_TRUE(result.ok());
+    const auto& page_texts = result.value;
 
     EXPECT_EQ(ocr_backend.recognize_calls, 1);
     ASSERT_EQ(page_texts.size(), 1U);
@@ -172,8 +175,9 @@ TEST(TextExtractionStageTest, MergesOcrIntoSparseNativeText) {
     page.width = 800;
     page.height = 1000;
 
-    std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {page}, page_texts).okStatus());
+    const auto result = stage.extract(makeContext(), {page});
+    ASSERT_TRUE(result.ok());
+    const auto& page_texts = result.value;
     EXPECT_EQ(ocr_backend.recognize_calls, 1);
     ASSERT_EQ(page_texts.size(), 1U);
     ASSERT_EQ(page_texts[0].lines.size(), 2U);
@@ -202,8 +206,13 @@ TEST(TextExtractionStageTest, KeepsUsableSparseNativeTextWhenOcrEnhancementFails
     page.width = 800;
     page.height = 1000;
 
-    std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {page}, page_texts).okStatus());
+    const auto result = stage.extract(makeContext(), {page});
+    ASSERT_TRUE(result.ok());
+    const auto& page_texts = result.value;
+    ASSERT_EQ(result.diagnostics.size(), 1U);
+    EXPECT_EQ(result.diagnostics[0].code, "OCR_ENHANCEMENT_FAILED");
+    EXPECT_EQ(result.diagnostics[0].stage, "text");
+    EXPECT_EQ(result.diagnostics[0].page_number, 1);
     ASSERT_EQ(page_texts.size(), 1U);
     ASSERT_EQ(page_texts[0].lines.size(), 1U);
     EXPECT_EQ(page_texts[0].lines[0].text, "native header");
@@ -225,8 +234,9 @@ TEST(TextExtractionStageTest, ReplacesSuspiciousNativeTextWithOcr) {
     const RecordingOcrBackend ocr_backend;
     const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
 
-    std::vector<doc_parser::document::PageText> page_texts;
-    EXPECT_TRUE(stage.extract(makeContext(), {makePageArtifact()}, page_texts).okStatus());
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+    ASSERT_TRUE(result.ok());
+    const auto& page_texts = result.value;
     EXPECT_EQ(ocr_backend.recognize_calls, 1);
     ASSERT_EQ(page_texts.size(), 1U);
     ASSERT_EQ(page_texts[0].lines.size(), 1U);
@@ -261,9 +271,8 @@ TEST(TextExtractionStageTest, FailsClearlyWhenRequiredOcrIsUnavailable) {
     const doc_parser::ocr::UnavailableOcrBackend unavailable("test backend unavailable");
     const doc_parser::pipeline::TextExtractionStage stage(nullptr, unavailable);
 
-    std::vector<doc_parser::document::PageText> page_texts;
-    const doc_parser::common::Status status = stage.extract(makeContext(), {makePageArtifact()}, page_texts);
-    EXPECT_FALSE(status.okStatus());
-    EXPECT_EQ(status.code(), "text.ocr_failed");
-    EXPECT_NE(status.message().find("test backend unavailable"), std::string::npos);
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+    EXPECT_FALSE(result.ok());
+    EXPECT_EQ(result.status.code(), "text.ocr_failed");
+    EXPECT_NE(result.status.message().find("test backend unavailable"), std::string::npos);
 }

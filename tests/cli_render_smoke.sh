@@ -12,8 +12,8 @@ DEBUG_JSON_PATH="$DEBUG_OUT_DIR/document.json"
 
 rm -rf "$OUT_DIR"
 rm -rf "$DEBUG_OUT_DIR"
-"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$OUT_DIR" --dpi 72
-"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$DEBUG_OUT_DIR" --dpi 72 --debug \
+"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$OUT_DIR" --dpi 72 --run-id cli_smoke
+"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$DEBUG_OUT_DIR" --dpi 72 --run-id cli_smoke_debug --debug \
   --backend-config "$ROOT_DIR/config/backends.json"
 
 test -f "$PNG_PATH"
@@ -38,6 +38,11 @@ if manifest["$schema"] != schema_uri or manifest["schema_version"] != 1:
     raise SystemExit("output does not identify Document Contract v1")
 if manifest["status"] != "complete":
     raise SystemExit(f"unexpected document status: {manifest['status']!r}")
+if manifest["producer"].get("run_id") != "cli_smoke":
+    raise SystemExit(f"unexpected run provenance: {manifest['producer']!r}")
+git_revision = manifest["producer"].get("git_revision")
+if git_revision is not None and len(git_revision) < 7:
+    raise SystemExit(f"invalid Git revision: {git_revision!r}")
 if manifest["source"]["filename"] != "pdfjs-basicapi.pdf":
     raise SystemExit(f"unexpected source filename: {manifest['source']['filename']!r}")
 if manifest["source"]["media_type"] != "application/pdf":

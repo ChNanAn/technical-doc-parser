@@ -14,6 +14,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -224,12 +225,18 @@ TEST(WorkerDocumentProcessorTest, ReusesEngineAndPreservesExportEvents) {
     doc_parser::pipeline::DocumentParseOptions options;
     options.input_path = std::filesystem::path(DOC_PARSER_TEST_FIXTURE_DIR) / "pdfs" / "pdfjs-basicapi.pdf";
     options.output_directory = root / "first";
+    options.run_id = "run_worker_processor_test";
     options.render.dpi = 72;
     options.timeout_seconds = 30;
     ASSERT_TRUE(processor.process(options, backends, observer).okStatus());
     EXPECT_TRUE(std::filesystem::is_regular_file(options.output_directory / "document.json"));
     EXPECT_TRUE(std::filesystem::is_regular_file(options.output_directory / "document.md"));
     EXPECT_TRUE(std::filesystem::is_regular_file(options.output_directory / "document.html"));
+    {
+        std::ifstream input(options.output_directory / "document.json");
+        const nlohmann::json document = nlohmann::json::parse(input);
+        EXPECT_EQ(document["producer"]["run_id"], options.run_id);
+    }
 
     options.output_directory = root / "second";
     ASSERT_TRUE(processor.process(options, backends, observer).okStatus());

@@ -19,7 +19,7 @@ PipelineRunOptions pipelineOptions(DocumentParseOptions options, const BackendOp
 
 struct DocumentEngine::Impl {
     Impl(EngineConfig engine_config, const BackendRegistry& registry)
-        : config(std::move(engine_config)), creation(createPipelineServices(config.backends, registry)) {}
+        : config(std::move(engine_config)), creation(createPipelineServices(config, registry)) {}
 
     EngineConfig config;
     PipelineServiceCreationResult creation;
@@ -60,9 +60,10 @@ ParseResult DocumentEngine::parse(DocumentParseOptions options, IStageObserver& 
     const DocumentPipeline pipeline;
     result.status = pipeline.parse(pipeline_options,
                                    impl_->creation.services,
-                                   impl_->creation.trace_message,
+                                   impl_->creation.provenance,
                                    result.document,
                                    result.artifacts,
+                                   result.provenance,
                                    observer);
     return result;
 }

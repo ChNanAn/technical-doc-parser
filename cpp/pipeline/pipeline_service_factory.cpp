@@ -11,6 +11,14 @@
 namespace doc_parser::pipeline {
 namespace {
 
+#ifndef DOC_PARSER_ENGINE_VERSION
+#define DOC_PARSER_ENGINE_VERSION "unknown"
+#endif
+
+#ifndef DOC_PARSER_GIT_REVISION
+#define DOC_PARSER_GIT_REVISION ""
+#endif
+
 template <typename Interface> struct NamedBackend {
     std::string name;
     std::unique_ptr<Interface> backend;
@@ -22,8 +30,12 @@ public:
         : backends_(std::move(backends)) {}
 
     bool analyze(const layout::LayoutRequest& request, layout::LayoutResult& result) const override {
+        std::vector<common::Diagnostic> diagnostics;
         for (std::size_t index = 0; index < backends_.size(); ++index) {
-            if (backends_[index].backend->analyze(request, result)) {
+            layout::LayoutResult candidate;
+            if (backends_[index].backend->analyze(request, candidate)) {
+                candidate.diagnostics.insert(candidate.diagnostics.begin(), diagnostics.begin(), diagnostics.end());
+                result = std::move(candidate);
                 return true;
             }
             if (index + 1 < backends_.size()) {
@@ -31,6 +43,17 @@ public:
                              backends_[index].name,
                              request.page.page_number,
                              backends_[index + 1].name);
+                diagnostics.push_back({
+                    "LAYOUT_BACKEND_FALLBACK",
+                    "layout inference failed; continued with the configured fallback chain",
+                    "layout",
+                    request.page.page_number,
+                    {
+                        {"failed_backend", backends_[index].name},
+                        {"fallback_backend", backends_[index + 1].name},
+                        {"reason", "inference_failed"},
+                    },
+                });
             }
         }
         return false;
@@ -46,8 +69,12 @@ public:
         : backends_(std::move(backends)) {}
 
     bool recognize(const table::TableRequest& request, table::TableResult& result) const override {
+        std::vector<common::Diagnostic> diagnostics;
         for (std::size_t index = 0; index < backends_.size(); ++index) {
-            if (backends_[index].backend->recognize(request, result)) {
+            table::TableResult candidate;
+            if (backends_[index].backend->recognize(request, candidate)) {
+                candidate.diagnostics.insert(candidate.diagnostics.begin(), diagnostics.begin(), diagnostics.end());
+                result = std::move(candidate);
                 return true;
             }
             if (index + 1 < backends_.size()) {
@@ -55,6 +82,17 @@ public:
                              backends_[index].name,
                              request.page.page_number,
                              backends_[index + 1].name);
+                diagnostics.push_back({
+                    "TABLE_BACKEND_FALLBACK",
+                    "table inference failed; continued with the configured fallback chain",
+                    "table",
+                    request.page.page_number,
+                    {
+                        {"failed_backend", backends_[index].name},
+                        {"fallback_backend", backends_[index + 1].name},
+                        {"reason", "inference_failed"},
+                    },
+                });
             }
         }
         return false;
@@ -96,6 +134,69 @@ void setCreationError(PipelineServiceCreationResult& result,
     spdlog::error("{}: {}", result.status.code(), result.status.message());
 }
 
+bool containsBackend(const std::string& resolved, const std::string& backend) {
+    std::size_t offset = 0;
+    while (offset <= resolved.size()) {
+        const std::size_t separator = resolved.find("->", offset);
+        const std::size_t length = separator == std::string::npos ? resolved.size() - offset : separator - offset;
+        if (resolved.compare(offset, length, backend) == 0) {
+            return true;
+        }
+        if (separator == std::string::npos) {
+            break;
+        }
+        offset = separator + 2;
+    }
+    return false;
+}
+
+void addModel(RunProvenance& provenance,
+              std::string stage,
+              std::string backend,
+              std::string role,
+              const std::filesystem::path& path,
+              std::string profile = {}) {
+    if (!path.empty()) {
+        provenance.models.push_back({std::move(stage), std::move(backend), std::move(role), path, std::move(profile)});
+    }
+}
+
+void addConfiguredModels(const EngineConfig& config, RunProvenance& provenance) {
+    const BackendOptions& resolved = provenance.backends.resolved;
+    if (resolved.ocr == "paddle") {
+        addModel(provenance,
+                 "text",
+                 "paddle",
+                 "detection",
+                 config.paddle_ocr.detection_model,
+                 config.paddle_ocr.profile.name);
+        addModel(provenance,
+                 "text",
+                 "paddle",
+                 "recognition",
+                 config.paddle_ocr.recognition_model,
+                 config.paddle_ocr.profile.name);
+        addModel(provenance,
+                 "text",
+                 "paddle",
+                 "character_dictionary",
+                 config.paddle_ocr.character_dict,
+                 config.paddle_ocr.profile.name);
+    } else if (resolved.ocr == "tesseract") {
+        addModel(provenance, "text", "tesseract", "executable", config.tesseract.executable, config.tesseract.language);
+    }
+    if (containsBackend(resolved.layout, "doclaynet")) {
+        addModel(provenance, "layout", "doclaynet", "layout", config.doclaynet.model_path);
+    }
+    if (containsBackend(resolved.layout, "paddle-layout")) {
+        addModel(provenance, "layout", "paddle-layout", "layout", config.paddle_layout.model_path);
+    }
+    if (containsBackend(resolved.table, "table-transformer")) {
+        addModel(provenance, "table", "table-transformer", "detection", config.table_transformer.detection_model_path);
+        addModel(provenance, "table", "table-transformer", "structure", config.table_transformer.structure_model_path);
+    }
+}
+
 } // namespace
 
 PipelineServiceCreationResult createPipelineServices(const BackendOptions& options) {
@@ -103,8 +204,24 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     return createPipelineServices(options, registry);
 }
 
+PipelineServiceCreationResult createPipelineServices(const EngineConfig& config) {
+    const BackendRegistry registry = createDefaultBackendRegistry(config);
+    return createPipelineServices(config, registry);
+}
+
+PipelineServiceCreationResult createPipelineServices(const EngineConfig& config, const BackendRegistry& registry) {
+    PipelineServiceCreationResult result = createPipelineServices(config.backends, registry);
+    if (result.status.okStatus()) {
+        addConfiguredModels(config, result.provenance);
+    }
+    return result;
+}
+
 PipelineServiceCreationResult createPipelineServices(const BackendOptions& options, const BackendRegistry& registry) {
     PipelineServiceCreationResult result;
+    result.provenance.engine_version = DOC_PARSER_ENGINE_VERSION;
+    result.provenance.git_revision = DOC_PARSER_GIT_REVISION;
+    result.provenance.backends.requested = options;
     const BackendRegistryConfigResult config_result = loadBackendRegistryConfig(options.registry_config, registry);
     if (!config_result.ok) {
         result.status = common::Status::error("configure.backend_registry_invalid", config_result.error, "configure");
@@ -113,6 +230,7 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     }
     const BackendRegistryConfig& config = config_result.config;
     const std::string config_source = options.registry_config.empty() ? "builtin" : options.registry_config.string();
+    result.provenance.backends.config_source = config_source;
     spdlog::debug("backend registry: config={} document_auto={} ocr_auto={} layout_auto={} table_auto={}",
                   config_source,
                   joinNames(config.document_auto_order),
@@ -263,6 +381,13 @@ PipelineServiceCreationResult createPipelineServices(const BackendOptions& optio
     result.services.layout = std::move(layout_backend);
     result.services.reading_order = std::make_unique<reading_order::DoclingLikeReadingOrderBackend>();
     result.services.table = std::move(table_backend);
+    result.provenance.backends.resolved = {
+        selected_document,
+        selected_ocr,
+        selected_layout,
+        selected_table,
+        options.registry_config,
+    };
     result.trace_message = "registry=" + config_source + ", document=" + selected_document + ", ocr=" + selected_ocr +
                            ", layout=" + selected_layout + ", table=" + selected_table;
     result.status = common::Status::ok();

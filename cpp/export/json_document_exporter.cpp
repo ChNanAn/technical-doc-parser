@@ -344,6 +344,9 @@ nlohmann::json warningsToJson(const std::vector<document::DocumentWarning>& warn
         if (!warning.block_id.empty()) {
             value["block_id"] = warning.block_id;
         }
+        if (!warning.details.empty()) {
+            value["details"] = warning.details;
+        }
         result.push_back(std::move(value));
     }
     return result;

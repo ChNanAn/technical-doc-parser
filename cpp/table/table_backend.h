@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/diagnostic.h"
+
 #include "document/layout_model.h"
 #include "document/page_artifact.h"
 #include "document/table_model.h"
@@ -7,6 +9,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <vector>
 
 namespace doc_parser::table {
 
@@ -18,6 +21,7 @@ struct TableRequest {
 
 struct TableResult {
     document::PageTables tables;
+    std::vector<common::Diagnostic> diagnostics;
 };
 
 class ITableBackend {

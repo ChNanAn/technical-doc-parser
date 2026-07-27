@@ -5,6 +5,7 @@
 #include "document/parsed_document.h"
 #include "pipeline/engine_config.h"
 #include "pipeline/pipeline_options.h"
+#include "pipeline/run_provenance.h"
 #include "pipeline/stage_observer.h"
 
 #include <memory>
@@ -18,6 +19,7 @@ struct ParseResult {
     common::Status status;
     document::ParsedDocument document;
     document::PipelineArtifacts artifacts;
+    RunProvenance provenance;
 
     bool ok() const { return status.okStatus(); }
 };

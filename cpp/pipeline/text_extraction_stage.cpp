@@ -12,18 +12,20 @@ TextExtractionStage::TextExtractionStage(const document_source::INativeTextExtra
                                          const ocr::IOcrBackend& ocr)
     : native_text_extractor_(native_text_extractor), ocr_(ocr) {}
 
-common::Status TextExtractionStage::extract(const PipelineContext& context,
-                                            const std::vector<document::PageArtifact>& pages,
-                                            std::vector<document::PageText>& page_texts) const {
-    page_texts.clear();
+StageResult<std::vector<document::PageText>>
+TextExtractionStage::extract(const PipelineContext& context, const std::vector<document::PageArtifact>& pages) const {
+    StageResult<std::vector<document::PageText>> extraction;
+    std::vector<document::PageText>& page_texts = extraction.value;
 
     if (context.render.dpi <= 0) {
-        return common::Status::error("text.invalid_dpi", "render DPI must be positive");
+        extraction.status = common::Status::error("text.invalid_dpi", "render DPI must be positive");
+        return extraction;
     }
 
     if (native_text_extractor_ != nullptr) {
         if (!native_text_extractor_->extractNativeText({context.render.dpi}, page_texts)) {
-            return common::Status::error("text.native_extraction_failed", "native text extraction failed");
+            extraction.status = common::Status::error("text.native_extraction_failed", "native text extraction failed");
+            return extraction;
         }
     } else {
         page_texts.reserve(pages.size());
@@ -37,8 +39,9 @@ common::Status TextExtractionStage::extract(const PipelineContext& context,
     }
 
     if (page_texts.size() != pages.size()) {
-        return common::Status::error("text.page_count_mismatch",
-                                     "native text page count does not match page artifacts");
+        extraction.status =
+            common::Status::error("text.page_count_mismatch", "native text page count does not match page artifacts");
+        return extraction;
     }
 
     const NativeTextQualityPolicy quality_policy;
@@ -58,8 +61,15 @@ common::Status TextExtractionStage::extract(const PipelineContext& context,
         ocr::OcrResult result;
         if (!ocr_.recognize({pages[index], context.render.dpi}, result)) {
             if (quality.action == NativeTextAction::MergeOcr) {
-                spdlog::warn("text_quality: OCR enhancement failed for page {}; keeping usable native text",
-                             pages[index].page_number);
+                const std::string message = "OCR enhancement failed; retained usable native text";
+                spdlog::warn("text_quality: {} for page {}", message, pages[index].page_number);
+                extraction.diagnostics.push_back({
+                    "OCR_ENHANCEMENT_FAILED",
+                    message,
+                    "text",
+                    pages[index].page_number,
+                    {{"fallback", "native_text"}, {"reason", quality.reason}},
+                });
                 continue;
             }
             const std::string unavailable_reason = ocr_.unavailableReason();
@@ -67,7 +77,8 @@ common::Status TextExtractionStage::extract(const PipelineContext& context,
                 unavailable_reason.empty()
                     ? "OCR failed for page " + std::to_string(index + 1)
                     : "OCR is required for page " + std::to_string(index + 1) + ": " + unavailable_reason;
-            return common::Status::error("text.ocr_failed", message);
+            extraction.status = common::Status::error("text.ocr_failed", message);
+            return extraction;
         }
         if (quality.action == NativeTextAction::MergeOcr) {
             TextMergeResult merged = quality_policy.merge(page_texts[index], result.page_text);
@@ -79,7 +90,7 @@ common::Status TextExtractionStage::extract(const PipelineContext& context,
         }
     }
 
-    return common::Status::ok();
+    return extraction;
 }
 
 } // namespace doc_parser::pipeline

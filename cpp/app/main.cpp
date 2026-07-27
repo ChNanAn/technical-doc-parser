@@ -13,6 +13,7 @@ doc_parser::pipeline::DocumentParseOptions parseOptions(const doc_parser::app::C
     doc_parser::pipeline::DocumentParseOptions parse_options;
     parse_options.input_path = options.input_pdf;
     parse_options.output_directory = options.output_dir;
+    parse_options.run_id = options.run_id;
     parse_options.render.dpi = options.dpi;
     parse_options.debug = options.debug;
     parse_options.timeout_seconds = options.timeout_seconds;
@@ -43,6 +44,7 @@ int main(int argc, char** argv) {
     CLI::App app{"Document Intelligence Engine"};
     app.add_option("input_pdf", options.input_pdf, "Input PDF file")->required()->check(CLI::ExistingFile);
     app.add_option("-o,--out", options.output_dir, "Output directory");
+    app.add_option("--run-id", options.run_id, "Caller-provided run identifier");
     app.add_option("--dpi", options.dpi, "Render DPI")->check(CLI::PositiveNumber);
     app.add_flag("--debug", options.debug, "Write intermediate debug files");
     app.add_option("--document-backend", options.document_backend, "Document source: auto, pdf");

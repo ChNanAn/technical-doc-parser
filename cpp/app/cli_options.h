@@ -7,6 +7,7 @@ namespace doc_parser::app {
 struct CliOptions {
     std::string input_pdf;
     std::string output_dir = "output";
+    std::string run_id;
     int dpi = 200;
     bool debug = false;
     std::string document_backend = "auto";

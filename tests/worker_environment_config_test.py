@@ -87,6 +87,18 @@ def main() -> int:
     assert_equal(config["table_transformer"]["detection_confidence_threshold"], 0.83, "table.det_conf")
     assert_equal(config["table_transformer"]["structure_confidence_threshold"], 0.74, "table.struct_conf")
     assert_equal(config["table_transformer"]["crop_padding"], 29, "table.crop_padding")
+
+    invalid_stream_environment = os.environ.copy()
+    invalid_stream_environment["RUN_EVENT_STREAM_MAX_LENGTH"] = "0"
+    invalid_stream = subprocess.run(
+        [args.worker],
+        capture_output=True,
+        env=invalid_stream_environment,
+        text=True,
+    )
+    assert_equal(invalid_stream.returncode, 2, "invalid stream limit exit code")
+    if "must be positive" not in invalid_stream.stderr:
+        raise AssertionError(f"missing stream limit diagnostic: {invalid_stream.stderr!r}")
     return 0
 
 

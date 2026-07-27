@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <map>
 #include <optional>
 #include <string>
@@ -23,7 +24,7 @@ public:
     void ensureConsumerGroup(const std::string& stream, const std::string& group);
     std::optional<RedisStreamMessage>
     readGroup(const std::string& stream, const std::string& group, const std::string& consumer, int block_milliseconds);
-    std::string addEvent(const std::string& stream, const std::string& json);
+    std::string addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length);
     void acknowledge(const std::string& stream, const std::string& group, const std::string& message_id);
     void setHash(const std::string& key, const std::map<std::string, std::string>& values);
     void expire(const std::string& key, int seconds);

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +13,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://127.0.0.1:6379/0"
     runtime_root: Path = Path("runtime")
     job_stream: str = "document-jobs"
+    job_stream_max_length: int = Field(default=10_000, ge=1)
+    projector_claim_idle_milliseconds: int = Field(default=30_000, ge=1)
+    projector_restart_delay_seconds: float = Field(default=1.0, gt=0)
     maximum_upload_bytes: int = 100 * 1024 * 1024
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 

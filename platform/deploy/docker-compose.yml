@@ -37,6 +37,7 @@ services:
       DIE_REDIS_URL: redis://redis:6379/0
       DIE_RUNTIME_ROOT: /runtime
       DIE_CORS_ORIGINS: http://localhost:8080
+      DIE_JOB_STREAM_MAX_LENGTH: "10000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,6 +60,8 @@ services:
       JOB_CONSUMER_GROUP: document-workers
       WORKER_ID: worker-cpu-1
       WORKER_RUNTIME_ROOT: /runtime
+      RUN_EVENT_STREAM_MAX_LENGTH: "2000"
+      PLATFORM_EVENT_STREAM_MAX_LENGTH: "100000"
     depends_on:
       redis:
         condition: service_healthy

@@ -266,6 +266,12 @@ int main(int argc, char** argv) {
     const std::string consumer_group = environment("JOB_CONSUMER_GROUP", "document-workers");
     const std::string worker_id = environment("WORKER_ID", "worker-1");
     const std::filesystem::path runtime_root = environment("WORKER_RUNTIME_ROOT", "");
+    const int run_event_stream_maximum_length = environmentInt("RUN_EVENT_STREAM_MAX_LENGTH", 2'000);
+    const int platform_event_stream_maximum_length = environmentInt("PLATFORM_EVENT_STREAM_MAX_LENGTH", 100'000);
+    if (run_event_stream_maximum_length <= 0 || platform_event_stream_maximum_length <= 0) {
+        std::cerr << "RUN_EVENT_STREAM_MAX_LENGTH and PLATFORM_EVENT_STREAM_MAX_LENGTH must be positive\n";
+        return 2;
+    }
 
     try {
         const doc_parser::pipeline::BackendRegistry backend_registry =
@@ -298,7 +304,14 @@ int main(int argc, char** argv) {
                 const std::string attempt_id = job.at("attempt_id").get<std::string>();
                 const std::filesystem::path run_directory =
                     std::filesystem::path(job.at("output_directory").get<std::string>()).parent_path();
-                doc_parser::platform::WorkerStageObserver observer(redis, job_id, run_id, attempt_id, run_directory);
+                doc_parser::platform::WorkerStageObserver observer(
+                    redis,
+                    job_id,
+                    run_id,
+                    attempt_id,
+                    run_directory,
+                    static_cast<std::size_t>(run_event_stream_maximum_length),
+                    static_cast<std::size_t>(platform_event_stream_maximum_length));
                 heartbeat.setRunning(run_id);
                 observer.publishJobEvent("job_started");
                 const doc_parser::pipeline::DocumentPipeline pipeline;

@@ -3,6 +3,7 @@
 #include "pipeline/stage_observer.h"
 #include "redis_client.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -15,7 +16,9 @@ public:
                         std::string job_id,
                         std::string run_id,
                         std::string attempt_id,
-                        std::filesystem::path run_directory);
+                        std::filesystem::path run_directory,
+                        std::size_t run_event_stream_maximum_length,
+                        std::size_t platform_event_stream_maximum_length);
 
     void publishJobEvent(const std::string& type, const std::string& message = {});
     void onStageStarted(const pipeline::StageStartedInfo& info) override;
@@ -33,6 +36,8 @@ private:
     std::string attempt_id_;
     std::filesystem::path run_directory_;
     std::string event_stream_;
+    std::size_t run_event_stream_maximum_length_;
+    std::size_t platform_event_stream_maximum_length_;
     std::string last_error_code_;
     std::string last_error_;
     bool last_error_retryable_ = false;

@@ -207,8 +207,11 @@ std::optional<RedisStreamMessage> RedisClient::readGroup(const std::string& stre
     return message;
 }
 
-std::string RedisClient::addEvent(const std::string& stream, const std::string& json) {
-    return command({"XADD", stream, "*", "event", json}).string;
+std::string RedisClient::addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length) {
+    if (maximum_length == 0) {
+        throw std::invalid_argument("Redis stream maximum length must be positive");
+    }
+    return command({"XADD", stream, "MAXLEN", "~", std::to_string(maximum_length), "*", "event", json}).string;
 }
 
 void RedisClient::acknowledge(const std::string& stream, const std::string& group, const std::string& message_id) {

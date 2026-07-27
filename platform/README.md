@@ -83,7 +83,11 @@ run repeatedly with different OCR, Layout, and Table combinations.
 - Worker validates that the input is a regular PDF, its byte size matches the Job metadata, and—when
   `WORKER_RUNTIME_ROOT` is set—input and output paths stay inside that root.
 - Redis Streams provides durable delivery, but abandoned pending-message recovery (`XAUTOCLAIM`) and user-requested
-  cancellation are intentionally deferred. Do not advertise either capability in this version.
+  cancellation for Worker jobs are intentionally deferred. The API event projector does replay its own pending
+  events, reclaims events abandoned by a previous projector, and restarts after transient Redis or database failures.
+  Do not advertise Worker job recovery or cancellation in this version.
+- Job, per-Run event, and global projection streams use approximate `MAXLEN` caps. Defaults are 10,000 Jobs, 2,000
+  events per Run, and 100,000 global events; size these limits above the expected unconsumed backlog for a deployment.
 - The first storage adapter uses a shared filesystem volume. MinIO/S3 can replace it later without changing
   Document, Run, Job, Event, or Artifact identities. API and Worker intentionally share numeric UID `10001` in this
   deployment so both can access the same Run directory.

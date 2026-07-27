@@ -12,7 +12,6 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from redis.asyncio import Redis
-from redis.exceptions import ResponseError
 
 from .database import Database
 from .models import (
@@ -22,8 +21,11 @@ from .models import (
     RunResponse,
     utc_now,
 )
+from .projector import ProjectorState, supervise_worker_event_projector
 from .settings import Settings
 
+
+PIPELINE_DEBUG_EXTENSION = "io.github.chnanan.technical-doc-parser.pipeline_debug"
 
 REGISTERED_BACKENDS = {
     "document": ["auto", "pdf"],
@@ -105,30 +107,31 @@ async def _save_upload(upload: UploadFile, destination: Path, maximum_bytes: int
     return size, digest.hexdigest()
 
 
-async def _project_worker_events(redis: Redis, database: Database, consumer: str) -> None:
-    stream = "platform-events"
-    group = "api-event-projectors"
-    try:
-        await redis.xgroup_create(stream, group, id="0", mkstream=True)
-    except ResponseError as error:
-        if "BUSYGROUP" not in str(error):
-            raise
-    while True:
-        messages = await redis.xreadgroup(group, consumer, {stream: ">"}, count=50, block=5000)
-        for _, entries in messages:
-            for message_id, fields in entries:
-                event = json.loads(fields["event"])
-                event_type = event["type"]
-                status = "running"
-                if event_type == "job_succeeded":
-                    status = "succeeded"
-                elif event_type in {"job_failed", "stage_failed"}:
-                    status = "failed"
-                elif event_type == "job_cancelled":
-                    status = "cancelled"
-                error = event.get("error", {}).get("message")
-                await database.update_run(event["run_id"], status, event.get("stage"), error)
-                await redis.xack(stream, group, message_id)
+async def _enqueue_job(redis: Redis, stream: str, fields: dict[str, str], maximum_length: int) -> None:
+    await redis.xadd(
+        stream,
+        fields,
+        maxlen=maximum_length,
+        approximate=True,
+    )
+
+
+def _document_stage_output(document: dict[str, Any], stage: str) -> Any:
+    if stage in {"assembly", "export"}:
+        return {"blocks": document.get("blocks", [])}
+
+    pages = document.get("pages", [])
+    if stage == "render":
+        return [{"page_number": page["number"], "image": page.get("image")} for page in pages]
+
+    debug_key = {"text": "text", "table": "tables"}.get(stage, stage)
+    return [
+        {
+            "page_number": page["number"],
+            "output": page.get("extensions", {}).get(PIPELINE_DEBUG_EXTENSION, {}).get(debug_key),
+        }
+        for page in pages
+    ]
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -141,10 +144,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await database.connect()
         redis = Redis.from_url(resolved.redis_url, decode_responses=True)
         await redis.ping()
-        projector = asyncio.create_task(_project_worker_events(redis, database, f"api-{uuid.uuid4().hex}"))
+        projector_state = ProjectorState()
+        projector = asyncio.create_task(
+            supervise_worker_event_projector(
+                redis,
+                database,
+                f"api-{uuid.uuid4().hex}",
+                projector_state,
+                resolved.projector_claim_idle_milliseconds,
+                resolved.projector_restart_delay_seconds,
+            ),
+            name="worker-event-projector",
+        )
         app.state.settings = resolved
         app.state.database = database
         app.state.redis = redis
+        app.state.projector = projector
+        app.state.projector_state = projector_state
+        await asyncio.sleep(0)
         yield
         projector.cancel()
         try:
@@ -166,6 +183,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health")
     async def health(request: Request) -> dict[str, str]:
         await request.app.state.redis.ping()
+        projector: asyncio.Task[None] = request.app.state.projector
+        projector_state: ProjectorState = request.app.state.projector_state
+        if projector.done() or not projector_state.active:
+            raise HTTPException(503, "worker event projector is not active")
         return {"status": "ok"}
 
     @app.get("/api/v1/capabilities", response_model=CapabilitiesResponse)
@@ -252,7 +273,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         })
         redis: Redis = request.app.state.redis
         await redis.hset(f"run:{run_id}", mapping={"status": "queued", "stage": ""})
-        await redis.xadd(resolved.job_stream, {"job_id": job_id, "run_id": run_id, "job_path": str(job_path.resolve())})
+        await _enqueue_job(
+            redis,
+            resolved.job_stream,
+            {"job_id": job_id, "run_id": run_id, "job_path": str(job_path.resolve())},
+            resolved.job_stream_max_length,
+        )
         return RunResponse(
             run_id=run_id,
             document_id=document_id,
@@ -345,15 +371,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not output.is_file():
             raise HTTPException(409, "stage output is not available yet")
         document = json.loads(output.read_text(encoding="utf-8"))
-        if stage in {"assembly", "export"}:
-            return {"blocks": document.get("blocks", [])}
-        if stage == "render":
-            return [{"page_number": page["page_number"], "image": page["image"]} for page in document.get("pages", [])]
-        debug_key = {"text": "text", "table": "tables"}.get(stage, stage)
-        return [
-            {"page_number": page["page_number"], "output": page.get("debug", {}).get(debug_key)}
-            for page in document.get("pages", [])
-        ]
+        return _document_stage_output(document, stage)
 
     return app
 

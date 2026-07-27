@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Artifact,
   BackendSelection,
@@ -30,7 +30,7 @@ const fallbackCapabilities: Capabilities = {
 export function App() {
   const [capabilities, setCapabilities] = useState(fallbackCapabilities);
   const [file, setFile] = useState<File>();
-  const [documentId, setDocumentId] = useState("");
+  const [uploadedDocument, setUploadedDocument] = useState<{ file: File; documentId: string }>();
   const [runId, setRunId] = useState("");
   const [status, setStatus] = useState("未开始");
   const [activeStage, setActiveStage] = useState("layout");
@@ -39,6 +39,7 @@ export function App() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [error, setError] = useState("");
   const [dpi, setDpi] = useState(200);
+  const fileSelection = useRef(0);
   const [backends, setBackends] = useState<BackendSelection>({
     document: "pdf",
     ocr: "auto",
@@ -65,12 +66,30 @@ export function App() {
 
   useEffect(() => {
     if (!runId) return;
-    getStage(runId, activeStage).then(setStageOutput).catch((reason) => setStageOutput({ message: String(reason) }));
+    let active = true;
+    getStage(runId, activeStage)
+      .then((output) => {
+        if (active) setStageOutput(output);
+      })
+      .catch((reason) => {
+        if (active) setStageOutput({ message: String(reason) });
+      });
+    return () => {
+      active = false;
+    };
   }, [runId, activeStage, status]);
 
   useEffect(() => {
     if (!runId) return;
-    getArtifacts(runId).then(setArtifacts).catch(() => undefined);
+    let active = true;
+    getArtifacts(runId)
+      .then((output) => {
+        if (active) setArtifacts(output);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [runId, status]);
 
   const latestProgress = useMemo(
@@ -93,19 +112,37 @@ export function App() {
     });
   }, [selectableBackends]);
 
+  function selectFile(event: ChangeEvent<HTMLInputElement>) {
+    fileSelection.current += 1;
+    setFile(event.target.files?.[0]);
+    setUploadedDocument(undefined);
+    setRunId("");
+    setEvents([]);
+    setArtifacts([]);
+    setStageOutput(undefined);
+    setStatus("未开始");
+    setError("");
+  }
+
   async function submit() {
     if (!file) return;
+    const selectedFile = file;
+    const selection = fileSelection.current;
     setError("");
     try {
-      const document = documentId ? { document_id: documentId } : await uploadDocument(file);
-      setDocumentId(document.document_id);
+      const document = uploadedDocument?.file === selectedFile
+        ? { document_id: uploadedDocument.documentId }
+        : await uploadDocument(selectedFile);
+      if (selection !== fileSelection.current) return;
+      setUploadedDocument({ file: selectedFile, documentId: document.document_id });
       const run = await createRun(document.document_id, backends, dpi);
+      if (selection !== fileSelection.current) return;
       setRunId(run.run_id);
       setEvents([]);
       setArtifacts([]);
       setStatus(run.status);
     } catch (reason) {
-      setError(String(reason));
+      if (selection === fileSelection.current) setError(String(reason));
     }
   }
 
@@ -122,7 +159,7 @@ export function App() {
       <section className="controls panel">
         <label className="upload">
           <span>上传 PDF</span>
-          <input type="file" accept="application/pdf" onChange={(event) => setFile(event.target.files?.[0])} />
+          <input type="file" accept="application/pdf" onChange={selectFile} />
           <strong>{file?.name ?? "选择文件"}</strong>
         </label>
         {(["document", "ocr", "layout", "table"] as const).map((stage) => (

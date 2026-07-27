@@ -37,9 +37,13 @@ WorkerStageObserver::WorkerStageObserver(RedisClient& redis,
                                          std::string job_id,
                                          std::string run_id,
                                          std::string attempt_id,
-                                         std::filesystem::path run_directory)
+                                         std::filesystem::path run_directory,
+                                         std::size_t run_event_stream_maximum_length,
+                                         std::size_t platform_event_stream_maximum_length)
     : redis_(redis), job_id_(std::move(job_id)), run_id_(std::move(run_id)), attempt_id_(std::move(attempt_id)),
-      run_directory_(std::move(run_directory)), event_stream_("run-events:" + run_id_) {
+      run_directory_(std::move(run_directory)), event_stream_("run-events:" + run_id_),
+      run_event_stream_maximum_length_(run_event_stream_maximum_length),
+      platform_event_stream_maximum_length_(platform_event_stream_maximum_length) {
     std::filesystem::create_directories(run_directory_ / "artifacts");
 }
 
@@ -53,8 +57,8 @@ void WorkerStageObserver::publish(nlohmann::json event) {
     event["sequence"] = sequence_;
     event["timestamp"] = timestamp();
     const std::string encoded = event.dump();
-    (void)redis_.addEvent(event_stream_, encoded);
-    (void)redis_.addEvent("platform-events", encoded);
+    (void)redis_.addEvent(event_stream_, encoded, run_event_stream_maximum_length_);
+    (void)redis_.addEvent("platform-events", encoded, platform_event_stream_maximum_length_);
     redis_.setHash("run:" + run_id_, {{"last_event", encoded}, {"updated_at", event["timestamp"]}});
     std::ofstream log(run_directory_ / "events.ndjson", std::ios::app);
     log << encoded << '\n';

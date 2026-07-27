@@ -168,7 +168,7 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
     block.type = toDocumentBlockType(layout_block.type);
     block.source_label = layout_block.source_label;
     const auto related = related_block_ids.find(layout_block.related_block_id);
-    if (related != related_block_ids.end()) {
+    if (related != related_block_ids.end() && related->second != block.id) {
         block.related_block_id = related->second;
     }
     block.page_index = page.page_index;
@@ -366,7 +366,7 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
     }
 
     for (const document::DocumentBlock& block : document.blocks) {
-        if (block.related_block_id.empty()) {
+        if (block.related_block_id.empty() || block.related_block_id == block.id) {
             continue;
         }
         document.relations.push_back({

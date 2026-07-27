@@ -77,8 +77,10 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAndLeavesExportToCaller) {
 
     const auto document_exporter = doc_parser::exporter::createDefaultDocumentExporter();
     ASSERT_NE(document_exporter, nullptr);
-    ASSERT_TRUE(document_exporter->write(
-        {false, first.output_directory / "document.json", &first_result.document, &first_result.artifacts}));
+    ASSERT_TRUE(
+        document_exporter
+            ->write({false, first.output_directory / "document.json", &first_result.document, &first_result.artifacts})
+            .okStatus());
     EXPECT_TRUE(std::filesystem::is_regular_file(first.output_directory / "document.json"));
 
     doc_parser::pipeline::PipelineRunOptions second = first;

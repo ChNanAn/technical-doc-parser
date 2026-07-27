@@ -6,12 +6,12 @@ namespace doc_parser::exporter {
 
 class MarkdownDocumentExporter final : public IDocumentExporter {
 public:
-    bool write(const DocumentExportRequest& request) const override;
+    common::Status write(const DocumentExportRequest& request) const override;
 };
 
 class HtmlDocumentExporter final : public IDocumentExporter {
 public:
-    bool write(const DocumentExportRequest& request) const override;
+    common::Status write(const DocumentExportRequest& request) const override;
 };
 
 } // namespace doc_parser::exporter

@@ -197,12 +197,14 @@ TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
     std::filesystem::remove(output_path);
 
     const DocumentFixture fixture = makeDocumentFixture();
-    ASSERT_TRUE(JsonDocumentExporter().write({
-        false,
-        output_path,
-        &fixture.document,
-        &fixture.artifacts,
-    }));
+    ASSERT_TRUE(JsonDocumentExporter()
+                    .write({
+                        false,
+                        output_path,
+                        &fixture.document,
+                        &fixture.artifacts,
+                    })
+                    .okStatus());
 
     const auto manifest = readJson(output_path);
     EXPECT_EQ(manifest["$schema"], "https://github.com/ChNanAn/technical-doc-parser/schemas/document.v1.schema.json");
@@ -254,12 +256,14 @@ TEST(JsonDocumentExporterTest, WritesDebugTextAndImagesWhenRequested) {
     std::filesystem::remove(output_path);
 
     const DocumentFixture fixture = makeDocumentFixture();
-    ASSERT_TRUE(JsonDocumentExporter().write({
-        true,
-        output_path,
-        &fixture.document,
-        &fixture.artifacts,
-    }));
+    ASSERT_TRUE(JsonDocumentExporter()
+                    .write({
+                        true,
+                        output_path,
+                        &fixture.document,
+                        &fixture.artifacts,
+                    })
+                    .okStatus());
 
     const auto manifest = readJson(output_path);
     const auto& debug = manifest["pages"][0]["extensions"]["io.github.chnanan.technical-doc-parser.pipeline_debug"];
@@ -297,12 +301,14 @@ TEST(JsonDocumentExporterTest, WritesMixedPreferredTextSource) {
 
     DocumentFixture fixture = makeDocumentFixture();
     fixture.artifacts.pages[0].text.preferred_source = TextSource::Mixed;
-    ASSERT_TRUE(JsonDocumentExporter().write({
-        true,
-        output_path,
-        &fixture.document,
-        &fixture.artifacts,
-    }));
+    ASSERT_TRUE(JsonDocumentExporter()
+                    .write({
+                        true,
+                        output_path,
+                        &fixture.document,
+                        &fixture.artifacts,
+                    })
+                    .okStatus());
 
     const auto manifest = readJson(output_path);
     const auto& debug = manifest["pages"][0]["extensions"]["io.github.chnanan.technical-doc-parser.pipeline_debug"];
@@ -314,11 +320,16 @@ TEST(JsonDocumentExporterTest, WritesMixedPreferredTextSource) {
 TEST(JsonDocumentExporterTest, RejectsMissingDocument) {
     const auto output_path = tempManifestPath("tdp_json_document_exporter_missing_document_test.json");
 
-    EXPECT_FALSE(JsonDocumentExporter().write({
+    const doc_parser::common::Status status = JsonDocumentExporter().write({
         false,
         output_path,
         nullptr,
-    }));
+    });
+
+    EXPECT_FALSE(status.okStatus());
+    EXPECT_EQ(status.stage(), "export");
+    EXPECT_EQ(status.code(), "export.json.document_missing");
+    EXPECT_EQ(status.message(), "document export request has no document");
 }
 
 TEST(JsonDocumentExporterTest, RejectsUnexplainedPartialDocument) {
@@ -327,12 +338,18 @@ TEST(JsonDocumentExporterTest, RejectsUnexplainedPartialDocument) {
     DocumentFixture fixture = makeDocumentFixture();
     fixture.document.status = doc_parser::document::DocumentStatus::Partial;
 
-    EXPECT_FALSE(JsonDocumentExporter().write({
+    const doc_parser::common::Status status = JsonDocumentExporter().write({
         false,
         output_path,
         &fixture.document,
         &fixture.artifacts,
-    }));
+    });
+
+    EXPECT_FALSE(status.okStatus());
+    EXPECT_EQ(status.stage(), "export");
+    EXPECT_EQ(status.code(), "export.document.partial_unexplained");
+    EXPECT_EQ(status.message(), "partial document has no warning explaining the degraded result");
+    EXPECT_FALSE(std::filesystem::exists(output_path));
 }
 
 TEST(JsonDocumentExporterTest, WritesExplainedPartialDocument) {
@@ -348,12 +365,14 @@ TEST(JsonDocumentExporterTest, WritesExplainedPartialDocument) {
         "doc_page_1_block_1",
     });
 
-    ASSERT_TRUE(JsonDocumentExporter().write({
-        false,
-        output_path,
-        &fixture.document,
-        &fixture.artifacts,
-    }));
+    ASSERT_TRUE(JsonDocumentExporter()
+                    .write({
+                        false,
+                        output_path,
+                        &fixture.document,
+                        &fixture.artifacts,
+                    })
+                    .okStatus());
     const auto manifest = readJson(output_path);
     EXPECT_EQ(manifest["status"], "partial");
     ASSERT_EQ(manifest["warnings"].size(), 1U);
@@ -372,12 +391,14 @@ TEST(JsonDocumentExporterTest, OmitsUnsafeArtifactsAndOutOfPageCoordinates) {
     fixture.document.blocks[0].bbox.x1 = 101.0;
     fixture.document.blocks[0].source_refs[0].bbox.x1 = 101.0;
 
-    ASSERT_TRUE(JsonDocumentExporter().write({
-        false,
-        output_path,
-        &fixture.document,
-        &fixture.artifacts,
-    }));
+    ASSERT_TRUE(JsonDocumentExporter()
+                    .write({
+                        false,
+                        output_path,
+                        &fixture.document,
+                        &fixture.artifacts,
+                    })
+                    .okStatus());
     const auto manifest = readJson(output_path);
     EXPECT_FALSE(manifest["pages"][0].contains("image"));
     EXPECT_FALSE(manifest["blocks"][0].contains("bbox"));
@@ -385,4 +406,61 @@ TEST(JsonDocumentExporterTest, OmitsUnsafeArtifactsAndOutOfPageCoordinates) {
     EXPECT_EQ(manifest.dump().find("/private/output"), std::string::npos);
 
     std::filesystem::remove(output_path);
+}
+
+TEST(JsonDocumentExporterTest, RejectsSelfReferentialRelationWithSpecificDiagnostic) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_self_relation_test.json");
+    std::filesystem::remove(output_path);
+    DocumentFixture fixture = makeDocumentFixture();
+    fixture.document.relations[0].to_block_id = fixture.document.relations[0].from_block_id;
+
+    const doc_parser::common::Status status = JsonDocumentExporter().write({
+        false,
+        output_path,
+        &fixture.document,
+        &fixture.artifacts,
+    });
+
+    EXPECT_FALSE(status.okStatus());
+    EXPECT_EQ(status.stage(), "export");
+    EXPECT_EQ(status.code(), "export.document.invalid_relation");
+    EXPECT_EQ(status.message(), "relation 'relation_1' is self-referential for block 'doc_page_1_block_1'");
+    EXPECT_FALSE(status.retryable());
+    EXPECT_FALSE(std::filesystem::exists(output_path));
+}
+
+TEST(JsonDocumentExporterTest, ReturnsSerializationDiagnosticForInvalidUtf8) {
+    const auto output_path = tempManifestPath("tdp_json_document_exporter_invalid_utf8_test.json");
+    std::filesystem::remove(output_path);
+    DocumentFixture fixture = makeDocumentFixture();
+    fixture.document.blocks[0].text = std::string(1, static_cast<char>(0xff));
+
+    const doc_parser::common::Status status = JsonDocumentExporter().write({
+        false,
+        output_path,
+        &fixture.document,
+        &fixture.artifacts,
+    });
+
+    EXPECT_FALSE(status.okStatus());
+    EXPECT_EQ(status.stage(), "export");
+    EXPECT_EQ(status.code(), "export.json.serialization_failed");
+    EXPECT_NE(status.message().find("failed to serialize JSON document"), std::string::npos);
+    EXPECT_FALSE(std::filesystem::exists(output_path));
+}
+
+TEST(DocumentExporterTest, DefaultExporterPreservesJsonDiagnostic) {
+    const auto exporter = doc_parser::exporter::createDefaultDocumentExporter();
+    ASSERT_NE(exporter, nullptr);
+
+    const doc_parser::common::Status status = exporter->write({
+        false,
+        tempManifestPath("tdp_default_exporter_missing_document_test.json"),
+        nullptr,
+    });
+
+    EXPECT_FALSE(status.okStatus());
+    EXPECT_EQ(status.stage(), "export");
+    EXPECT_EQ(status.code(), "export.json.document_missing");
+    EXPECT_EQ(status.message(), "document export request has no document");
 }

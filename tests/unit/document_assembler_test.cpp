@@ -337,3 +337,34 @@ TEST(DocumentAssemblerTest, TranslatesCaptionRelationToDocumentBlockId) {
     EXPECT_EQ(document.relations[0].from_block_id, document.blocks[1].id);
     EXPECT_EQ(document.relations[0].to_block_id, document.blocks[0].id);
 }
+
+TEST(DocumentAssemblerTest, DropsSelfReferentialRelation) {
+    auto text = makePageText();
+    text.lines[0].text = "Self caption";
+
+    doc_parser::document::LayoutBlock caption;
+    caption.id = "caption";
+    caption.type = doc_parser::document::LayoutBlockType::Text;
+    caption.source_label = "Caption";
+    caption.related_block_id = caption.id;
+    caption.text_line_indices = {0};
+
+    doc_parser::document::PageLayout layout;
+    layout.page_index = 0;
+    layout.page_number = 1;
+    layout.blocks = {caption};
+    doc_parser::document::PageReadingOrder order;
+    order.page_index = 0;
+    order.page_number = 1;
+    order.items = {{caption.id, 0, 0}};
+    doc_parser::document::PageTables page_tables;
+
+    doc_parser::document::ParsedDocument document;
+    doc_parser::document::PipelineArtifacts artifacts;
+    ASSERT_TRUE(doc_parser::assembly::DocumentAssembler().assemble(
+        {"fixture.pdf", "pdf", 144, {makePage()}, {text}, {layout}, {order}, {page_tables}}, document, artifacts));
+
+    ASSERT_EQ(document.blocks.size(), 1U);
+    EXPECT_TRUE(document.blocks[0].related_block_id.empty());
+    EXPECT_TRUE(document.relations.empty());
+}

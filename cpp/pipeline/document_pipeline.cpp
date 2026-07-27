@@ -344,14 +344,19 @@ common::Status DocumentPipeline::exportResult(const PipelineRunOptions& options,
         return stageFailed(observer, "export", "exporter_unavailable", "no document exporter is enabled");
     }
 
-    if (!document_exporter->write({
-            context.debug,
-            context.output.manifest_json,
-            &document,
-            &artifacts,
-        })) {
-        spdlog::error("export: failed to write document manifest");
-        return stageFailed(observer, "export", "export_failed", "failed to write document output", true);
+    const common::Status export_status = document_exporter->write({
+        context.debug,
+        context.output.manifest_json,
+        &document,
+        &artifacts,
+    });
+    if (!export_status.okStatus()) {
+        spdlog::error("export failed [{}]: {}", export_status.code(), export_status.message());
+        return stageFailed(observer,
+                           export_status.stage().empty() ? "export" : export_status.stage(),
+                           export_status.code(),
+                           export_status.message(),
+                           export_status.retryable());
     }
 
     spdlog::info("wrote: {}", context.output.manifest_json.string());

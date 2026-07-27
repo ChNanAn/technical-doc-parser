@@ -5,7 +5,6 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <set>
@@ -505,112 +504,186 @@ void addDebugExtensions(nlohmann::json& pages, const document::PipelineArtifacts
     }
 }
 
-bool hasValidCoreModel(const document::ParsedDocument& document) {
+common::Status invalidCoreModel(std::string code, std::string message) {
+    return common::Status::error(std::move(code), std::move(message), "export");
+}
+
+common::Status validateCoreModel(const document::ParsedDocument& document) {
     if (document.status == document::DocumentStatus::Partial && document.warnings.empty()) {
-        return false;
+        return invalidCoreModel("export.document.partial_unexplained",
+                                "partial document has no warning explaining the degraded result");
     }
 
     std::set<std::string> page_ids;
     std::set<int> page_numbers;
-    for (const document::DocumentPage& page : document.pages) {
-        if (page.id.empty() || page.number <= 0 || !std::isfinite(page.width) || !std::isfinite(page.height) ||
-            page.width <= 0.0 || page.height <= 0.0 || !page_ids.insert(page.id).second ||
-            !page_numbers.insert(page.number).second) {
-            return false;
+    for (std::size_t index = 0; index < document.pages.size(); ++index) {
+        const document::DocumentPage& page = document.pages[index];
+        const std::string location = "page at index " + std::to_string(index);
+        if (page.id.empty()) {
+            return invalidCoreModel("export.document.invalid_page", location + " has an empty id");
+        }
+        if (page.number <= 0) {
+            return invalidCoreModel("export.document.invalid_page",
+                                    location + " ('" + page.id + "') has a non-positive page number");
+        }
+        if (!std::isfinite(page.width) || !std::isfinite(page.height) || page.width <= 0.0 || page.height <= 0.0) {
+            return invalidCoreModel("export.document.invalid_page",
+                                    location + " ('" + page.id + "') has invalid dimensions");
+        }
+        if (!page_ids.insert(page.id).second) {
+            return invalidCoreModel("export.document.invalid_page", "duplicate page id '" + page.id + "'");
+        }
+        if (!page_numbers.insert(page.number).second) {
+            return invalidCoreModel("export.document.invalid_page",
+                                    "duplicate page number " + std::to_string(page.number));
         }
     }
 
     std::set<std::string> block_ids;
-    for (const document::DocumentBlock& block : document.blocks) {
-        if (block.id.empty() || !block_ids.insert(block.id).second) {
-            return false;
+    for (std::size_t index = 0; index < document.blocks.size(); ++index) {
+        const document::DocumentBlock& block = document.blocks[index];
+        if (block.id.empty()) {
+            return invalidCoreModel("export.document.invalid_block",
+                                    "block at index " + std::to_string(index) + " has an empty id");
+        }
+        if (!block_ids.insert(block.id).second) {
+            return invalidCoreModel("export.document.invalid_block", "duplicate block id '" + block.id + "'");
         }
     }
 
-    for (const document::DocumentRelation& relation : document.relations) {
-        if (relation.type.empty() || block_ids.find(relation.from_block_id) == block_ids.end() ||
-            block_ids.find(relation.to_block_id) == block_ids.end() || relation.from_block_id == relation.to_block_id) {
-            return false;
+    for (std::size_t index = 0; index < document.relations.size(); ++index) {
+        const document::DocumentRelation& relation = document.relations[index];
+        const std::string location = relation.id.empty() ? "relation at index " + std::to_string(index)
+                                                         : "relation '" + relation.id + "'";
+        if (relation.type.empty()) {
+            return invalidCoreModel("export.document.invalid_relation", location + " has an empty type");
+        }
+        if (block_ids.find(relation.from_block_id) == block_ids.end()) {
+            return invalidCoreModel("export.document.invalid_relation",
+                                    location + " references unknown from_block_id '" + relation.from_block_id + "'");
+        }
+        if (block_ids.find(relation.to_block_id) == block_ids.end()) {
+            return invalidCoreModel("export.document.invalid_relation",
+                                    location + " references unknown to_block_id '" + relation.to_block_id + "'");
+        }
+        if (relation.from_block_id == relation.to_block_id) {
+            return invalidCoreModel("export.document.invalid_relation",
+                                    location + " is self-referential for block '" + relation.from_block_id + "'");
         }
     }
-    for (const document::DocumentWarning& warning : document.warnings) {
-        if (warning.code.empty() || warning.message.empty() ||
-            (!warning.page_id.empty() && page_ids.find(warning.page_id) == page_ids.end()) ||
-            (!warning.block_id.empty() && block_ids.find(warning.block_id) == block_ids.end())) {
-            return false;
+    for (std::size_t index = 0; index < document.warnings.size(); ++index) {
+        const document::DocumentWarning& warning = document.warnings[index];
+        const std::string location = "warning at index " + std::to_string(index);
+        if (warning.code.empty()) {
+            return invalidCoreModel("export.document.invalid_warning", location + " has an empty code");
+        }
+        if (warning.message.empty()) {
+            return invalidCoreModel("export.document.invalid_warning",
+                                    location + " ('" + warning.code + "') has an empty message");
+        }
+        if (!warning.page_id.empty() && page_ids.find(warning.page_id) == page_ids.end()) {
+            return invalidCoreModel(
+                "export.document.invalid_warning",
+                location + " ('" + warning.code + "') references unknown page_id '" + warning.page_id + "'");
+        }
+        if (!warning.block_id.empty() && block_ids.find(warning.block_id) == block_ids.end()) {
+            return invalidCoreModel(
+                "export.document.invalid_warning",
+                location + " ('" + warning.code + "') references unknown block_id '" + warning.block_id + "'");
         }
     }
-    return true;
+    return common::Status::ok();
 }
 
 } // namespace
 
-bool JsonDocumentExporter::write(const DocumentExportRequest& request) const {
-    if (request.document == nullptr || request.output_path.empty() || !hasValidCoreModel(*request.document)) {
-        return false;
+common::Status JsonDocumentExporter::write(const DocumentExportRequest& request) const {
+    if (request.document == nullptr) {
+        return common::Status::error(
+            "export.json.document_missing", "document export request has no document", "export");
+    }
+    if (request.output_path.empty()) {
+        return common::Status::error(
+            "export.json.output_path_missing", "document export request has no output path", "export");
+    }
+    if (common::Status status = validateCoreModel(*request.document); !status.okStatus()) {
+        return status;
     }
 
-    const document::ParsedDocument& document = *request.document;
-    const std::string filename =
-        basename(document.source.filename.empty() ? document.source.path : document.source.filename);
-    const std::string media_type = document.source.media_type.find('/') == std::string::npos
-                                       ? mediaTypeFromSourceType(document.source.type)
-                                       : document.source.media_type;
-    nlohmann::json source = {{"media_type", media_type}};
-    if (!filename.empty()) {
-        source["filename"] = filename;
-    }
+    std::string serialized_manifest;
+    try {
+        const document::ParsedDocument& document = *request.document;
+        const std::string filename =
+            basename(document.source.filename.empty() ? document.source.path : document.source.filename);
+        const std::string media_type = document.source.media_type.find('/') == std::string::npos
+                                           ? mediaTypeFromSourceType(document.source.type)
+                                           : document.source.media_type;
+        nlohmann::json source = {{"media_type", media_type}};
+        if (!filename.empty()) {
+            source["filename"] = filename;
+        }
 
-    nlohmann::json producer = {
-        {"name", document.producer.name.empty() ? "technical-doc-parser" : document.producer.name},
-        {"version", document.producer.version.empty() ? "unknown" : document.producer.version},
-    };
-    if (document.producer.git_revision.size() >= 7) {
-        producer["git_revision"] = document.producer.git_revision;
-    }
-    if (!document.producer.run_id.empty()) {
-        producer["run_id"] = document.producer.run_id;
-    }
+        nlohmann::json producer = {
+            {"name", document.producer.name.empty() ? "technical-doc-parser" : document.producer.name},
+            {"version", document.producer.version.empty() ? "unknown" : document.producer.version},
+        };
+        if (document.producer.git_revision.size() >= 7) {
+            producer["git_revision"] = document.producer.git_revision;
+        }
+        if (!document.producer.run_id.empty()) {
+            producer["run_id"] = document.producer.run_id;
+        }
 
-    nlohmann::json coordinate_space = {
-        {"unit", "pixel"},
-        {"origin", "top_left"},
-        {"bbox_format", "xyxy"},
-    };
-    if (document.dpi > 0) {
-        coordinate_space["dpi"] = document.dpi;
-    }
+        nlohmann::json coordinate_space = {
+            {"unit", "pixel"},
+            {"origin", "top_left"},
+            {"bbox_format", "xyxy"},
+        };
+        if (document.dpi > 0) {
+            coordinate_space["dpi"] = document.dpi;
+        }
 
-    nlohmann::json pages = pagesToJson(document.pages);
-    if (request.debug && request.artifacts != nullptr) {
-        addDebugExtensions(pages, *request.artifacts);
-    }
+        nlohmann::json pages = pagesToJson(document.pages);
+        if (request.debug && request.artifacts != nullptr) {
+            addDebugExtensions(pages, *request.artifacts);
+        }
 
-    const PageLookup page_lookup = pageLookup(document.pages);
-    nlohmann::json manifest = {
-        {"$schema", kDocumentSchema},
-        {"schema_version", 1},
-        {"document_id", documentId(document)},
-        {"status", documentStatusToString(document.status)},
-        {"source", std::move(source)},
-        {"producer", std::move(producer)},
-        {"coordinate_space", std::move(coordinate_space)},
-        {"pages", std::move(pages)},
-        {"blocks", documentBlocksToJson(document.blocks, page_lookup)},
-        {"warnings", warningsToJson(document.warnings)},
-    };
-    if (!document.relations.empty()) {
-        manifest["relations"] = relationsToJson(document.relations);
+        const PageLookup page_lookup = pageLookup(document.pages);
+        nlohmann::json manifest = {
+            {"$schema", kDocumentSchema},
+            {"schema_version", 1},
+            {"document_id", documentId(document)},
+            {"status", documentStatusToString(document.status)},
+            {"source", std::move(source)},
+            {"producer", std::move(producer)},
+            {"coordinate_space", std::move(coordinate_space)},
+            {"pages", std::move(pages)},
+            {"blocks", documentBlocksToJson(document.blocks, page_lookup)},
+            {"warnings", warningsToJson(document.warnings)},
+        };
+        if (!document.relations.empty()) {
+            manifest["relations"] = relationsToJson(document.relations);
+        }
+        serialized_manifest = manifest.dump(2);
+    } catch (const nlohmann::json::exception& error) {
+        return common::Status::error("export.json.serialization_failed",
+                                     "failed to serialize JSON document: " + std::string(error.what()),
+                                     "export");
     }
 
     std::ofstream manifest_file(request.output_path);
     if (!manifest_file) {
-        std::cerr << "error: failed to write manifest: " << request.output_path << '\n';
-        return false;
+        return common::Status::error(
+            "export.json.open_failed", "failed to open JSON output: " + request.output_path.string(), "export", true);
     }
 
-    manifest_file << manifest.dump(2) << '\n';
-    return true;
+    manifest_file << serialized_manifest << '\n';
+    manifest_file.flush();
+    if (!manifest_file) {
+        return common::Status::error(
+            "export.json.write_failed", "failed to write JSON output: " + request.output_path.string(), "export", true);
+    }
+    return common::Status::ok();
 }
 
 } // namespace doc_parser::exporter

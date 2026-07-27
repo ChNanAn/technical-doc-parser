@@ -9,14 +9,14 @@ namespace {
 
 class MultiFormatDocumentExporter final : public doc_parser::exporter::IDocumentExporter {
 public:
-    bool write(const doc_parser::exporter::DocumentExportRequest& request) const override {
-        if (!json_.write(request)) {
-            return false;
+    doc_parser::common::Status write(const doc_parser::exporter::DocumentExportRequest& request) const override {
+        if (doc_parser::common::Status status = json_.write(request); !status.okStatus()) {
+            return status;
         }
         doc_parser::exporter::DocumentExportRequest markdown_request = request;
         markdown_request.output_path.replace_extension(".md");
-        if (!markdown_.write(markdown_request)) {
-            return false;
+        if (doc_parser::common::Status status = markdown_.write(markdown_request); !status.okStatus()) {
+            return status;
         }
         doc_parser::exporter::DocumentExportRequest html_request = request;
         html_request.output_path.replace_extension(".html");

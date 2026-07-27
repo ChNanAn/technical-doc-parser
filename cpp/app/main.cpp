@@ -72,9 +72,17 @@ int main(int argc, char** argv) {
 
     const auto document_exporter = doc_parser::exporter::createDefaultDocumentExporter();
     const std::filesystem::path output_path = pipeline_options.output_directory / "document.json";
-    if (document_exporter == nullptr ||
-        !document_exporter->write({pipeline_options.debug, output_path, &result.document, &result.artifacts})) {
-        spdlog::error("failed to export parsed document to {}", output_path.string());
+    if (document_exporter == nullptr) {
+        spdlog::error("failed to export parsed document: no document exporter is enabled");
+        return 2;
+    }
+    const doc_parser::common::Status export_status =
+        document_exporter->write({pipeline_options.debug, output_path, &result.document, &result.artifacts});
+    if (!export_status.okStatus()) {
+        spdlog::error("document export failed at {} [{}]: {}",
+                      export_status.stage(),
+                      export_status.code(),
+                      export_status.message());
         return 2;
     }
 

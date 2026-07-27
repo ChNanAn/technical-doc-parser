@@ -72,8 +72,9 @@ TEST(StructuredTextDocumentExporterTest, PreservesMergedCellsAndCombinesCrossPag
     const std::filesystem::path html_path = std::filesystem::temp_directory_path() / "tdp_structured_table_test.html";
     const doc_parser::document::ParsedDocument document = makeCrossPageTable();
 
-    ASSERT_TRUE(doc_parser::exporter::MarkdownDocumentExporter().write({false, markdown_path, &document, nullptr}));
-    ASSERT_TRUE(doc_parser::exporter::HtmlDocumentExporter().write({false, html_path, &document, nullptr}));
+    ASSERT_TRUE(
+        doc_parser::exporter::MarkdownDocumentExporter().write({false, markdown_path, &document, nullptr}).okStatus());
+    ASSERT_TRUE(doc_parser::exporter::HtmlDocumentExporter().write({false, html_path, &document, nullptr}).okStatus());
 
     const std::string markdown = readFile(markdown_path);
     const std::string html = readFile(html_path);
@@ -87,4 +88,20 @@ TEST(StructuredTextDocumentExporterTest, PreservesMergedCellsAndCombinesCrossPag
 
     std::filesystem::remove(markdown_path);
     std::filesystem::remove(html_path);
+}
+
+TEST(StructuredTextDocumentExporterTest, ReportsFormatSpecificMissingDocumentDiagnostics) {
+    const doc_parser::common::Status markdown_status =
+        doc_parser::exporter::MarkdownDocumentExporter().write({false, "document.md", nullptr, nullptr});
+    const doc_parser::common::Status html_status =
+        doc_parser::exporter::HtmlDocumentExporter().write({false, "document.html", nullptr, nullptr});
+
+    EXPECT_FALSE(markdown_status.okStatus());
+    EXPECT_EQ(markdown_status.stage(), "export");
+    EXPECT_EQ(markdown_status.code(), "export.markdown.document_missing");
+    EXPECT_EQ(markdown_status.message(), "document export request has no document");
+    EXPECT_FALSE(html_status.okStatus());
+    EXPECT_EQ(html_status.stage(), "export");
+    EXPECT_EQ(html_status.code(), "export.html.document_missing");
+    EXPECT_EQ(html_status.message(), "document export request has no document");
 }

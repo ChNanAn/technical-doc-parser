@@ -12,6 +12,7 @@ target_include_directories(doc_parser_export
 
 target_link_libraries(doc_parser_export
     PUBLIC
+        doc_parser_common
         doc_parser_document
 )
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/status.h"
+
 #include "document/parsed_document.h"
 
 #include <filesystem>
@@ -18,7 +20,7 @@ class IDocumentExporter {
 public:
     virtual ~IDocumentExporter() = default;
 
-    virtual bool write(const DocumentExportRequest& request) const = 0;
+    virtual common::Status write(const DocumentExportRequest& request) const = 0;
 };
 
 std::unique_ptr<IDocumentExporter> createDefaultDocumentExporter();

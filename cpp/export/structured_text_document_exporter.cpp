@@ -202,15 +202,39 @@ bool isContinuationAlreadyWritten(const std::vector<document::DocumentBlock>& bl
     return false;
 }
 
+common::Status validateRequest(const DocumentExportRequest& request, const std::string& format) {
+    if (request.document == nullptr) {
+        return common::Status::error(
+            "export." + format + ".document_missing", "document export request has no document", "export");
+    }
+    if (request.output_path.empty()) {
+        return common::Status::error(
+            "export." + format + ".output_path_missing", "document export request has no output path", "export");
+    }
+    return common::Status::ok();
+}
+
+common::Status openFailed(const std::string& format, const std::filesystem::path& path) {
+    return common::Status::error(
+        "export." + format + ".open_failed", "failed to open " + format + " output: " + path.string(), "export", true);
+}
+
+common::Status writeFailed(const std::string& format, const std::filesystem::path& path) {
+    return common::Status::error("export." + format + ".write_failed",
+                                 "failed to write " + format + " output: " + path.string(),
+                                 "export",
+                                 true);
+}
+
 } // namespace
 
-bool MarkdownDocumentExporter::write(const DocumentExportRequest& request) const {
-    if (request.document == nullptr || request.output_path.empty()) {
-        return false;
+common::Status MarkdownDocumentExporter::write(const DocumentExportRequest& request) const {
+    if (common::Status status = validateRequest(request, "markdown"); !status.okStatus()) {
+        return status;
     }
     std::ofstream output(request.output_path);
     if (!output) {
-        return false;
+        return openFailed("markdown", request.output_path);
     }
     const auto& blocks = request.document->blocks;
     for (std::size_t index = 0; index < blocks.size(); ++index) {
@@ -233,16 +257,17 @@ bool MarkdownDocumentExporter::write(const DocumentExportRequest& request) const
             output << block.text << "\n\n";
         }
     }
-    return static_cast<bool>(output);
+    output.flush();
+    return output ? common::Status::ok() : writeFailed("markdown", request.output_path);
 }
 
-bool HtmlDocumentExporter::write(const DocumentExportRequest& request) const {
-    if (request.document == nullptr || request.output_path.empty()) {
-        return false;
+common::Status HtmlDocumentExporter::write(const DocumentExportRequest& request) const {
+    if (common::Status status = validateRequest(request, "html"); !status.okStatus()) {
+        return status;
     }
     std::ofstream output(request.output_path);
     if (!output) {
-        return false;
+        return openFailed("html", request.output_path);
     }
     output << "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>"
            << htmlEscape(request.document->source.path) << "</title></head><body>\n";
@@ -262,7 +287,8 @@ bool HtmlDocumentExporter::write(const DocumentExportRequest& request) const {
         output << '<' << tag << '>' << htmlEscape(block.text) << "</" << tag << ">\n";
     }
     output << "</body></html>\n";
-    return static_cast<bool>(output);
+    output.flush();
+    return output ? common::Status::ok() : writeFailed("html", request.output_path);
 }
 
 } // namespace doc_parser::exporter

@@ -210,21 +210,21 @@ int main(int argc, char** argv) {
 
         const auto document_start = std::chrono::steady_clock::now();
         const doc_parser::pipeline::ParseResult result = engine.parse(run_options);
-        bool exported = false;
+        doc_parser::common::Status export_status = doc_parser::common::Status::ok();
         if (result.ok()) {
-            exported = exporter.write({false, output, &result.document, &result.artifacts});
+            export_status = exporter.write({false, output, &result.document, &result.artifacts});
         }
         item["elapsed_ms"] = elapsedMilliseconds(document_start);
         item["blocks"] = result.document.blocks.size();
 
-        if (result.ok() && exported) {
+        if (result.ok() && export_status.okStatus()) {
             item["status"] = "succeeded";
             ++succeeded;
         } else {
             item["status"] = "failed";
-            item["stage"] = result.ok() ? "export" : result.status.stage();
-            item["code"] = result.ok() ? "export.failed" : result.status.code();
-            item["message"] = result.ok() ? "failed to write Markdown candidate" : result.status.message();
+            item["stage"] = result.ok() ? export_status.stage() : result.status.stage();
+            item["code"] = result.ok() ? export_status.code() : result.status.code();
+            item["message"] = result.ok() ? export_status.message() : result.status.message();
             if (!writeEmptyCandidate(output)) {
                 std::cerr << "Failed to represent benchmark failure at " << output << '\n';
                 return 1;

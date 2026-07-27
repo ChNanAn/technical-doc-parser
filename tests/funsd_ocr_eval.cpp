@@ -1,5 +1,6 @@
 #include "document/page_artifact.h"
 #include "ocr/paddle_ocr_onnx_backend.h"
+#include "pipeline/engine_config.h"
 
 #include <algorithm>
 #include <cctype>
@@ -467,9 +468,10 @@ int main(int argc, char** argv) {
         annotations.resize(options.limit);
     }
 
-    const doc_parser::ocr::PaddleOcrOnnxBackend backend;
+    const doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
+    const doc_parser::ocr::PaddleOcrOnnxBackend backend(engine_config.paddle_ocr);
     if (!backend.isAvailable()) {
-        std::cerr << "PaddleOCR ONNX backend is unavailable. Set model env vars documented in docs/dependencies.md\n";
+        std::cerr << "PaddleOCR ONNX backend is unavailable: " << backend.unavailableReason() << '\n';
         return 2;
     }
 

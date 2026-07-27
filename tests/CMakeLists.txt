@@ -231,6 +231,24 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         pubtables_table_eval.cpp
     )
 
+    set(DOC_PARSER_BENCHMARK_MODEL_TARGETS
+        paddle_ocr_onnx_baseline
+        paddle_ocr_eval
+        funsd_ocr_eval
+        doclaynet_layout_eval
+        pubtables_table_eval
+    )
+    foreach(target IN LISTS DOC_PARSER_BENCHMARK_MODEL_TARGETS)
+        target_compile_definitions(${target}
+            PRIVATE
+                DOC_PARSER_PADDLEOCR_BASELINE_DIR="${DOC_PARSER_PADDLEOCR_BASELINE_DIR}"
+                DOC_PARSER_DOCLAYNET_MODEL_PATH="${DOC_PARSER_DOCLAYNET_MODEL_PATH}"
+                DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH="${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}"
+                DOC_PARSER_TABLE_DETECTION_MODEL_PATH="${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}"
+                DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH="${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}"
+        )
+    endforeach()
+
     target_link_libraries(paddle_ocr_onnx_baseline
         PRIVATE
             doc_parser_ocr

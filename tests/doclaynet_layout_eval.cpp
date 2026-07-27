@@ -1,4 +1,5 @@
 #include "layout/layout_backend.h"
+#include "pipeline/engine_config.h"
 
 #include <filesystem>
 #include <fstream>
@@ -68,8 +69,9 @@ int main(int argc, char** argv) {
 
     std::unique_ptr<doc_parser::layout::ILayoutBackend> backend;
     nlohmann::json metadata;
+    const doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
     if (backend_name == "doclaynet") {
-        auto candidate = std::make_unique<doc_parser::layout::DocLayNetOnnxBackend>();
+        auto candidate = std::make_unique<doc_parser::layout::DocLayNetOnnxBackend>(engine_config.doclaynet);
         if (!candidate->isAvailable()) {
             std::cerr << "DocLayNet ONNX model is unavailable\n";
             return 77;
@@ -83,7 +85,7 @@ int main(int argc, char** argv) {
         };
         backend = std::move(candidate);
     } else {
-        auto candidate = std::make_unique<doc_parser::layout::PaddleDocLayoutOnnxBackend>();
+        auto candidate = std::make_unique<doc_parser::layout::PaddleDocLayoutOnnxBackend>(engine_config.paddle_layout);
         if (!candidate->isAvailable()) {
             std::cerr << "Paddle PP-DocLayoutV3 ONNX model is unavailable\n";
             return 77;

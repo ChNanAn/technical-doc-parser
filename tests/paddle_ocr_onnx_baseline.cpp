@@ -1,4 +1,5 @@
 #include "ocr/paddle_ocr_onnx_backend.h"
+#include "pipeline/engine_config.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -19,7 +20,8 @@ std::string envString(const char* name) {
 } // namespace
 
 int main() {
-    const doc_parser::ocr::PaddleOcrOnnxBackend backend;
+    const doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
+    const doc_parser::ocr::PaddleOcrOnnxBackend backend(engine_config.paddle_ocr);
     if (!backend.isAvailable()) {
         std::cerr << "PaddleOCR ONNX baseline failed; default models are unavailable: " << backend.unavailableReason()
                   << "\nRun bash scripts/setup_paddleocr_baseline.sh.\n";

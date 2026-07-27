@@ -1,4 +1,5 @@
 #include "ocr/paddle_ocr_onnx_backend.h"
+#include "pipeline/engine_config.h"
 #include "table/table_backend.h"
 
 #include <cstddef>
@@ -37,12 +38,13 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    const doc_parser::ocr::PaddleOcrOnnxBackend ocr_backend;
+    const doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
+    const doc_parser::ocr::PaddleOcrOnnxBackend ocr_backend(engine_config.paddle_ocr);
     if (!ocr_backend.isAvailable()) {
         std::cerr << "PaddleOCR ONNX models are unavailable: " << ocr_backend.unavailableReason() << '\n';
         return 77;
     }
-    const doc_parser::table::TableTransformerOnnxBackend table_backend;
+    const doc_parser::table::TableTransformerOnnxBackend table_backend(engine_config.table_transformer);
     if (!table_backend.isAvailable()) {
         std::cerr << "Table Transformer ONNX models are unavailable: " << table_backend.unavailableReason() << '\n';
         return 77;

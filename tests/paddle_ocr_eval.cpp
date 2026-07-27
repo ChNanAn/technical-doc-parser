@@ -1,4 +1,5 @@
 #include "ocr/paddle_ocr_onnx_backend.h"
+#include "pipeline/engine_config.h"
 
 #include <filesystem>
 #include <fstream>
@@ -46,7 +47,8 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    const doc_parser::ocr::PaddleOcrOnnxBackend backend;
+    const doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
+    const doc_parser::ocr::PaddleOcrOnnxBackend backend(engine_config.paddle_ocr);
     if (!backend.isAvailable()) {
         std::cerr << "PaddleOCR ONNX models are unavailable: " << backend.unavailableReason() << '\n';
         return 1;

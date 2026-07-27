@@ -15,7 +15,7 @@ target_compile_definitions(document_intelligence_engine_c
 target_link_libraries(document_intelligence_engine_c
     PRIVATE
         doc_parser_export
-        doc_parser_pipeline
+        document_intelligence_engine_sdk
         $<BUILD_INTERFACE:nlohmann_json::nlohmann_json>
 )
 # Consumers link only the shared C API, but their linker still needs to locate

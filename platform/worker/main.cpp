@@ -1,5 +1,5 @@
 #include "pipeline/backend_registry.h"
-#include "pipeline/engine_config.h"
+#include "document_intelligence_engine/engine_config.h"
 #include "redis_client.h"
 #include "worker_document_processor.h"
 #include "worker_stage_observer.h"

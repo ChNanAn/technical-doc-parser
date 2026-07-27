@@ -29,6 +29,7 @@ target_link_libraries(domain_unit_tests
         doc_parser_pipeline
         doc_parser_reading_order
         doc_parser_table
+        document_intelligence_engine_sdk
         GTest::gtest_main
         nlohmann_json::nlohmann_json
 )

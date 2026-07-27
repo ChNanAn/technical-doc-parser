@@ -177,6 +177,7 @@ if(DOC_PARSER_ENABLE_PDFIUM)
     )
     target_link_libraries(partial_document_contract_producer
         PRIVATE
+            document_intelligence_engine_sdk
             doc_parser_pipeline
     )
     doc_parser_set_common_warnings(partial_document_contract_producer)
@@ -336,12 +337,14 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
 
     target_link_libraries(pipeline_quality_eval
         PRIVATE
+            document_intelligence_engine_sdk
             doc_parser_pipeline
             nlohmann_json::nlohmann_json
     )
 
     target_link_libraries(olmocr_bench_runner
         PRIVATE
+            document_intelligence_engine_sdk
             doc_parser_export
             doc_parser_pipeline
             nlohmann_json::nlohmann_json

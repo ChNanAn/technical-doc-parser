@@ -1,4 +1,4 @@
-#include "pipeline/engine_config.h"
+#include "document_intelligence_engine/engine_config.h"
 
 #include <cstdlib>
 #include <exception>

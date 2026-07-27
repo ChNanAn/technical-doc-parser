@@ -280,6 +280,11 @@ endif()
 
 add_subdirectory(cpp/document_source)
 add_subdirectory(cpp/pipeline)
+add_subdirectory(sdk/cpp)
+target_link_libraries(document_intelligence_engine_sdk
+    PRIVATE
+        doc_parser_pipeline
+)
 add_subdirectory(cpp/c_api)
 add_subdirectory(cpp/app)
 
@@ -291,8 +296,8 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-add_library(DocumentIntelligenceEngine::engine ALIAS doc_parser_pipeline)
-set_target_properties(doc_parser_pipeline PROPERTIES EXPORT_NAME engine)
+add_library(DocumentIntelligenceEngine::engine ALIAS document_intelligence_engine_sdk)
+set_target_properties(document_intelligence_engine_sdk PROPERTIES EXPORT_NAME engine)
 add_library(DocumentIntelligenceEngine::c_api ALIAS document_intelligence_engine_c)
 set_target_properties(document_intelligence_engine_c PROPERTIES EXPORT_NAME c_api)
 
@@ -307,6 +312,7 @@ set(DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS
     doc_parser_pipeline
     doc_parser_reading_order
     doc_parser_table
+    document_intelligence_engine_sdk
     document_intelligence_engine_c
 )
 if(DOC_PARSER_ENABLE_PDFIUM)
@@ -328,6 +334,10 @@ install(DIRECTORY cpp/
     COMPONENT Development
     FILES_MATCHING PATTERN "*.h"
     PATTERN "app" EXCLUDE
+)
+install(DIRECTORY sdk/cpp/include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    COMPONENT Development
 )
 
 set(DOCUMENT_INTELLIGENCE_ENGINE_MODEL_INSTALL_DIR

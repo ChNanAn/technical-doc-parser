@@ -1,6 +1,6 @@
 #include "app/cli_options.h"
+#include "document_intelligence_engine/document_engine.h"
 #include "export/document_exporter.h"
-#include "pipeline/document_engine.h"
 
 #include <CLI/CLI.hpp>
 #include <cstdlib>

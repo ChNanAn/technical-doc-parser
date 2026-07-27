@@ -16,7 +16,7 @@ endif()
 
 file(RENAME "${INSTALL_PREFIX}" "${RELOCATED_INSTALL_PREFIX}")
 set(namespaced_include
-    "${RELOCATED_INSTALL_PREFIX}/include/document_intelligence_engine/pipeline/document_engine.h"
+    "${RELOCATED_INSTALL_PREFIX}/include/document_intelligence_engine/document_engine.h"
 )
 if(NOT EXISTS "${namespaced_include}")
     message(FATAL_ERROR "Installed SDK header is missing from its namespace: ${namespaced_include}")

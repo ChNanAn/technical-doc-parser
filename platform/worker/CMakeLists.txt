@@ -17,6 +17,7 @@ target_include_directories(document_intelligence_worker
 
 target_link_libraries(document_intelligence_worker
     PRIVATE
+        document_intelligence_engine_sdk
         doc_parser_pipeline
         nlohmann_json::nlohmann_json
         spdlog::spdlog
@@ -39,6 +40,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(platform_worker_unit_tests
         PRIVATE
+            document_intelligence_engine_sdk
             doc_parser_pipeline
             GTest::gtest_main
             nlohmann_json::nlohmann_json

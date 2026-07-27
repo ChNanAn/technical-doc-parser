@@ -1,6 +1,6 @@
 #include "worker_document_processor.h"
 
-#include "pipeline/document_engine.h"
+#include "document_intelligence_engine/document_engine.h"
 
 #include <chrono>
 #include <filesystem>

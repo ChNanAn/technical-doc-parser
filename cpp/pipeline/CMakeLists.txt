@@ -1,7 +1,5 @@
 add_library(doc_parser_pipeline
     backend_registry.cpp
-    document_engine.cpp
-    engine_config.cpp
     pipeline_service_factory.cpp
     document_pipeline.cpp
     layout_analysis_stage.cpp
@@ -13,17 +11,15 @@ add_library(doc_parser_pipeline
 )
 
 doc_parser_set_public_includes(doc_parser_pipeline)
+target_include_directories(doc_parser_pipeline
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/sdk/cpp/include
+)
 target_compile_definitions(doc_parser_pipeline
     PRIVATE
         DOC_PARSER_ENGINE_VERSION="${PROJECT_VERSION}"
         DOC_PARSER_GIT_REVISION="${DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION}"
         FMT_HEADER_ONLY=1
-    INTERFACE
-        $<BUILD_INTERFACE:DOC_PARSER_PADDLEOCR_BASELINE_DIR="${DOC_PARSER_PADDLEOCR_BASELINE_DIR}">
-        $<BUILD_INTERFACE:DOC_PARSER_DOCLAYNET_MODEL_PATH="${DOC_PARSER_DOCLAYNET_MODEL_PATH}">
-        $<BUILD_INTERFACE:DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH="${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}">
-        $<BUILD_INTERFACE:DOC_PARSER_TABLE_DETECTION_MODEL_PATH="${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}">
-        $<BUILD_INTERFACE:DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH="${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}">
 )
 target_link_libraries(doc_parser_pipeline
     PUBLIC

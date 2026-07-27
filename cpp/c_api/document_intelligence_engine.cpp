@@ -1,7 +1,7 @@
 #include "c_api/document_intelligence_engine.h"
 
+#include "document_intelligence_engine/document_engine.h"
 #include "export/json_document_exporter.h"
-#include "pipeline/document_engine.h"
 
 #include <cmath>
 #include <cstddef>

@@ -4,7 +4,7 @@
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/backend_registry.h"
-#include "pipeline/document_engine.h"
+#include "document_intelligence_engine/document_engine.h"
 #include "table/table_backend.h"
 
 #include <filesystem>

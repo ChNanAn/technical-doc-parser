@@ -59,6 +59,10 @@ ctest --preset core-release
 ./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/
 ```
 
+带 Tag 的版本还会提供源码归档、Ubuntu 24.04 x86-64 CLI bundle，以及不含模型的
+CLI 容器。程序包与模型包独立版本化，下载后应使用发布页中的 `SHA256SUMS`
+校验。具体边界和发布步骤见[发布说明](docs/releasing.md)。
+
 可以显式选择 Backend，也可以使用版本化 Registry 配置：
 
 ```bash

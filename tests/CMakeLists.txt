@@ -110,6 +110,13 @@ add_test(NAME text_model_smoke COMMAND text_model_smoke)
 
 add_subdirectory(unit)
 
+add_test(
+    NAME release_packaging_smoke
+    COMMAND bash
+        "${PROJECT_SOURCE_DIR}/tests/check_release_packaging.sh"
+        "${PROJECT_BINARY_DIR}"
+)
+
 if(DOC_PARSER_ENABLE_OPENCV)
     add_executable(image_preprocessor_smoke
         image_preprocessor_smoke.cpp

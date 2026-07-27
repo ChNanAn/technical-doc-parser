@@ -59,6 +59,11 @@ Parse a document:
 ./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/
 ```
 
+Tagged releases also provide a source archive, an Ubuntu 24.04 x86-64 CLI
+bundle, and a model-free CLI container. Program and model packages are
+versioned separately; verify downloaded artifacts with the published
+`SHA256SUMS`. See the [release guide](docs/releasing.md).
+
 Select backends explicitly or use the versioned registry configuration:
 
 ```bash

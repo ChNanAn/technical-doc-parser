@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Source, Linux CLI, and container
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag version
+        shell: bash
+        run: |
+          project_version="$(awk '$1 == "VERSION" {print $2; exit}' CMakeLists.txt)"
+          test "${GITHUB_REF_NAME}" = "v${project_version}"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev
+
+      - name: Configure program build
+        run: |
+          cmake -S . -B build/release \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLEOCR_BASELINE=OFF \
+            -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_DOCLAYNET_LAYOUT=OFF \
+            -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLE_LAYOUT=OFF \
+            -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=OFF
+
+      - name: Build CLI
+        run: cmake --build build/release --target document_intelligence_engine --parallel
+
+      - name: Package source and CLI
+        run: |
+          bash scripts/package_release.sh \
+            --kind all \
+            --build-dir build/release \
+            --output-dir dist
+          cd dist
+          sha256sum --check SHA256SUMS
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and publish CLI container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packaging/cli.Dockerfile
+          push: true
+          tags: |
+            ghcr.io/chnanan/technical-doc-parser:${{ github.ref_name }}
+            ghcr.io/chnanan/technical-doc-parser:latest
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            REVISION=${{ github.sha }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS

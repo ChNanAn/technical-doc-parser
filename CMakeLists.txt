@@ -269,9 +269,11 @@ install(TARGETS ${DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_TARGETS}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT Development
 )
 install(DIRECTORY cpp/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine
+    COMPONENT Development
     FILES_MATCHING PATTERN "*.h"
     PATTERN "app" EXCLUDE
 )
@@ -327,15 +329,24 @@ install(EXPORT DocumentIntelligenceEngineTargets
     FILE DocumentIntelligenceEngineTargets.cmake
     NAMESPACE DocumentIntelligenceEngine::
     DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR}"
+    COMPONENT Development
 )
 install(FILES
     "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfig.cmake"
     "${PROJECT_BINARY_DIR}/DocumentIntelligenceEngineConfigVersion.cmake"
     cmake/FindONNXRuntime.cmake
     DESTINATION "${DOCUMENT_INTELLIGENCE_ENGINE_CMAKE_INSTALL_DIR}"
+    COMPONENT Development
 )
 install(FILES
     examples/CMakeLists.txt
     examples/embed_document.cpp
     DESTINATION "${CMAKE_INSTALL_DATADIR}/DocumentIntelligenceEngine/examples"
+    COMPONENT Development
+)
+install(FILES
+    LICENSE
+    packaging/CLI_BUNDLE_README.md
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/DocumentIntelligenceEngine"
+    COMPONENT Runtime
 )

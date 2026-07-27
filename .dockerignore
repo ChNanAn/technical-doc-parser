@@ -1,9 +1,12 @@
 .git
 .github
+.codegraph
 build
 build-*
 data
+dist
 models
+output
 runtime
 third_party/*
 !third_party/stb/
@@ -13,3 +16,5 @@ platform/api/*.egg-info
 platform/web/node_modules
 platform/web/dist
 **/__pycache__
+**/.pytest_cache
+**/node_modules

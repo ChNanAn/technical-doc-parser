@@ -189,6 +189,7 @@ Additional input formats, more interchangeable models, multi-tenant SaaS feature
 - [Dependency Setup](docs/dependencies.md)
 - [Evaluation](docs/evaluation.md)
 - [Document Contract v1](docs/document-contract-v1.md)
+- [Warning Code Registry](docs/warning-codes.md)
 - [Quality Report v1](schemas/quality-report.v1.schema.json)
 - [Text Model](docs/text-model.md)
 - [Optional Platform](platform/README.md)

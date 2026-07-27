@@ -1,3 +1,4 @@
+#include "common/warning_codes.h"
 #include "document_source/document_source_factory.h"
 #include "export/document_exporter.h"
 #include "layout/layout_backend.h"
@@ -89,7 +90,7 @@ int main(int argc, char** argv) {
         return fail("runtime fallback did not produce an explained partial document");
     }
     for (const doc_parser::document::DocumentWarning& warning : result.document.warnings) {
-        if (warning.code != "LAYOUT_BACKEND_FALLBACK") {
+        if (warning.code != doc_parser::common::warning_codes::kLayoutBackendFallback) {
             return fail("runtime fallback produced an unexpected warning code: " + warning.code);
         }
     }

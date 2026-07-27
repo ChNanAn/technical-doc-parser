@@ -1,3 +1,4 @@
+#include "common/warning_codes.h"
 #include "document_source/document_source_factory.h"
 #include "export/document_exporter.h"
 #include "layout/layout_backend.h"
@@ -172,7 +173,7 @@ TEST(DocumentEngineTest, RuntimeFallbackProducesExplainedPartialResultAndProvena
     ASSERT_EQ(result.document.warnings.size(), 3U);
     for (std::size_t index = 0; index < result.document.warnings.size(); ++index) {
         const auto& warning = result.document.warnings[index];
-        EXPECT_EQ(warning.code, "LAYOUT_BACKEND_FALLBACK");
+        EXPECT_EQ(warning.code, doc_parser::common::warning_codes::kLayoutBackendFallback);
         EXPECT_EQ(warning.stage, "layout");
         EXPECT_EQ(warning.page_id, "page_" + std::to_string(index + 1));
         EXPECT_EQ(warning.details.at("failed_backend"), "failing-layout");
@@ -193,7 +194,7 @@ TEST(DocumentEngineTest, RuntimeFallbackProducesExplainedPartialResultAndProvena
     EXPECT_EQ(observer.provenance.run_id, options.run_id);
     EXPECT_EQ(observer.provenance.backends.resolved.layout, "failing-layout->text");
     ASSERT_EQ(observer.diagnostics.size(), 3U);
-    EXPECT_EQ(observer.diagnostics[0].code, "LAYOUT_BACKEND_FALLBACK");
+    EXPECT_EQ(observer.diagnostics[0].code, doc_parser::common::warning_codes::kLayoutBackendFallback);
 
     const auto document_exporter = doc_parser::exporter::createDefaultDocumentExporter();
     ASSERT_NE(document_exporter, nullptr);

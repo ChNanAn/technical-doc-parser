@@ -1,5 +1,6 @@
 #include "pipeline/pipeline_service_factory.h"
 
+#include "common/warning_codes.h"
 #include "reading_order/reading_order_backend.h"
 
 #include <memory>
@@ -44,7 +45,7 @@ public:
                              request.page.page_number,
                              backends_[index + 1].name);
                 diagnostics.push_back({
-                    "LAYOUT_BACKEND_FALLBACK",
+                    common::warning_codes::kLayoutBackendFallback,
                     "layout inference failed; continued with the configured fallback chain",
                     "layout",
                     request.page.page_number,
@@ -83,7 +84,7 @@ public:
                              request.page.page_number,
                              backends_[index + 1].name);
                 diagnostics.push_back({
-                    "TABLE_BACKEND_FALLBACK",
+                    common::warning_codes::kTableBackendFallback,
                     "table inference failed; continued with the configured fallback chain",
                     "table",
                     request.page.page_number,

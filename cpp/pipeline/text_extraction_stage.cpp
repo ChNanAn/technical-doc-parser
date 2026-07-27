@@ -1,5 +1,6 @@
 #include "pipeline/text_extraction_stage.h"
 
+#include "common/warning_codes.h"
 #include "pipeline/text_quality.h"
 
 #include <spdlog/spdlog.h>
@@ -64,7 +65,7 @@ TextExtractionStage::extract(const PipelineContext& context, const std::vector<d
                 const std::string message = "OCR enhancement failed; retained usable native text";
                 spdlog::warn("text_quality: {} for page {}", message, pages[index].page_number);
                 extraction.diagnostics.push_back({
-                    "OCR_ENHANCEMENT_FAILED",
+                    common::warning_codes::kOcrEnhancementFailed,
                     message,
                     "text",
                     pages[index].page_number,

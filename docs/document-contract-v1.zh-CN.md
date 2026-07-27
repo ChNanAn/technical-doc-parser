@@ -114,7 +114,7 @@ Document v1 保留下游日常使用所需的解释信息：
 - `producer` 说明哪个引擎版本生成了结果。
 - Page ID 和 bbox 能把结果定位回可见来源。
 - `source_refs` 可以保留更细粒度的原始区域或文本证据。
-- `warnings` 使用稳定 Code 解释 Partial Result。
+- `warnings` 使用 [Warning Code 注册表](warning-codes.zh-CN.md)中的稳定 Code 解释 Partial Result。
 - `extensions` 可以承载额外 Provider 信息而不污染公共核心。
 
 完整执行过程属于独立的 Pipeline Trace 契约，包括每个 Stage 的尝试、请求与实际 Backend、fallback 原因、

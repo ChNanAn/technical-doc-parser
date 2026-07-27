@@ -1,3 +1,4 @@
+#include "common/warning_codes.h"
 #include "export/json_document_exporter.h"
 
 #include <gtest/gtest.h>
@@ -358,8 +359,8 @@ TEST(JsonDocumentExporterTest, WritesExplainedPartialDocument) {
     DocumentFixture fixture = makeDocumentFixture();
     fixture.document.status = doc_parser::document::DocumentStatus::Partial;
     fixture.document.warnings.push_back({
-        "OCR_LOW_CONFIDENCE",
-        "One text region has low OCR confidence.",
+        doc_parser::common::warning_codes::kOcrEnhancementFailed,
+        "OCR enhancement failed; retained usable native text",
         "text",
         "page_1",
         "doc_page_1_block_1",
@@ -377,7 +378,7 @@ TEST(JsonDocumentExporterTest, WritesExplainedPartialDocument) {
     const auto manifest = readJson(output_path);
     EXPECT_EQ(manifest["status"], "partial");
     ASSERT_EQ(manifest["warnings"].size(), 1U);
-    EXPECT_EQ(manifest["warnings"][0]["code"], "OCR_LOW_CONFIDENCE");
+    EXPECT_EQ(manifest["warnings"][0]["code"], doc_parser::common::warning_codes::kOcrEnhancementFailed);
     EXPECT_EQ(manifest["warnings"][0]["page_id"], "page_1");
     EXPECT_EQ(manifest["warnings"][0]["block_id"], "doc_page_1_block_1");
     EXPECT_EQ(manifest["warnings"][0]["details"]["backend"], "paddle");

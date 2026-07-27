@@ -13,6 +13,7 @@ add_executable(domain_unit_tests
     text_normalizer_test.cpp
     text_extraction_stage_test.cpp
     utf8_test.cpp
+    warning_codes_test.cpp
 )
 
 target_link_libraries(domain_unit_tests

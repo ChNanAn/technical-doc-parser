@@ -4,6 +4,8 @@
 #include "ocr/ocr_backend.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/text_extraction_stage.h"
+
+#include "common/warning_codes.h"
 #include "pipeline/text_quality.h"
 
 #include <gtest/gtest.h>
@@ -210,7 +212,7 @@ TEST(TextExtractionStageTest, KeepsUsableSparseNativeTextWhenOcrEnhancementFails
     ASSERT_TRUE(result.ok());
     const auto& page_texts = result.value;
     ASSERT_EQ(result.diagnostics.size(), 1U);
-    EXPECT_EQ(result.diagnostics[0].code, "OCR_ENHANCEMENT_FAILED");
+    EXPECT_EQ(result.diagnostics[0].code, doc_parser::common::warning_codes::kOcrEnhancementFailed);
     EXPECT_EQ(result.diagnostics[0].stage, "text");
     EXPECT_EQ(result.diagnostics[0].page_number, 1);
     ASSERT_EQ(page_texts.size(), 1U);

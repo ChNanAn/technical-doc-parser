@@ -173,7 +173,7 @@ def test_document_v1_snapshots_cover_source_and_structure_evidence() -> None:
     } == {"pdf_text_layer"}
 
     scanned_ocr = _load(DOCUMENT_SNAPSHOT_ROOT / "scanned-ocr.json")
-    assert {warning["code"] for warning in scanned_ocr["warnings"]} == {"OCR_LOW_CONFIDENCE"}
+    assert {warning["code"] for warning in scanned_ocr["warnings"]} == {"LAYOUT_BACKEND_FALLBACK"}
     assert {
         source_ref["kind"]
         for block in scanned_ocr["blocks"]

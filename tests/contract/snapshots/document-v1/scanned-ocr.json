@@ -69,13 +69,14 @@
   ],
   "warnings": [
     {
-      "code": "OCR_LOW_CONFIDENCE",
-      "message": "One or more text regions have low OCR confidence.",
-      "stage": "text_extraction",
+      "code": "LAYOUT_BACKEND_FALLBACK",
+      "message": "layout inference failed; continued with the configured fallback chain",
+      "stage": "layout",
       "page_id": "page_1",
-      "block_id": "scan_body",
       "details": {
-        "minimum_confidence": 0.54
+        "failed_backend": "doclaynet",
+        "fallback_backend": "text",
+        "reason": "inference_failed"
       }
     }
   ]

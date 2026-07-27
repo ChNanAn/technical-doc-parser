@@ -120,7 +120,8 @@ Document v1 keeps the explanation needed by ordinary consumers:
 - `producer` identifies which engine build emitted the result.
 - Page IDs and bboxes locate output in the visible source.
 - `source_refs` may retain finer source regions or text evidence.
-- `warnings` explain partial output through stable codes.
+- `warnings` explain partial output through stable codes listed in the
+  [Warning Code Registry](warning-codes.md).
 - `extensions` may expose additional provider detail without changing the public core.
 
 The complete execution history belongs in a separate Pipeline Trace contract: stage attempts, requested and resolved

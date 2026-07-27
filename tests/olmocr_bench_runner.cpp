@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
         std::filesystem::remove_all(current_work);
         std::filesystem::create_directories(current_work);
         std::filesystem::create_directories(output.parent_path());
-        doc_parser::pipeline::PipelineRunOptions run_options;
+        doc_parser::pipeline::DocumentParseOptions run_options;
         run_options.input_path = input;
         run_options.output_directory = current_work;
         run_options.render.dpi = options.dpi;

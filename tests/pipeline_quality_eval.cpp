@@ -182,7 +182,7 @@ int main(int argc, char** argv) {
     std::size_t parsed_pages = 0;
     for (const nlohmann::json& document : manifest.value("documents", nlohmann::json::array())) {
         const std::string document_id = document.at("id").get<std::string>();
-        doc_parser::pipeline::PipelineRunOptions run_options;
+        doc_parser::pipeline::DocumentParseOptions run_options;
         run_options.input_path = options.input_root / "pdf" / document.at("pdf").get<std::string>();
         run_options.output_directory = options.work_directory / document_id;
         run_options.render.dpi = manifest.value("dpi", 200);

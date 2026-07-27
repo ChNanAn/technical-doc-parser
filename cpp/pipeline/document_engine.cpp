@@ -6,6 +6,16 @@
 #include <utility>
 
 namespace doc_parser::pipeline {
+namespace {
+
+PipelineRunOptions pipelineOptions(DocumentParseOptions options, const BackendOptions& backends) {
+    PipelineRunOptions pipeline_options;
+    static_cast<DocumentParseOptions&>(pipeline_options) = std::move(options);
+    pipeline_options.backends = backends;
+    return pipeline_options;
+}
+
+} // namespace
 
 struct DocumentEngine::Impl {
     Impl(EngineConfig engine_config, const BackendRegistry& registry)
@@ -36,22 +46,26 @@ const common::Status& DocumentEngine::initializationStatus() const {
     return impl_ == nullptr ? moved_from : impl_->creation.status;
 }
 
-ParseResult DocumentEngine::parse(PipelineRunOptions options) {
+ParseResult DocumentEngine::parse(DocumentParseOptions options) {
     NullStageObserver observer;
     return parse(std::move(options), observer);
 }
 
-ParseResult DocumentEngine::parse(PipelineRunOptions options, IStageObserver& observer) {
+ParseResult DocumentEngine::parse(DocumentParseOptions options, IStageObserver& observer) {
     ParseResult result;
     if (!isReady()) {
         result.status = initializationStatus();
         return result;
     }
 
-    options.backends = impl_->config.backends;
+    PipelineRunOptions pipeline_options = pipelineOptions(std::move(options), impl_->config.backends);
     const DocumentPipeline pipeline;
-    result.status = pipeline.parse(
-        options, impl_->creation.services, impl_->creation.trace_message, result.document, result.artifacts, observer);
+    result.status = pipeline.parse(pipeline_options,
+                                   impl_->creation.services,
+                                   impl_->creation.trace_message,
+                                   result.document,
+                                   result.artifacts,
+                                   observer);
     return result;
 }
 

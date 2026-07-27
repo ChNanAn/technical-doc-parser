@@ -39,8 +39,11 @@ public:
     bool isReady() const;
     const common::Status& initializationStatus() const;
 
-    ParseResult parse(PipelineRunOptions options);
-    ParseResult parse(PipelineRunOptions options, IStageObserver& observer);
+    ParseResult parse(DocumentParseOptions options);
+    ParseResult parse(DocumentParseOptions options, IStageObserver& observer);
+
+    ParseResult parse(PipelineRunOptions options) = delete;
+    ParseResult parse(PipelineRunOptions options, IStageObserver& observer) = delete;
 
 private:
     struct Impl;

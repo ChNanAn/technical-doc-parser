@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    doc_parser::pipeline::PipelineRunOptions options;
+    doc_parser::pipeline::DocumentParseOptions options;
     options.input_path = argv[1];
     options.output_directory = argv[2];
     const doc_parser::pipeline::ParseResult result = engine.parse(options);

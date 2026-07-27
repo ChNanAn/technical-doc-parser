@@ -67,7 +67,7 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAndLeavesExportToCaller) {
     const std::filesystem::path output_root = std::filesystem::temp_directory_path() / "tdp_engine_test";
     std::filesystem::remove_all(output_root);
 
-    doc_parser::pipeline::PipelineRunOptions first;
+    doc_parser::pipeline::DocumentParseOptions first;
     first.input_path = std::filesystem::path(DOC_PARSER_TEST_FIXTURE_DIR) / "pdfs" / "pdfjs-basicapi.pdf";
     first.output_directory = output_root / "first";
     first.render.dpi = 72;
@@ -83,13 +83,13 @@ TEST(DocumentEngineTest, ReusesBackendInstancesAndLeavesExportToCaller) {
             .okStatus());
     EXPECT_TRUE(std::filesystem::is_regular_file(first.output_directory / "document.json"));
 
-    doc_parser::pipeline::PipelineRunOptions second = first;
+    doc_parser::pipeline::DocumentParseOptions second = first;
     second.output_directory = output_root / "second";
     const doc_parser::pipeline::ParseResult second_result = engine.parse(second);
     ASSERT_TRUE(second_result.ok()) << second_result.status.message();
     EXPECT_FALSE(std::filesystem::exists(second.output_directory / "document.json"));
 
-    doc_parser::pipeline::PipelineRunOptions missing = first;
+    doc_parser::pipeline::DocumentParseOptions missing = first;
     missing.input_path = output_root / "missing.pdf";
     missing.output_directory = output_root / "missing";
     const doc_parser::pipeline::ParseResult missing_result = engine.parse(missing);

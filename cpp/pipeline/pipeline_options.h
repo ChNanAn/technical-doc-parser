@@ -17,14 +17,17 @@ struct BackendOptions {
     std::filesystem::path registry_config;
 };
 
-struct PipelineRunOptions {
+struct DocumentParseOptions {
     std::filesystem::path input_path;
     std::filesystem::path output_directory = "output";
     RenderOptions render;
-    BackendOptions backends;
     bool debug = false;
     int timeout_seconds = 0;
     int maximum_pages = 0;
+};
+
+struct PipelineRunOptions : DocumentParseOptions {
+    BackendOptions backends;
 };
 
 } // namespace doc_parser::pipeline

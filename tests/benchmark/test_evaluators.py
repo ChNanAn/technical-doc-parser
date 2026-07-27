@@ -11,7 +11,7 @@ from pathlib import Path
 from benchmark_common import EvaluationError, levenshtein_distance, maximum_iou_matching
 from evaluate_layout import evaluate_layout
 from evaluate_ocr import evaluate_ocr
-from evaluate_pipeline import evaluate_pipeline
+from evaluate_pipeline import evaluate_pipeline, quality_profile_threshold_failures
 from evaluate_table import evaluate_table
 
 
@@ -196,6 +196,56 @@ class PipelineEvaluatorTest(unittest.TestCase):
         self.assertEqual(1.0, report["summary"]["reading_order_anchor_recall"])
         self.assertEqual(1.0, report["summary"]["reading_order_score"])
         self.assertEqual(11, report["summary"]["full_text_reference_samples"])
+
+    def test_applies_pipeline_thresholds_from_quality_profile(self) -> None:
+        profile_path = Path(__file__).resolve().parent / "profiles" / "pipeline-quality-v1.json"
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        report = {
+            "version": 2,
+            "task": "pipeline_text_order",
+            "dataset": "technical-doc-parser/quality-baseline-15",
+            "summary": {
+                "text_completeness": 0.87,
+                "reading_order_anchor_recall": 0.84,
+                "reading_order_score": 0.92,
+                "text_duplication_rate": 0.16,
+            },
+        }
+
+        self.assertEqual(
+            ["pipeline.text_completeness"],
+            quality_profile_threshold_failures(profile, "pipeline_text", report),
+        )
+
+    def test_quality_profile_gate_rejects_an_unresolved_metric_pointer(self) -> None:
+        profile = {
+            "profile_version": 1,
+            "inputs": {
+                "pipeline_text": {
+                    "version": 2,
+                    "task": "pipeline_text_order",
+                }
+            },
+            "layers": {
+                "pipeline": {
+                    "metrics": [
+                        {
+                            "name": "missing",
+                            "input": "pipeline_text",
+                            "value": "/summary/missing",
+                            "threshold": {"operator": "gte", "value": 0.5},
+                        }
+                    ]
+                }
+            },
+        }
+
+        with self.assertRaisesRegex(EvaluationError, "does not resolve"):
+            quality_profile_threshold_failures(
+                profile,
+                "pipeline_text",
+                {"version": 2, "task": "pipeline_text_order", "summary": {}},
+            )
 
 
 class TableEvaluatorTest(unittest.TestCase):

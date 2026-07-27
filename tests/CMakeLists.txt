@@ -353,6 +353,9 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
 
     if(DOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PIPELINE_BENCHMARK)
         set(PIPELINE_QUALITY_ROOT "${PROJECT_SOURCE_DIR}/data/raw/quality_baseline/inputs")
+        set(PIPELINE_QUALITY_PROFILE
+            "${CMAKE_CURRENT_SOURCE_DIR}/benchmark/profiles/pipeline-quality-v1.json"
+        )
         set(PIPELINE_QUALITY_PREDICTIONS "${CMAKE_CURRENT_BINARY_DIR}/pipeline_quality_predictions.json")
         set(PIPELINE_QUALITY_REPORT "${CMAKE_CURRENT_BINARY_DIR}/pipeline_quality_report.json")
         add_test(
@@ -368,10 +371,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
                 ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_pipeline.py
                 ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/pipeline_quality/ground_truth.json
                 ${PIPELINE_QUALITY_REPORT}
-                0.88
-                0.84
-                0.92
-                0.16
+                ${PIPELINE_QUALITY_PROFILE}
         )
         set_tests_properties(pipeline_quality_benchmark PROPERTIES LABELS "benchmark;pipeline")
 
@@ -380,7 +380,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             NAME pipeline_quality_report_v1
             COMMAND python3
                 ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/generate_quality_report.py
-                --profile ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/profiles/pipeline-quality-v1.json
+                --profile ${PIPELINE_QUALITY_PROFILE}
                 --input "pipeline_text=${PIPELINE_QUALITY_REPORT}"
                 --subject-version ${PROJECT_VERSION}
                 --git-revision "${DOCUMENT_INTELLIGENCE_ENGINE_GIT_REVISION}"

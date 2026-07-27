@@ -280,6 +280,87 @@ def evaluate_pipeline(
     }
 
 
+def _json_pointer(document: Any, pointer: str) -> Any:
+    if not isinstance(pointer, str) or not pointer.startswith("/"):
+        raise EvaluationError(f"quality profile contains an invalid JSON Pointer: {pointer!r}")
+    value = document
+    for encoded_part in pointer[1:].split("/"):
+        part = encoded_part.replace("~1", "/").replace("~0", "~")
+        if isinstance(value, dict) and part in value:
+            value = value[part]
+        elif isinstance(value, list) and part.isdigit() and int(part) < len(value):
+            value = value[int(part)]
+        else:
+            raise EvaluationError(f"quality profile JSON Pointer does not resolve: {pointer}")
+    return value
+
+
+def quality_profile_threshold_failures(
+    profile: dict[str, Any],
+    input_name: str,
+    report: dict[str, Any],
+) -> list[str]:
+    if profile.get("profile_version") != 1:
+        raise EvaluationError("quality profile version must be 1")
+    inputs = profile.get("inputs")
+    if not isinstance(inputs, dict) or not isinstance(inputs.get(input_name), dict):
+        raise EvaluationError(f"quality profile does not define input {input_name!r}")
+    expected_input = inputs[input_name]
+    for field in ("version", "task", "dataset"):
+        expected = expected_input.get(field)
+        if expected is not None and report.get(field) != expected:
+            raise EvaluationError(
+                f"quality profile input {input_name!r} expects {field}={expected!r}, "
+                f"got {report.get(field)!r}"
+            )
+
+    layers = profile.get("layers")
+    if not isinstance(layers, dict):
+        raise EvaluationError("quality profile layers must be an object")
+    evaluated = 0
+    failures = []
+    seen_metrics = set()
+    for layer_name, metric_set in layers.items():
+        metrics = metric_set.get("metrics") if isinstance(metric_set, dict) else None
+        if not isinstance(metrics, list):
+            raise EvaluationError(f"quality profile layer {layer_name!r} must contain a metrics array")
+        for metric in metrics:
+            if not isinstance(metric, dict) or metric.get("input") != input_name:
+                continue
+            metric_name = metric.get("name")
+            if not isinstance(metric_name, str) or not metric_name:
+                raise EvaluationError(f"quality profile layer {layer_name!r} contains an invalid metric name")
+            metric_id = f"{layer_name}.{metric_name}"
+            if metric_id in seen_metrics:
+                raise EvaluationError(f"quality profile contains duplicate metric {metric_id!r}")
+            seen_metrics.add(metric_id)
+            threshold = metric.get("threshold")
+            if threshold is None:
+                continue
+            if not isinstance(threshold, dict):
+                raise EvaluationError(f"quality profile threshold for {metric_id} must be an object")
+            operator = threshold.get("operator")
+            expected = threshold.get("value")
+            if operator not in {"gte", "lte", "eq"}:
+                raise EvaluationError(f"quality profile threshold for {metric_id} has an invalid operator")
+            if not isinstance(expected, (int, float)) or isinstance(expected, bool):
+                raise EvaluationError(f"quality profile threshold for {metric_id} must be numeric")
+            actual = _json_pointer(report, metric.get("value"))
+            if not isinstance(actual, (int, float)) or isinstance(actual, bool):
+                raise EvaluationError(f"quality profile value for {metric_id} must resolve to a number")
+            evaluated += 1
+            passed = (
+                (operator == "gte" and actual >= expected)
+                or (operator == "lte" and actual <= expected)
+                or (operator == "eq" and actual == expected)
+            )
+            if not passed:
+                failures.append(metric_id)
+    if evaluated == 0:
+        raise EvaluationError(f"quality profile defines no thresholds for input {input_name!r}")
+    return failures
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--predictions", required=True, type=Path)
@@ -290,6 +371,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--minimum-reading-order-anchor-recall", type=float)
     parser.add_argument("--minimum-reading-order-score", type=float)
     parser.add_argument("--maximum-text-duplication-rate", type=float)
+    parser.add_argument("--quality-profile", type=Path)
+    parser.add_argument("--quality-profile-input", default="pipeline_text")
     parser.add_argument("--quiet", action="store_true")
     return parser.parse_args()
 
@@ -297,12 +380,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        for name, value in (
+        explicit_thresholds = (
             ("--minimum-text-completeness", args.minimum_text_completeness),
             ("--minimum-reading-order-anchor-recall", args.minimum_reading_order_anchor_recall),
             ("--minimum-reading-order-score", args.minimum_reading_order_score),
             ("--maximum-text-duplication-rate", args.maximum_text_duplication_rate),
-        ):
+        )
+        if args.quality_profile is not None and any(value is not None for _, value in explicit_thresholds):
+            raise EvaluationError("quality profile cannot be combined with explicit threshold arguments")
+        for name, value in explicit_thresholds:
             if value is not None and not 0.0 <= value <= 1.0:
                 raise EvaluationError(f"{name} must be in [0, 1]")
         report = evaluate_pipeline(
@@ -312,6 +398,15 @@ def main() -> int:
             args.ground_truth.parent,
         )
         write_report(report, args.output, args.quiet)
+        if args.quality_profile is not None:
+            failures = quality_profile_threshold_failures(
+                load_json(args.quality_profile),
+                args.quality_profile_input,
+                report,
+            )
+            for metric_id in failures:
+                print(f"error: {metric_id} failed its quality profile threshold", file=sys.stderr)
+            return 1 if failures else 0
         if (
             args.minimum_text_completeness is not None
             and report["summary"]["text_completeness"] < args.minimum_text_completeness

@@ -10,10 +10,7 @@ PYTHON="$6"
 EVALUATOR="$7"
 GROUND_TRUTH="$8"
 REPORT="$9"
-MINIMUM_TEXT_COMPLETENESS="${10}"
-MINIMUM_READING_ORDER_ANCHOR_RECALL="${11}"
-MINIMUM_READING_ORDER_SCORE="${12}"
-MAXIMUM_TEXT_DUPLICATION_RATE="${13}"
+QUALITY_PROFILE="${10}"
 
 "$PRODUCER" \
   --manifest "$MANIFEST" \
@@ -25,7 +22,4 @@ MAXIMUM_TEXT_DUPLICATION_RATE="${13}"
   --ground-truth "$GROUND_TRUTH" \
   --predictions "$PREDICTIONS" \
   --output "$REPORT" \
-  --minimum-text-completeness "$MINIMUM_TEXT_COMPLETENESS" \
-  --minimum-reading-order-anchor-recall "$MINIMUM_READING_ORDER_ANCHOR_RECALL" \
-  --minimum-reading-order-score "$MINIMUM_READING_ORDER_SCORE" \
-  --maximum-text-duplication-rate "$MAXIMUM_TEXT_DUPLICATION_RATE"
+  --quality-profile "$QUALITY_PROFILE"

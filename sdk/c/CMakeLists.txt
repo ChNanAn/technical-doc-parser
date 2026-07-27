@@ -1,11 +1,13 @@
 add_library(document_intelligence_engine_c SHARED
-    document_intelligence_engine.cpp
+    src/document_intelligence_engine.cpp
 )
 
 target_include_directories(document_intelligence_engine_c
     PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/cpp>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/document_intelligence_engine>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/cpp
 )
 target_compile_definitions(document_intelligence_engine_c
     PRIVATE

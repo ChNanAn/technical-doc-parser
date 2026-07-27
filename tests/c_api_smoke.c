@@ -1,4 +1,4 @@
-#include "c_api/document_intelligence_engine.h"
+#include <document_intelligence_engine/c_api.h>
 
 #include <stdio.h>
 #include <stdlib.h>

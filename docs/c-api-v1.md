@@ -4,6 +4,9 @@ The C ABI is the native boundary for future Java/JNI support. It exposes
 opaque handles and Document v1 JSON without C++ STL types, exceptions, or
 temporary JSON files.
 
+The installed header is `document_intelligence_engine/c_api.h`; link the CMake
+target `DocumentIntelligenceEngine::c_api`.
+
 ## Compatibility
 
 - `DIE_ABI_VERSION` and `die_abi_version()` return `1`.

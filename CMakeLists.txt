@@ -285,7 +285,7 @@ target_link_libraries(document_intelligence_engine_sdk
     PRIVATE
         doc_parser_pipeline
 )
-add_subdirectory(cpp/c_api)
+add_subdirectory(sdk/c)
 add_subdirectory(cpp/app)
 
 if(DOCUMENT_INTELLIGENCE_ENGINE_BUILD_PLATFORM_WORKER)
@@ -336,6 +336,10 @@ install(DIRECTORY cpp/
     PATTERN "app" EXCLUDE
 )
 install(DIRECTORY sdk/cpp/include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    COMPONENT Development
+)
+install(DIRECTORY sdk/c/include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT Development
 )

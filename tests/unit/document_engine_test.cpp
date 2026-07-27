@@ -170,15 +170,18 @@ TEST(DocumentEngineTest, RuntimeFallbackProducesExplainedPartialResultAndProvena
 
     ASSERT_TRUE(result.ok()) << result.status.message();
     EXPECT_EQ(result.document.status, doc_parser::document::DocumentStatus::Partial);
-    ASSERT_EQ(result.document.warnings.size(), 3U);
-    for (std::size_t index = 0; index < result.document.warnings.size(); ++index) {
-        const auto& warning = result.document.warnings[index];
-        EXPECT_EQ(warning.code, doc_parser::common::warning_codes::kLayoutBackendFallback);
-        EXPECT_EQ(warning.stage, "layout");
-        EXPECT_EQ(warning.page_id, "page_" + std::to_string(index + 1));
-        EXPECT_EQ(warning.details.at("failed_backend"), "failing-layout");
-        EXPECT_EQ(warning.details.at("fallback_backend"), "text");
-    }
+    ASSERT_EQ(result.document.warnings.size(), 1U);
+    const auto& warning = result.document.warnings[0];
+    EXPECT_EQ(warning.code, doc_parser::common::warning_codes::kLayoutBackendFallback);
+    EXPECT_EQ(warning.stage, "layout");
+    EXPECT_EQ(warning.occurrence_count, 3U);
+    EXPECT_TRUE(warning.page_id.empty());
+    EXPECT_EQ(warning.page_ids, (std::vector<std::string>{"page_1", "page_2", "page_3"}));
+    EXPECT_EQ(warning.details.at("failed_backend"), "failing-layout");
+    EXPECT_EQ(warning.details.at("fallback_backend"), "text");
+    ASSERT_TRUE(result.document.source.size_bytes.has_value());
+    EXPECT_EQ(*result.document.source.size_bytes, 105779U);
+    EXPECT_EQ(result.document.source.sha256, "925853d98d67d5dae7473c635f932958e1695ce1029d23b2ecd2531cb65f1f14");
     EXPECT_EQ(result.document.producer.run_id, options.run_id);
     EXPECT_EQ(result.document.producer.version, "0.1.0");
     EXPECT_EQ(result.document.producer.git_revision, result.provenance.git_revision);

@@ -57,6 +57,11 @@ same page-grounded result semantics.
 experimental or provider-specific data should still be placed under a namespaced `extensions` key, for example
 `extensions["org.example.layout"]`, to avoid accidental collisions.
 
+When present, `source.size_bytes` and `source.sha256` describe the exact bytes consumed by the engine. They are
+computed while opening a local input and are safe source identity fields; `source.path` is never exported.
+Equivalent warnings may be aggregated: `occurrence_count` retains the diagnostic count and `page_ids` retains every
+affected page.
+
 ## Coordinates
 
 All public bboxes use one convention:

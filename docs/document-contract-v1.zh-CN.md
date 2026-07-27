@@ -55,6 +55,10 @@ Office 文档以及未来支持的其他来源。
 `relations`、`metadata` 和 `extensions` 是可选字段。为了前向兼容，Schema 允许未知字段；实验性或
 Provider 特有数据仍应优先放入带命名空间的扩展键，例如 `extensions["org.example.layout"]`，避免命名冲突。
 
+存在 `source.size_bytes` 和 `source.sha256` 时，它们描述引擎实际读取的源文件字节。引擎在打开本地输入时
+计算这两个字段，`source.path` 永远不会导出。等价 Warning 可以聚合；`occurrence_count` 保留诊断次数，
+`page_ids` 保留全部受影响页面。
+
 ## 坐标约定
 
 所有公共 bbox 只使用一套约定：

@@ -25,10 +25,13 @@ python3 "$ROOT_DIR/tests/contract/validate_document.py" \
   "$JSON_PATH" \
   "$DEBUG_JSON_PATH"
 
-python3 - <<'PY'
+python3 - "$PDF_PATH" <<'PY'
+import hashlib
 import json
+import sys
 from pathlib import Path
 
+source_path = Path(sys.argv[1])
 manifest = json.loads(Path("/tmp/document-intelligence-engine-cli-smoke-output/document.json").read_text(encoding="utf-8"))
 debug_manifest = json.loads(
     Path("/tmp/document-intelligence-engine-cli-smoke-debug-output/document.json").read_text(encoding="utf-8")
@@ -47,6 +50,10 @@ if manifest["source"]["filename"] != "pdfjs-basicapi.pdf":
     raise SystemExit(f"unexpected source filename: {manifest['source']['filename']!r}")
 if manifest["source"]["media_type"] != "application/pdf":
     raise SystemExit(f"unexpected source media type: {manifest['source']['media_type']!r}")
+if manifest["source"].get("size_bytes") != source_path.stat().st_size:
+    raise SystemExit(f"unexpected source size: {manifest['source']!r}")
+if manifest["source"].get("sha256") != hashlib.sha256(source_path.read_bytes()).hexdigest():
+    raise SystemExit(f"unexpected source SHA256: {manifest['source']!r}")
 if "path" in manifest["source"]:
     raise SystemExit("output leaks an internal source path")
 if manifest["coordinate_space"]["dpi"] != 72:

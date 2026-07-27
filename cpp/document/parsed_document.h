@@ -7,8 +7,11 @@
 #include "document/table_model.h"
 #include "document/text_model.h"
 
+#include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace doc_parser::document {
@@ -23,6 +26,8 @@ struct DocumentSource {
     std::string type = "pdf";
     std::string filename;
     std::string media_type;
+    std::optional<std::uintmax_t> size_bytes;
+    std::string sha256;
 };
 
 struct DocumentProducer {
@@ -50,12 +55,28 @@ struct DocumentRelation {
 };
 
 struct DocumentWarning {
+    DocumentWarning() = default;
+
+    DocumentWarning(std::string code_value,
+                    std::string message_value,
+                    std::string stage_value = {},
+                    std::string page_id_value = {},
+                    std::string block_id_value = {},
+                    std::map<std::string, std::string> details_value = {},
+                    std::size_t occurrence_count_value = 1,
+                    std::vector<std::string> page_ids_value = {})
+        : code(std::move(code_value)), message(std::move(message_value)), stage(std::move(stage_value)),
+          page_id(std::move(page_id_value)), block_id(std::move(block_id_value)), details(std::move(details_value)),
+          occurrence_count(occurrence_count_value), page_ids(std::move(page_ids_value)) {}
+
     std::string code;
     std::string message;
     std::string stage;
     std::string page_id;
     std::string block_id;
     std::map<std::string, std::string> details;
+    std::size_t occurrence_count = 1;
+    std::vector<std::string> page_ids;
 };
 
 struct PipelinePageArtifacts {

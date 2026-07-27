@@ -25,3 +25,14 @@ Document v1 使用 Warning 表示“结果仍可使用，但生成过程发生�
 
 引擎一旦产生 Warning，文档状态就是 `partial`。致命 Stage 失败通过 `Status` 返回，不生成可用的
 Document v1 结果。
+
+## 聚合规则
+
+最终 Document 按 `code`、`stage`、`message`、`block_id` 和 `details` 聚合等价 Warning。
+`occurrence_count` 表示该 Warning 代表的诊断次数；影响多个页面时使用有序且去重的 `page_ids`，仅影响一个
+页面时继续使用 `page_id`。这样能限制 Warning Object 数量，同时不丢失受影响页面。用于运行追踪的 Pipeline
+Event 仍按每次诊断逐条发出。
+
+消费者统计降级次数时必须读取 `occurrence_count`，不能直接使用 `warnings` 数组长度。
+`occurrence_count` 和 `page_ids` 都是 Document v1 新增的可选字段；缺失时表示一次诊断，并可通过单个
+`page_id` 表示页面范围。

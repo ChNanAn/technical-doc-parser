@@ -313,6 +313,8 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
     document.source.type = request.source_type;
     document.source.filename = std::filesystem::path(request.source_path).filename().string();
     document.source.media_type = sourceMediaType(request.source_type);
+    document.source.size_bytes = request.source_size_bytes;
+    document.source.sha256 = request.source_sha256;
     document.producer.version = DOC_PARSER_ENGINE_VERSION;
     document.dpi = request.dpi;
     document.pages.reserve(request.pages.size());

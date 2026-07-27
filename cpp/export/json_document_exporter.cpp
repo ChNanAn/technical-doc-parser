@@ -344,6 +344,12 @@ nlohmann::json warningsToJson(const std::vector<document::DocumentWarning>& warn
         if (!warning.block_id.empty()) {
             value["block_id"] = warning.block_id;
         }
+        if (warning.occurrence_count > 1U) {
+            value["occurrence_count"] = warning.occurrence_count;
+        }
+        if (!warning.page_ids.empty()) {
+            value["page_ids"] = warning.page_ids;
+        }
         if (!warning.details.empty()) {
             value["details"] = warning.details;
         }
@@ -516,6 +522,16 @@ common::Status validateCoreModel(const document::ParsedDocument& document) {
         return invalidCoreModel("export.document.partial_unexplained",
                                 "partial document has no warning explaining the degraded result");
     }
+    if (!document.source.sha256.empty()) {
+        const bool valid_sha256 =
+            document.source.sha256.size() == 64U &&
+            std::all_of(document.source.sha256.begin(), document.source.sha256.end(), [](unsigned char value) {
+                return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
+            });
+        if (!valid_sha256) {
+            return invalidCoreModel("export.document.invalid_source", "source sha256 is not lowercase hexadecimal");
+        }
+    }
 
     std::set<std::string> page_ids;
     std::set<int> page_numbers;
@@ -594,6 +610,33 @@ common::Status validateCoreModel(const document::ParsedDocument& document) {
                 "export.document.invalid_warning",
                 location + " ('" + warning.code + "') references unknown block_id '" + warning.block_id + "'");
         }
+        if (warning.occurrence_count < 1U) {
+            return invalidCoreModel(
+                "export.document.invalid_warning",
+                location + " ('" + warning.code + "') has a non-positive occurrence_count");
+        }
+        if (!warning.page_id.empty() && !warning.page_ids.empty()) {
+            return invalidCoreModel("export.document.invalid_warning",
+                                    location + " ('" + warning.code + "') has both page_id and page_ids");
+        }
+        std::set<std::string> warning_page_ids;
+        for (const std::string& page_id : warning.page_ids) {
+            if (page_ids.find(page_id) == page_ids.end()) {
+                return invalidCoreModel(
+                    "export.document.invalid_warning",
+                    location + " ('" + warning.code + "') references unknown page_id '" + page_id + "'");
+            }
+            if (!warning_page_ids.insert(page_id).second) {
+                return invalidCoreModel(
+                    "export.document.invalid_warning",
+                    location + " ('" + warning.code + "') contains duplicate page_id '" + page_id + "'");
+            }
+        }
+        if (warning.occurrence_count < warning_page_ids.size()) {
+            return invalidCoreModel("export.document.invalid_warning",
+                                    location + " ('" + warning.code +
+                                        "') has fewer occurrences than affected pages");
+        }
     }
     return common::Status::ok();
 }
@@ -624,6 +667,12 @@ common::Status JsonDocumentExporter::write(const DocumentExportRequest& request)
         nlohmann::json source = {{"media_type", media_type}};
         if (!filename.empty()) {
             source["filename"] = filename;
+        }
+        if (document.source.size_bytes.has_value()) {
+            source["size_bytes"] = *document.source.size_bytes;
+        }
+        if (!document.source.sha256.empty()) {
+            source["sha256"] = document.source.sha256;
         }
 
         nlohmann::json producer = {

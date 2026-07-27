@@ -1,7 +1,9 @@
 #include "pipeline/document_pipeline.h"
 
 #include "assembly/document_assembler.h"
+#include "common/file_fingerprint.h"
 #include "document/parsed_document.h"
+#include "document/warning_aggregator.h"
 #include "export/document_exporter.h"
 #include "pipeline/layout_analysis_stage.h"
 #include "pipeline/pipeline_context.h"
@@ -92,8 +94,10 @@ void applyRunMetadata(const PipelineRunOptions& options,
     document.producer.version = provenance.engine_version;
     document.producer.git_revision = provenance.git_revision;
     document.producer.run_id = options.run_id;
+    std::vector<document::DocumentWarning> warnings;
+    warnings.reserve(diagnostics.size());
     for (const common::Diagnostic& diagnostic : diagnostics) {
-        document.warnings.push_back({
+        warnings.push_back({
             diagnostic.code,
             diagnostic.message,
             diagnostic.stage,
@@ -102,6 +106,7 @@ void applyRunMetadata(const PipelineRunOptions& options,
             diagnostic.details,
         });
     }
+    document.warnings = document::aggregateWarnings(warnings);
     if (!document.warnings.empty()) {
         document.status = document::DocumentStatus::Partial;
     }
@@ -226,6 +231,20 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         spdlog::error("open_document: failed to open input document: {}", context.input_path.string());
         return stageFailed(observer, "open", "open_document_failed", "failed to open input document");
     }
+    common::FileFingerprint source_fingerprint;
+    const common::Status fingerprint_status =
+        common::fingerprintFile(document.source->sourcePath(), source_fingerprint);
+    if (!fingerprint_status.okStatus()) {
+        spdlog::error("source_fingerprint: code={} path={} reason={}",
+                      fingerprint_status.code(),
+                      document.source->sourcePath(),
+                      fingerprint_status.message());
+        return stageFailed(
+            observer, "open", fingerprint_status.code(), fingerprint_status.message(), fingerprint_status.retryable());
+    }
+    spdlog::debug("source_fingerprint: size_bytes={} sha256={}",
+                  source_fingerprint.size_bytes,
+                  source_fingerprint.sha256);
     if (options.maximum_pages > 0 && document.source->pageCount() > options.maximum_pages) {
         return stageFailed(observer,
                            "open",
@@ -377,19 +396,19 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     stage_started = Clock::now();
     observer.onStageStarted({"assembly", "document-assembler", 1});
     const assembly::DocumentAssembler document_assembler;
-    if (!document_assembler.assemble(
-            {
-                document.source->sourcePath(),
-                document.source->sourceType(),
-                context.render.dpi,
-                rendered_pages,
-                page_texts,
-                page_layouts,
-                page_reading_orders,
-                page_tables,
-            },
-            parsed_document,
-            artifacts)) {
+    assembly::DocumentAssembleRequest assemble_request{
+        document.source->sourcePath(),
+        document.source->sourceType(),
+        context.render.dpi,
+        rendered_pages,
+        page_texts,
+        page_layouts,
+        page_reading_orders,
+        page_tables,
+    };
+    assemble_request.source_size_bytes = source_fingerprint.size_bytes;
+    assemble_request.source_sha256 = source_fingerprint.sha256;
+    if (!document_assembler.assemble(assemble_request, parsed_document, artifacts)) {
         spdlog::error("document_assembly: failed to assemble document");
         return stageFailed(observer, "assembly", "assembly_failed", "failed to assemble document");
     }

@@ -4,6 +4,7 @@ add_executable(domain_unit_tests
     backend_registry_test.cpp
     document_assembler_test.cpp
     document_engine_test.cpp
+    file_fingerprint_test.cpp
     json_document_exporter_test.cpp
     layout_backend_test.cpp
     reading_order_backend_test.cpp
@@ -13,6 +14,7 @@ add_executable(domain_unit_tests
     text_normalizer_test.cpp
     text_extraction_stage_test.cpp
     utf8_test.cpp
+    warning_aggregator_test.cpp
     warning_codes_test.cpp
 )
 

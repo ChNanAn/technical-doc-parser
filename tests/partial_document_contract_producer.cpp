@@ -89,10 +89,16 @@ int main(int argc, char** argv) {
     if (result.document.status != doc_parser::document::DocumentStatus::Partial || result.document.warnings.empty()) {
         return fail("runtime fallback did not produce an explained partial document");
     }
-    for (const doc_parser::document::DocumentWarning& warning : result.document.warnings) {
-        if (warning.code != doc_parser::common::warning_codes::kLayoutBackendFallback) {
-            return fail("runtime fallback produced an unexpected warning code: " + warning.code);
-        }
+    if (result.document.warnings.size() != 1U) {
+        return fail("equivalent runtime fallback warnings were not aggregated");
+    }
+    const doc_parser::document::DocumentWarning& warning = result.document.warnings.front();
+    if (warning.code != doc_parser::common::warning_codes::kLayoutBackendFallback) {
+        return fail("runtime fallback produced an unexpected warning code: " + warning.code);
+    }
+    if (warning.occurrence_count != 3U ||
+        warning.page_ids != std::vector<std::string>({"page_1", "page_2", "page_3"})) {
+        return fail("aggregated runtime fallback warning lost occurrence or page evidence");
     }
 
     const std::unique_ptr<doc_parser::exporter::IDocumentExporter> exporter =

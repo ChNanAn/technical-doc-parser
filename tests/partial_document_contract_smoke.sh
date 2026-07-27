@@ -13,12 +13,14 @@ rm -rf "$OUTPUT_DIRECTORY"
 "$PRODUCER" "$INPUT_PDF" "$OUTPUT_DIRECTORY"
 "$PYTHON" "$VALIDATOR" --schema "$SCHEMA" "$DOCUMENT_JSON"
 
-"$PYTHON" - "$DOCUMENT_JSON" <<'PY'
+"$PYTHON" - "$DOCUMENT_JSON" "$INPUT_PDF" <<'PY'
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+source_path = Path(sys.argv[2])
 if document["status"] != "partial":
     raise SystemExit(f"expected a partial document, got {document['status']!r}")
 warnings = document.get("warnings", [])
@@ -26,6 +28,17 @@ if not warnings:
     raise SystemExit("partial document has no warnings")
 if {warning["code"] for warning in warnings} != {"LAYOUT_BACKEND_FALLBACK"}:
     raise SystemExit(f"unexpected warning codes: {warnings!r}")
+if len(warnings) != 1:
+    raise SystemExit(f"equivalent warnings were not aggregated: {warnings!r}")
+if warnings[0].get("occurrence_count") != 3:
+    raise SystemExit(f"unexpected warning occurrence count: {warnings!r}")
+if warnings[0].get("page_ids") != ["page_1", "page_2", "page_3"]:
+    raise SystemExit(f"warning page evidence was not preserved: {warnings!r}")
+source = document["source"]
+if source.get("size_bytes") != source_path.stat().st_size:
+    raise SystemExit(f"source size mismatch: {source!r}")
+if source.get("sha256") != hashlib.sha256(source_path.read_bytes()).hexdigest():
+    raise SystemExit(f"source SHA256 mismatch: {source!r}")
 if document["producer"].get("run_id") != "run_partial_contract":
     raise SystemExit(f"missing run provenance: {document['producer']!r}")
 PY

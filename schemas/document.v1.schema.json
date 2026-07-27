@@ -456,11 +456,40 @@
         "block_id": {
           "$ref": "#/$defs/id"
         },
+        "occurrence_count": {
+          "description": "Number of warning occurrences represented by this aggregated warning.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_ids": {
+          "description": "Ordered unique pages affected when a warning represents more than one page.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
         "details": {
           "type": "object"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "not": {
+            "required": ["page_id", "page_ids"]
+          }
+        },
+        {
+          "if": {
+            "required": ["page_ids"]
+          },
+          "then": {
+            "required": ["occurrence_count"]
+          }
+        }
+      ]
     }
   }
 }

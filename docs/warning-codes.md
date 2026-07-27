@@ -26,3 +26,14 @@ extension codes.
 
 An engine-produced warning makes the document `partial`. A fatal stage failure is returned as `Status` and does not
 produce a usable Document v1 result.
+
+## Aggregation
+
+Equivalent warnings are grouped in the final Document result by `code`, `stage`, `message`, `block_id`, and `details`.
+`occurrence_count` records how many diagnostics the warning represents. A warning affecting multiple pages uses the
+ordered, unique `page_ids` array; a single-page warning keeps `page_id`. This bounds the number of warning objects
+without discarding affected-page evidence. Pipeline events remain per occurrence for operational tracing.
+
+Consumers must use `occurrence_count`, not the length of `warnings`, when counting degradations. Both
+`occurrence_count` and `page_ids` are optional additive Document v1 fields; their absence means one occurrence and
+the optional singleton `page_id` scope.

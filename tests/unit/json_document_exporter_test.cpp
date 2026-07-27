@@ -123,6 +123,8 @@ DocumentFixture makeDocumentFixture() {
     document.source.type = "pdf";
     document.source.filename = "fixture.pdf";
     document.source.media_type = "application/pdf";
+    document.source.size_bytes = 123;
+    document.source.sha256 = std::string(64, 'a');
     document.producer.version = "test";
     document.dpi = 144;
     document.pages.push_back({
@@ -245,6 +247,8 @@ TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
     EXPECT_EQ(manifest["pages"][0]["image"]["uri"], "pages/page_1.png");
     EXPECT_FALSE(manifest["pages"][0].contains("extensions"));
     EXPECT_TRUE(manifest["warnings"].empty());
+    EXPECT_EQ(manifest["source"]["size_bytes"], 123);
+    EXPECT_EQ(manifest["source"]["sha256"], std::string(64, 'a'));
     ASSERT_EQ(manifest["relations"].size(), 1U);
     EXPECT_EQ(manifest["relations"][0]["from_block_id"], "doc_page_1_block_1");
     EXPECT_EQ(manifest["relations"][0]["to_block_id"], "doc_page_1_block_2");

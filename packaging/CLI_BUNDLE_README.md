@@ -23,6 +23,7 @@ Model weights are intentionally not included in the program bundle. Install the
 matching model pack separately and configure model paths as documented in
 `docs/dependencies.md` in the source release.
 
-The bundled PDFium and ONNX Runtime shared libraries retain their upstream
-licenses. See the release notes and source release for dependency versions and
-license links.
+`PROGRAM-MANIFEST.json` records the engine, PDFium, and ONNX Runtime versions,
+SPDX licenses, and SHA256 values for bundled executables and shared libraries.
+Their upstream licenses and third-party notices are included under
+`share/licenses/`.

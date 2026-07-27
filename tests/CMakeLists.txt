@@ -11,20 +11,9 @@ if(TARGET document_intelligence_worker)
 endif()
 
 if(DOC_PARSER_ENABLE_PDFIUM)
-    set(DOCUMENT_INTELLIGENCE_ENGINE_EXPECT_INSTALLED_MODELS "${DOC_PARSER_ENABLE_ONNXRUNTIME}")
-    foreach(default_model
-        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/det.onnx"
-        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/rec.onnx"
-        "${DOC_PARSER_PADDLEOCR_BASELINE_DIR}/ppocrv5_dict.txt"
-        "${DOC_PARSER_DOCLAYNET_MODEL_PATH}"
-        "${DOC_PARSER_PADDLE_LAYOUT_MODEL_PATH}"
-        "${DOC_PARSER_TABLE_DETECTION_MODEL_PATH}"
-        "${DOC_PARSER_TABLE_STRUCTURE_MODEL_PATH}"
+    set(DOCUMENT_INTELLIGENCE_ENGINE_EXPECT_INSTALLED_MODELS
+        "${DOCUMENT_INTELLIGENCE_ENGINE_INSTALL_MODELS}"
     )
-        if(NOT EXISTS "${default_model}")
-            set(DOCUMENT_INTELLIGENCE_ENGINE_EXPECT_INSTALLED_MODELS OFF)
-        endif()
-    endforeach()
     add_test(
         NAME cmake_install_consumer
         COMMAND
@@ -116,6 +105,26 @@ add_test(
         "${PROJECT_SOURCE_DIR}/tests/check_release_packaging.sh"
         "${PROJECT_BINARY_DIR}"
 )
+
+add_test(
+    NAME model_pack_manifest
+    COMMAND ${Python3_EXECUTABLE}
+        "${PROJECT_SOURCE_DIR}/scripts/package_model_pack.py"
+        validate
+)
+add_test(
+    NAME model_pack_setup_sync
+    COMMAND ${Python3_EXECUTABLE}
+        "${PROJECT_SOURCE_DIR}/tests/check_model_pack_manifest.py"
+)
+if(DOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS)
+    add_test(
+        NAME model_pack_files
+        COMMAND ${Python3_EXECUTABLE}
+            "${PROJECT_SOURCE_DIR}/scripts/package_model_pack.py"
+            verify
+    )
+endif()
 
 if(DOC_PARSER_ENABLE_OPENCV)
     add_executable(image_preprocessor_smoke

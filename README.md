@@ -64,6 +64,14 @@ bundle, and a model-free CLI container. Program and model packages are
 versioned separately; verify downloaded artifacts with the published
 `SHA256SUMS`. See the [release guide](docs/releasing.md).
 
+Install a release model pack beside the program:
+
+```bash
+mkdir -p models
+tar -xzf technical-doc-parser-models-0.1.0.tar.gz \
+  -C models --strip-components=1
+```
+
 Select backends explicitly or use the versioned registry configuration:
 
 ```bash
@@ -89,10 +97,10 @@ status, and run provenance; JSON, Markdown, and HTML export is an explicit calle
 [embedding example](examples/embed_document.cpp) and its standalone [CMake project](examples/CMakeLists.txt).
 
 PDFium and, when enabled, ONNX Runtime remain external package dependencies. Set `PDFium_DIR` and
-`ONNXRuntime_ROOT` when configuring a downstream project if they are not installed in standard locations. Available
-default models are installed under `share/DocumentIntelligenceEngine/models`; the relocatable package exposes that
-path as `DocumentIntelligenceEngine_MODEL_DIR`, and `defaultEngineConfig()` uses it automatically. Applications can
-still override every model path explicitly through `EngineConfig`.
+`ONNXRuntime_ROOT` when configuring a downstream project if they are not installed in standard locations. Model
+weights are not part of the normal SDK install. Extract the separately versioned model pack under
+`share/DocumentIntelligenceEngine/models`, or configure every path explicitly through `EngineConfig`. The relocatable
+package exposes the expected location as `DocumentIntelligenceEngine_MODEL_DIR`.
 
 Hard failures are returned through `ParseResult::status`. When the pipeline can preserve usable output after a
 runtime fallback, parsing succeeds with `document.status == partial`, a machine-readable warning, and a fallback

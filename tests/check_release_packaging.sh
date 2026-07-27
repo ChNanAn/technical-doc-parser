@@ -38,5 +38,29 @@ if grep -Eq '(^|/)models/|\\.onnx$' "${TEMPORARY_DIR}/cli-files.txt"; then
 fi
 
 grep -q '/bin/document_intelligence_engine$' "${TEMPORARY_DIR}/cli-files.txt"
+grep -q '/PROGRAM-MANIFEST.json$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/share/LICENSE$' "${TEMPORARY_DIR}/cli-files.txt"
+grep -q '/share/licenses/pdfium/LICENSE$' "${TEMPORARY_DIR}/cli-files.txt"
+grep -q '/share/licenses/onnxruntime/LICENSE$' "${TEMPORARY_DIR}/cli-files.txt"
+grep -q '/share/licenses/onnxruntime/ThirdPartyNotices.txt$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/CMakeLists.txt$' "${TEMPORARY_DIR}/source-files.txt"
+
+mkdir -p "${TEMPORARY_DIR}/extracted"
+tar -xzf "$cli_archive" -C "${TEMPORARY_DIR}/extracted"
+python3 - "${TEMPORARY_DIR}/extracted" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+roots = list(pathlib.Path(sys.argv[1]).iterdir())
+assert len(roots) == 1
+root = roots[0]
+manifest = json.loads((root / "PROGRAM-MANIFEST.json").read_text())
+assert manifest["schema_version"] == 1
+assert manifest["models_included"] is False
+for entry in manifest["files"]:
+    path = root / entry["path"]
+    assert path.is_file(), path
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == entry["sha256"]
+PY

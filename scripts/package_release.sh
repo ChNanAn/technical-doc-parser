@@ -132,7 +132,9 @@ package_source() {
 copy_private_runtime_libraries() {
   local executable="$1"
   local destination="$2"
+  local licenses_destination="$3"
   local needed resolved ignored
+  local dependency_root
   local copied_pdfium=0
   local copied_onnxruntime=0
 
@@ -145,11 +147,36 @@ copy_private_runtime_libraries() {
   while read -r needed ignored resolved _; do
     case "$needed" in
       libpdfium.so*)
+        dependency_root="$(cd "$(dirname "$resolved")/.." && pwd)"
+        if [[ ! -f "${dependency_root}/LICENSE" || ! -f "${dependency_root}/VERSION" ]]; then
+          echo "PDFium license or version metadata is missing under ${dependency_root}" >&2
+          return 1
+        fi
         cp -L -- "$resolved" "${destination}/${needed}"
+        mkdir -p "${licenses_destination}/pdfium"
+        cp -- "${dependency_root}/LICENSE" "${licenses_destination}/pdfium/"
+        if [[ -d "${dependency_root}/licenses" ]]; then
+          cp -R -- "${dependency_root}/licenses" "${licenses_destination}/pdfium/"
+        fi
+        BUNDLED_PDFIUM_LIBRARY="$needed"
+        BUNDLED_PDFIUM_VERSION="$(tr -d '\r\n' < "${dependency_root}/VERSION")"
         copied_pdfium=1
         ;;
       libonnxruntime.so*)
+        dependency_root="$(cd "$(dirname "$resolved")/.." && pwd)"
+        if [[ ! -f "${dependency_root}/LICENSE" ||
+              ! -f "${dependency_root}/ThirdPartyNotices.txt" ]]; then
+          echo "ONNX Runtime license metadata is missing under ${dependency_root}" >&2
+          return 1
+        fi
         cp -L -- "$resolved" "${destination}/${needed}"
+        mkdir -p "${licenses_destination}/onnxruntime"
+        cp -- \
+          "${dependency_root}/LICENSE" \
+          "${dependency_root}/ThirdPartyNotices.txt" \
+          "${licenses_destination}/onnxruntime/"
+        BUNDLED_ONNXRUNTIME_LIBRARY="$needed"
+        BUNDLED_ONNXRUNTIME_VERSION="${needed#libonnxruntime.so.}"
         copied_onnxruntime=1
         ;;
     esac
@@ -188,7 +215,10 @@ package_cli() {
   archive="${OUTPUT_DIR}/${PACKAGE_BASENAME}-linux-x86_64-cli.tar.gz"
 
   cmake --install "$BUILD_DIR" --prefix "$stage" --component Runtime
-  mkdir -p "${package_root}/bin" "${package_root}/lib" "${package_root}/share"
+  mkdir -p \
+    "${package_root}/bin" \
+    "${package_root}/lib" \
+    "${package_root}/share/licenses"
   cp -- "${stage}/bin/document_intelligence_engine" "${package_root}/bin/"
   cp -R -- "${stage}/share/DocumentIntelligenceEngine/." "${package_root}/share/"
 
@@ -198,7 +228,23 @@ package_cli() {
     echo "Built CLI executable not found: ${build_executable}" >&2
     return 1
   fi
-  copy_private_runtime_libraries "$build_executable" "${package_root}/lib"
+  BUNDLED_PDFIUM_LIBRARY=""
+  BUNDLED_PDFIUM_VERSION=""
+  BUNDLED_ONNXRUNTIME_LIBRARY=""
+  BUNDLED_ONNXRUNTIME_VERSION=""
+  copy_private_runtime_libraries \
+    "$build_executable" \
+    "${package_root}/lib" \
+    "${package_root}/share/licenses"
+
+  local engine_sha256 pdfium_sha256 onnxruntime_sha256
+  engine_sha256="$(sha256sum "$executable" | awk '{print $1}')"
+  pdfium_sha256="$(
+    sha256sum "${package_root}/lib/${BUNDLED_PDFIUM_LIBRARY}" | awk '{print $1}'
+  )"
+  onnxruntime_sha256="$(
+    sha256sum "${package_root}/lib/${BUNDLED_ONNXRUNTIME_LIBRARY}" | awk '{print $1}'
+  )"
 
   cat > "${package_root}/BUILD-INFO" <<EOF
 name=technical-doc-parser
@@ -207,6 +253,40 @@ revision=${SOURCE_REVISION}
 platform=linux-x86_64
 license=MIT
 models_included=false
+EOF
+
+  cat > "${package_root}/PROGRAM-MANIFEST.json" <<EOF
+{
+  "schema_version": 1,
+  "name": "technical-doc-parser",
+  "version": "${PROJECT_VERSION}",
+  "revision": "${SOURCE_REVISION}",
+  "platform": "linux-x86_64",
+  "models_included": false,
+  "files": [
+    {
+      "path": "bin/document_intelligence_engine",
+      "sha256": "${engine_sha256}",
+      "component": "engine",
+      "version": "${PROJECT_VERSION}",
+      "license": "MIT"
+    },
+    {
+      "path": "lib/${BUNDLED_PDFIUM_LIBRARY}",
+      "sha256": "${pdfium_sha256}",
+      "component": "pdfium-binaries",
+      "version": "${BUNDLED_PDFIUM_VERSION}",
+      "license": "MIT"
+    },
+    {
+      "path": "lib/${BUNDLED_ONNXRUNTIME_LIBRARY}",
+      "sha256": "${onnxruntime_sha256}",
+      "component": "onnxruntime",
+      "version": "${BUNDLED_ONNXRUNTIME_VERSION}",
+      "license": "MIT"
+    }
+  ]
+}
 EOF
 
   "$executable" --help >/dev/null

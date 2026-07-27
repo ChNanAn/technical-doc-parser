@@ -49,6 +49,11 @@ int main() {
             std::cerr << "installed default model is missing: " << model_file << '\n';
             return 1;
         }
+#else
+        if (std::filesystem::exists(model_file)) {
+            std::cerr << "default SDK install unexpectedly contains a model: " << model_file << '\n';
+            return 1;
+        }
 #endif
     }
 

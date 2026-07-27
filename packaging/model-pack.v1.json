@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "name": "technical-doc-parser-baseline-models",
+  "version": "0.1.0",
+  "files": [
+    {
+      "id": "paddleocr-v5-mobile-detection",
+      "role": "ocr_detection",
+      "path": "paddleocr/baseline/det.onnx",
+      "sha256": "a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d",
+      "source": {
+        "repository": "PaddlePaddle/PP-OCRv5_mobile_det_onnx",
+        "revision": "e6f4fa85f00e168c862bc462aebca69eef9b3d3d",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det_onnx/resolve/e6f4fa85f00e168c862bc462aebca69eef9b3d3d/inference.onnx"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/PaddlePaddle/PaddleOCR/blob/211989f046cc1878460f9e65574690c00a127a1a/LICENSE"
+      }
+    },
+    {
+      "id": "paddleocr-v5-mobile-recognition",
+      "role": "ocr_recognition",
+      "path": "paddleocr/baseline/rec.onnx",
+      "sha256": "da72dc72ca4dc220df0dfde68c1dedc31c58d3e76a25871122e5056227d50092",
+      "source": {
+        "repository": "PaddlePaddle/PP-OCRv5_mobile_rec_onnx",
+        "revision": "ed152b8b495f84de93cda5709d768548a9127622",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec_onnx/resolve/ed152b8b495f84de93cda5709d768548a9127622/inference.onnx"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/PaddlePaddle/PaddleOCR/blob/211989f046cc1878460f9e65574690c00a127a1a/LICENSE"
+      }
+    },
+    {
+      "id": "paddleocr-v5-dictionary",
+      "role": "ocr_dictionary",
+      "path": "paddleocr/baseline/ppocrv5_dict.txt",
+      "sha256": "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b",
+      "source": {
+        "repository": "PaddlePaddle/PaddleOCR",
+        "revision": "211989f046cc1878460f9e65574690c00a127a1a",
+        "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/211989f046cc1878460f9e65574690c00a127a1a/ppocr/utils/dict/ppocrv5_dict.txt"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/PaddlePaddle/PaddleOCR/blob/211989f046cc1878460f9e65574690c00a127a1a/LICENSE"
+      }
+    },
+    {
+      "id": "rfdetr-doclaynet-layout",
+      "role": "layout_analysis",
+      "path": "layout/doclaynet/model.onnx",
+      "sha256": "9d22128b3f3239abd0eca5bdd5a82de26d5d5194baf8887a5de2ea70fe748794",
+      "source": {
+        "repository": "neka-nat/rfdetr-doclaynet-onnx",
+        "revision": "7d56a0712e75ac09aeae31550711b5c1950eb61f",
+        "url": "https://huggingface.co/neka-nat/rfdetr-doclaynet-onnx/resolve/7d56a0712e75ac09aeae31550711b5c1950eb61f/checkpoint_best_total.onnx"
+      },
+      "license": {
+        "spdx": "MIT",
+        "url": "https://huggingface.co/neka-nat/rfdetr-doclaynet-onnx/blob/7d56a0712e75ac09aeae31550711b5c1950eb61f/README.md"
+      }
+    },
+    {
+      "id": "paddle-doclayout-v3-model",
+      "role": "layout_analysis",
+      "path": "layout/paddle/pp-doclayout-v3.onnx",
+      "sha256": "45bf71750b00739a41fc209f132eb104a4d6b5bb29483c9078164d8b87cf28ba",
+      "source": {
+        "repository": "PaddlePaddle/PP-DocLayoutV3_onnx",
+        "revision": "46bbdf188bb0a772c08aed74882ce7e51a8f1ea6",
+        "url": "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx/resolve/46bbdf188bb0a772c08aed74882ce7e51a8f1ea6/inference.onnx"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/PaddlePaddle/PaddleOCR/blob/211989f046cc1878460f9e65574690c00a127a1a/LICENSE"
+      }
+    },
+    {
+      "id": "paddle-doclayout-v3-config",
+      "role": "layout_configuration",
+      "path": "layout/paddle/inference.yml",
+      "sha256": "506fcfac13b3b546ae40d7886b44126420f392adb694e3f8bb6a6286a1f90fdc",
+      "source": {
+        "repository": "PaddlePaddle/PP-DocLayoutV3_onnx",
+        "revision": "46bbdf188bb0a772c08aed74882ce7e51a8f1ea6",
+        "url": "https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_onnx/resolve/46bbdf188bb0a772c08aed74882ce7e51a8f1ea6/inference.yml"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/PaddlePaddle/PaddleOCR/blob/211989f046cc1878460f9e65574690c00a127a1a/LICENSE"
+      }
+    },
+    {
+      "id": "table-transformer-detection",
+      "role": "table_detection",
+      "path": "table/table-transformer/detection.onnx",
+      "sha256": "5be82ec9d157814ea8616588398d7baec17aed0780b870f7adf24b280ee1b5aa",
+      "source": {
+        "repository": "Xenova/table-transformer-detection",
+        "revision": "187ac355617c8fee3d69c00d461ecf8eb8a4a5b7",
+        "url": "https://huggingface.co/Xenova/table-transformer-detection/resolve/187ac355617c8fee3d69c00d461ecf8eb8a4a5b7/onnx/model.onnx"
+      },
+      "license": {
+        "spdx": "MIT",
+        "url": "https://huggingface.co/microsoft/table-transformer-detection/blob/main/README.md"
+      }
+    },
+    {
+      "id": "table-transformer-structure",
+      "role": "table_structure",
+      "path": "table/table-transformer/structure.onnx",
+      "sha256": "2c90a63298df61006a45267932f47b345a8b104ce53fd504eacf11aee3c05a41",
+      "source": {
+        "repository": "Xenova/table-transformer-structure-recognition",
+        "revision": "5387550de655512721e1b88e4e42117001ba4813",
+        "url": "https://huggingface.co/Xenova/table-transformer-structure-recognition/resolve/5387550de655512721e1b88e4e42117001ba4813/onnx/model.onnx"
+      },
+      "license": {
+        "spdx": "MIT",
+        "url": "https://huggingface.co/microsoft/table-transformer-structure-recognition/blob/main/README.md"
+      }
+    }
+  ]
+}

@@ -63,6 +63,14 @@ ctest --preset core-release
 CLI 容器。程序包与模型包独立版本化，下载后应使用发布页中的 `SHA256SUMS`
 校验。具体边界和发布步骤见[发布说明](docs/releasing.md)。
 
+将发布页中的模型包安装到程序旁边：
+
+```bash
+mkdir -p models
+tar -xzf technical-doc-parser-models-0.1.0.tar.gz \
+  -C models --strip-components=1
+```
+
 可以显式选择 Backend，也可以使用版本化 Registry 配置：
 
 ```bash
@@ -88,10 +96,9 @@ Provenance；是否导出 JSON、Markdown 或 HTML 由调用方显式决定。�
 [嵌入示例](examples/embed_document.cpp)和独立的 [CMake 项目](examples/CMakeLists.txt)。
 
 PDFium 以及启用时的 ONNX Runtime 仍是外部 Package 依赖。如果它们不在系统标准路径，下游配置时需要设置
-`PDFium_DIR` 和 `ONNXRuntime_ROOT`。默认模型会安装到
-`share/DocumentIntelligenceEngine/models`，可迁移的 Package 通过
-`DocumentIntelligenceEngine_MODEL_DIR` 暴露该路径，`defaultEngineConfig()` 会自动使用它；应用仍可通过
-`EngineConfig` 显式覆盖任意模型路径。
+`PDFium_DIR` 和 `ONNXRuntime_ROOT`。普通 SDK 安装不包含模型权重；应将独立版本的模型包解压到
+`share/DocumentIntelligenceEngine/models`，或通过 `EngineConfig` 显式配置每个路径。可迁移的 Package
+通过 `DocumentIntelligenceEngine_MODEL_DIR` 暴露预期模型目录。
 
 硬失败通过 `ParseResult::status` 返回。当 Pipeline 在运行时 fallback 后仍能保留可用结果时，解析会成功，
 但 `document.status` 为 `partial`，同时产生机器可读 Warning，并在 `ParseResult::provenance` 中记录 fallback。

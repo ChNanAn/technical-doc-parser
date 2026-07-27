@@ -53,6 +53,24 @@ jobs:
           cd dist
           sha256sum --check SHA256SUMS
 
+      - name: Download and verify baseline model pack
+        run: |
+          bash scripts/setup_paddleocr_baseline.sh
+          bash scripts/setup_doclaynet_layout.sh
+          bash scripts/setup_paddle_layout.sh
+          bash scripts/setup_table_transformer.sh
+          python3 scripts/package_model_pack.py verify
+
+      - name: Package models separately
+        run: |
+          source_date_epoch="$(git show -s --format=%ct HEAD)"
+          python3 scripts/package_model_pack.py package \
+            --source-date-epoch "${source_date_epoch}" \
+            --output-dir dist
+          cd dist
+          sha256sum ./*.tar.gz > SHA256SUMS
+          sha256sum --check SHA256SUMS
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:

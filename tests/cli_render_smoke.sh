@@ -9,12 +9,18 @@ DEBUG_OUT_DIR="/tmp/document-intelligence-engine-cli-smoke-debug-output"
 PNG_PATH="$OUT_DIR/pages/page_1.png"
 JSON_PATH="$OUT_DIR/document.json"
 DEBUG_JSON_PATH="$DEBUG_OUT_DIR/document.json"
+DETERMINISTIC_BACKENDS=(
+  --ocr-backend noop
+  --layout-backend text
+  --table-backend text
+)
 
 rm -rf "$OUT_DIR"
 rm -rf "$DEBUG_OUT_DIR"
-"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$OUT_DIR" --dpi 72 --run-id cli_smoke
+"$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$OUT_DIR" --dpi 72 --run-id cli_smoke \
+  "${DETERMINISTIC_BACKENDS[@]}"
 "$DOCUMENT_INTELLIGENCE_ENGINE" "$PDF_PATH" --out "$DEBUG_OUT_DIR" --dpi 72 --run-id cli_smoke_debug --debug \
-  --backend-config "$ROOT_DIR/config/backends.json"
+  --backend-config "$ROOT_DIR/config/backends.json" "${DETERMINISTIC_BACKENDS[@]}"
 
 test -f "$PNG_PATH"
 test -f "$JSON_PATH"

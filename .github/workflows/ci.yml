@@ -30,9 +30,6 @@ jobs:
       - name: Install contract test dependencies
         run: python -m pip install -r tests/contract/requirements.txt
 
-      - name: Validate vcpkg manifest
-        run: vcpkg install --dry-run --x-manifest-root=. --x-feature=tests
-
       - name: Check PDFium setup script
         run: bash tests/check_pdfium_setup_script.sh
 
@@ -82,3 +79,31 @@ jobs:
           status=$?
           set -e
           test "$status" -ne 0
+
+  vcpkg:
+    name: Build with vcpkg packages
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure package-manager build
+        shell: bash
+        run: |
+          vcpkg_root="${VCPKG_INSTALLATION_ROOT:-$(dirname "$(readlink -f "$(command -v vcpkg)")")}"
+          test -f "${vcpkg_root}/scripts/buildsystems/vcpkg.cmake"
+          cmake -S . -B build/vcpkg-ci \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="${vcpkg_root}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON \
+            -DVCPKG_MANIFEST_FEATURES=tests \
+            -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_PDFIUM=OFF \
+            -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_OPENCV=OFF \
+            -DDOCUMENT_INTELLIGENCE_ENGINE_ENABLE_ONNXRUNTIME=OFF
+
+      - name: Build package-manager consumers
+        run: |
+          cmake --build build/vcpkg-ci \
+            --target document_intelligence_engine domain_unit_tests \
+            --parallel

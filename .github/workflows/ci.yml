@@ -60,7 +60,7 @@ jobs:
 
       - name: Upload OCR benchmark report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: paddle-ocr-benchmark
           path: build/tests/paddle_ocr_report.json

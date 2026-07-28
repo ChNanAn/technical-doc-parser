@@ -10,13 +10,13 @@ large rewrites or unmeasured backend additions.
 
 The current priorities are:
 
-1. Reliable Job execution: recovery, attempts, idempotency, cancellation, and model-session reuse.
-2. End-to-end evaluation on representative technical documents.
-3. OCR quality, reading order, document assembly, and source-grounded RAG output.
-4. Documentation, fixtures, visual diagnostics, and reproducible bug reports.
+1. Multi-column reading order, page orientation, and degraded-scan OCR quality.
+2. Java/JNI integration over the stable C ABI.
+3. In-memory input, cancellation, and source-grounded RAG output.
+4. Worker Job recovery, documentation, fixtures, and reproducible bug reports.
 
 The project is not currently prioritizing additional input formats, a large collection of interchangeable models,
-multi-tenant SaaS features, or Kubernetes infrastructure.
+formula recognition, multi-tenant SaaS features, or Kubernetes infrastructure.
 
 See [the roadmap](docs/roadmap.md) before proposing a large feature.
 

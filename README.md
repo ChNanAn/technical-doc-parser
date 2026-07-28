@@ -213,6 +213,7 @@ Additional input formats, more interchangeable models, multi-tenant SaaS feature
 
 - [Changelog](CHANGELOG.md)
 - [Roadmap](docs/roadmap.md)
+- [Launch and Contributor Kit (中文)](docs/community/launch-kit.zh-CN.md)
 - [Dependency Setup](docs/dependencies.md)
 - [Evaluation](docs/evaluation.md)
 - [Document Contract v1](docs/document-contract-v1.md)

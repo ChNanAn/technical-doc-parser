@@ -5,12 +5,12 @@
 
 ## 当前最需要帮助的方向
 
-1. Job 恢复、Attempt、幂等、取消和模型 Session 复用。
-2. 真实技术文档的端到端评测。
-3. OCR、Reading Order、Document Assembly 和来源可追溯的 RAG 输出。
-4. 文档、公开 Fixture、可视化诊断和可复现 Bug。
+1. 多栏 Reading Order、页面方向和旧扫描件 OCR 质量。
+2. 基于稳定 C ABI 的 Java/JNI 接入。
+3. 无盘输入、取消机制和来源可追溯的 RAG 输出。
+4. Worker Job 回收、文档、公开 Fixture 和可复现 Bug。
 
-项目暂时不优先扩展 Office 输入、大量同类模型、多租户 SaaS、Kubernetes 或 GPU 调度。
+项目暂时不优先扩展 Office 输入、大量同类模型、数学公式识别、多租户 SaaS、Kubernetes 或 GPU 调度。
 
 领取任务前请阅读[路线图](../roadmap.md)。大型功能应先通过 GitHub Discussions 或 Issue 确认问题、范围和
 验收标准。

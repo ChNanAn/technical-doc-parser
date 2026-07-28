@@ -2,8 +2,12 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+    paths:
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       release_tag:
@@ -11,18 +15,38 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-  packages: write
-
 concurrency:
   group: release-${{ inputs.release_tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate release definition
+    if: github.event_name == 'push' && github.ref_type == 'branch'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate release metadata and scripts
+        run: |
+          python3 scripts/package_model_pack.py validate
+          bash -n scripts/package_release.sh
+          bash -n scripts/setup_paddleocr_baseline.sh
+          bash -n scripts/setup_doclaynet_layout.sh
+          bash -n scripts/setup_paddle_layout.sh
+          bash -n scripts/setup_table_transformer.sh
+
   release:
     name: Source, Linux CLI, and container
+    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
     env:
       RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 

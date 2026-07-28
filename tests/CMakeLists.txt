@@ -309,6 +309,8 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     set(DOC_PARSER_BENCHMARK_MODEL_TARGETS
         paddle_ocr_onnx_baseline
         paddle_ocr_eval
+        pipeline_quality_eval
+        olmocr_bench_runner
         funsd_ocr_eval
         doclaynet_layout_eval
         pubtables_table_eval

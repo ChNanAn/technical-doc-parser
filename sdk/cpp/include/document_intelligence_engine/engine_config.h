@@ -107,8 +107,8 @@ struct EngineConfig {
     table::TableTransformerOnnxConfig table_transformer;
 };
 
-// Package model paths are injected into each consumer; internal linkage prevents
-// installed consumers and the static library from defining one function differently.
+// Build-tree consumers use relocatable defaults; installed packages inject their
+// model prefix per consumer. Internal linkage keeps those definitions independent.
 static inline EngineConfig defaultEngineConfig() {
     EngineConfig config;
     const std::filesystem::path paddle_ocr_dir = DOC_PARSER_PADDLEOCR_BASELINE_DIR;

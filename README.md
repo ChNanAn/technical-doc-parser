@@ -66,15 +66,20 @@ bundle, and a model-free CLI container. Program and model packages are
 versioned separately; verify downloaded artifacts with the published
 `SHA256SUMS`. See the [release guide](docs/releasing.md).
 
-Install a release model pack beside the program:
+For the prebuilt CLI, extract both archives, place the model pack under the
+bundle's `models/` directory, and run from the bundle root:
 
 ```bash
+tar -xzf technical-doc-parser-0.1.0-linux-x86_64-cli.tar.gz
+cd technical-doc-parser-0.1.0-linux-x86_64-cli
 mkdir -p models
-tar -xzf technical-doc-parser-models-0.1.0.tar.gz \
+tar -xzf ../technical-doc-parser-models-0.1.0.tar.gz \
   -C models --strip-components=1
+bin/document_intelligence_engine input.pdf --out output/
 ```
 
-Select backends explicitly or use the versioned registry configuration:
+For source builds, select backends explicitly or use the versioned registry
+configuration:
 
 ```bash
 ./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/ \

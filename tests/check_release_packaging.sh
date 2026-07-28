@@ -32,7 +32,7 @@ test -n "$source_archive"
 tar -tzf "$cli_archive" > "${TEMPORARY_DIR}/cli-files.txt"
 tar -tzf "$source_archive" > "${TEMPORARY_DIR}/source-files.txt"
 
-if grep -Eq '(^|/)models/|\\.onnx$' "${TEMPORARY_DIR}/cli-files.txt"; then
+if grep -Eq '(^|/)models/|[.]onnx$' "${TEMPORARY_DIR}/cli-files.txt"; then
   echo "CLI program bundle unexpectedly contains model files" >&2
   exit 1
 fi
@@ -47,7 +47,7 @@ grep -q '/CMakeLists.txt$' "${TEMPORARY_DIR}/source-files.txt"
 
 mkdir -p "${TEMPORARY_DIR}/extracted"
 tar -xzf "$cli_archive" -C "${TEMPORARY_DIR}/extracted"
-python3 - "${TEMPORARY_DIR}/extracted" <<'PY'
+python3 - "${TEMPORARY_DIR}/extracted" "${ROOT_DIR}" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -56,6 +56,11 @@ import sys
 roots = list(pathlib.Path(sys.argv[1]).iterdir())
 assert len(roots) == 1
 root = roots[0]
+executable = root / "bin/document_intelligence_engine"
+binary = executable.read_bytes()
+source_model_root = (pathlib.Path(sys.argv[2]) / "models").as_posix().encode()
+assert source_model_root not in binary
+assert b"models/paddleocr/baseline" in binary
 manifest = json.loads((root / "PROGRAM-MANIFEST.json").read_text())
 assert manifest["schema_version"] == 1
 assert manifest["models_included"] is False

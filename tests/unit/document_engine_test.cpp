@@ -408,16 +408,16 @@ TEST(DocumentEngineTest, MovedFromEngineHasStableStateAndError) {
 }
 
 #if DOC_PARSER_ENABLE_ONNXRUNTIME
-TEST(DocumentEngineTest, DefaultConfigKeepsConfiguredModelPaths) {
+TEST(DocumentEngineTest, DefaultConfigUsesRelocatableModelPaths) {
     const doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
 
-    EXPECT_TRUE(config.paddle_ocr.detection_model.is_absolute());
-    EXPECT_TRUE(config.paddle_ocr.recognition_model.is_absolute());
-    EXPECT_TRUE(config.paddle_ocr.character_dict.is_absolute());
-    EXPECT_TRUE(config.doclaynet.model_path.is_absolute());
-    EXPECT_TRUE(config.paddle_layout.model_path.is_absolute());
-    EXPECT_TRUE(config.table_transformer.detection_model_path.is_absolute());
-    EXPECT_TRUE(config.table_transformer.structure_model_path.is_absolute());
+    EXPECT_EQ(config.paddle_ocr.detection_model, "models/paddleocr/baseline/det.onnx");
+    EXPECT_EQ(config.paddle_ocr.recognition_model, "models/paddleocr/baseline/rec.onnx");
+    EXPECT_EQ(config.paddle_ocr.character_dict, "models/paddleocr/baseline/ppocrv5_dict.txt");
+    EXPECT_EQ(config.doclaynet.model_path, "models/layout/doclaynet/model.onnx");
+    EXPECT_EQ(config.paddle_layout.model_path, "models/layout/paddle/pp-doclayout-v3.onnx");
+    EXPECT_EQ(config.table_transformer.detection_model_path, "models/table/table-transformer/detection.onnx");
+    EXPECT_EQ(config.table_transformer.structure_model_path, "models/table/table-transformer/structure.onnx");
 }
 
 TEST(DocumentEngineTest, InitializationPreservesModelPathFailureReason) {

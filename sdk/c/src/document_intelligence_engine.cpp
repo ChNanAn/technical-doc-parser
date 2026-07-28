@@ -12,6 +12,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #ifndef DIE_ENGINE_VERSION
@@ -57,9 +58,9 @@ void clearError(die_error_t** out_error) {
 
 void setErrorNoexcept(die_error_t** out_error,
                       die_result_t result,
-                      const std::string& code,
-                      const std::string& message,
-                      const std::string& stage,
+                      std::string_view code,
+                      std::string_view message,
+                      std::string_view stage,
                       bool retryable) noexcept {
     if (out_error == nullptr) {
         return;
@@ -79,16 +80,31 @@ void setErrorNoexcept(die_error_t** out_error,
 
 die_result_t fail(die_error_t** out_error,
                   die_result_t result,
-                  const std::string& code,
-                  const std::string& message,
-                  const std::string& stage,
-                  bool retryable = false) {
+                  std::string_view code,
+                  std::string_view message,
+                  std::string_view stage,
+                  bool retryable = false) noexcept {
     setErrorNoexcept(out_error, result, code, message, stage, retryable);
     return result;
 }
 
-die_result_t fail(die_error_t** out_error, die_result_t result, const doc_parser::common::Status& status) {
+die_result_t fail(die_error_t** out_error, die_result_t result, const doc_parser::common::Status& status) noexcept {
     return fail(out_error, result, status.code(), status.message(), status.stage(), status.retryable());
+}
+
+die_result_t failException(die_error_t** out_error,
+                           std::string_view operation,
+                           const std::exception& error,
+                           std::string_view stage) noexcept {
+    try {
+        std::string message(operation);
+        message += ": ";
+        message += error.what();
+        return fail(out_error, DIE_RESULT_INTERNAL_ERROR, "c_api.internal_exception", message, stage);
+    } catch (...) {
+        clearError(out_error);
+        return DIE_RESULT_INTERNAL_ERROR;
+    }
 }
 
 Json parseObject(const char* text, const std::string& code, const std::string& stage, const std::string& label) {
@@ -176,7 +192,7 @@ void applyString(const Json& object,
                  const std::string& stage,
                  bool allow_empty = false) {
     if (object.contains(key)) {
-        target = std::filesystem::u8path(stringValue(object, key, code, stage, true, allow_empty));
+        target = stringValue(object, key, code, stage, true, allow_empty);
     }
 }
 
@@ -187,7 +203,7 @@ void applyPath(const Json& object,
                const std::string& stage,
                bool allow_empty = false) {
     if (object.contains(key)) {
-        target = stringValue(object, key, code, stage, true, allow_empty);
+        target = std::filesystem::u8path(stringValue(object, key, code, stage, true, allow_empty));
     }
 }
 
@@ -308,7 +324,7 @@ doc_parser::pipeline::EngineConfig engineConfig(const char* config_json) {
     rejectUnknown(root, {"schema_version", "backends", "tesseract", "models"}, "engine configuration", code, stage);
     requireSchemaV1(root, code, stage);
 
-    doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
+    doc_parser::pipeline::EngineConfig config;
     if (const Json* backends =
             optionalObject(root, "backends", {"document", "ocr", "layout", "table", "registry_config"}, code, stage)) {
         applyString(*backends, "document", config.backends.document, code, stage);
@@ -497,11 +513,7 @@ die_result_t die_engine_create(const char* config_json, die_engine_t** out_engin
     } catch (const InputError& error) {
         return fail(out_error, DIE_RESULT_INVALID_ARGUMENT, error.code, error.what(), error.stage);
     } catch (const std::exception& error) {
-        return fail(out_error,
-                    DIE_RESULT_INTERNAL_ERROR,
-                    "c_api.internal_exception",
-                    "engine creation failed: " + std::string(error.what()),
-                    "configure");
+        return failException(out_error, "engine creation failed", error, "configure");
     } catch (...) {
         return fail(out_error,
                     DIE_RESULT_INTERNAL_ERROR,
@@ -559,11 +571,7 @@ die_result_t die_engine_parse(die_engine_t* engine,
     } catch (const InputError& error) {
         return fail(out_error, DIE_RESULT_INVALID_ARGUMENT, error.code, error.what(), error.stage);
     } catch (const std::exception& error) {
-        return fail(out_error,
-                    DIE_RESULT_INTERNAL_ERROR,
-                    "c_api.internal_exception",
-                    "document parsing failed: " + std::string(error.what()),
-                    "parse");
+        return failException(out_error, "document parsing failed", error, "parse");
     } catch (...) {
         return fail(out_error,
                     DIE_RESULT_INTERNAL_ERROR,

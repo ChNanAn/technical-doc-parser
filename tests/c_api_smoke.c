@@ -45,6 +45,8 @@ int main(int argc, char** argv) {
                                       "\"layout\":\"text\",\"table\":\"text\"}}";
     static const char* unavailable_config = "{\"schema_version\":1,\"backends\":{\"document\":\"not-registered\","
                                             "\"ocr\":\"noop\",\"layout\":\"text\",\"table\":\"text\"}}";
+    static const char* missing_model_config = "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\","
+                                              "\"ocr\":\"paddle\",\"layout\":\"text\",\"table\":\"text\"}}";
     char options[8192];
     die_engine_t* engine = NULL;
     die_document_t* document = NULL;
@@ -100,6 +102,17 @@ int main(int argc, char** argv) {
                                        result,
                                        DIE_RESULT_CONFIGURATION_ERROR,
                                        "configure.backend_unknown",
+                                       "configure",
+                                       error)) {
+        return 1;
+    }
+    error = NULL;
+
+    result = die_engine_create(missing_model_config, &engine, &error);
+    if (engine != NULL || expect_error("missing explicit C ABI model paths",
+                                       result,
+                                       DIE_RESULT_CONFIGURATION_ERROR,
+                                       "configure.backend_unavailable",
                                        "configure",
                                        error)) {
         return 1;

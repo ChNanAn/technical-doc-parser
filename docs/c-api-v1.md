@@ -78,7 +78,11 @@ are rejected.
 }
 ```
 
-Unspecified recognized fields use `defaultEngineConfig()`. No process
+Unspecified scalar fields use the defaults in `EngineConfig`. Model paths start
+empty at the C boundary: callers that select `paddle`, `doclaynet`,
+`paddle-layout`, or `table-transformer` must provide the corresponding paths in
+`models`. This prevents a distributed shared library from depending on build
+machine paths or the embedding process's working directory. No process
 environment is read by the C ABI.
 
 ## Runtime Dependencies

@@ -41,6 +41,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libopencv-dev
 
+      - name: Download and verify baseline model pack
+        run: |
+          bash scripts/setup_paddleocr_baseline.sh
+          bash scripts/setup_doclaynet_layout.sh
+          bash scripts/setup_paddle_layout.sh
+          bash scripts/setup_table_transformer.sh
+          python3 scripts/package_model_pack.py verify
+
       - name: Configure program build
         run: |
           cmake -S . -B build/release \
@@ -69,14 +77,6 @@ jobs:
             --output-dir dist
           cd dist
           sha256sum --check SHA256SUMS
-
-      - name: Download and verify baseline model pack
-        run: |
-          bash scripts/setup_paddleocr_baseline.sh
-          bash scripts/setup_doclaynet_layout.sh
-          bash scripts/setup_paddle_layout.sh
-          bash scripts/setup_table_transformer.sh
-          python3 scripts/package_model_pack.py verify
 
       - name: Package models separately
         run: |

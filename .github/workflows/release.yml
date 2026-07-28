@@ -26,6 +26,16 @@ jobs:
           project_version="$(awk '$1 == "VERSION" {print $2; exit}' CMakeLists.txt)"
           test "${GITHUB_REF_NAME}" = "v${project_version}"
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tests/contract/requirements.txt
+
+      - name: Install contract test dependencies
+        run: python -m pip install -r tests/contract/requirements.txt
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -35,14 +45,21 @@ jobs:
         run: |
           cmake -S . -B build/release \
             -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_TESTING=OFF \
+            -DBUILD_TESTING=ON \
             -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLEOCR_BASELINE=OFF \
             -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_DOCLAYNET_LAYOUT=OFF \
             -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_PADDLE_LAYOUT=OFF \
             -DDOCUMENT_INTELLIGENCE_ENGINE_AUTO_SETUP_TABLE_TRANSFORMER=OFF
 
-      - name: Build CLI
-        run: cmake --build build/release --target document_intelligence_engine --parallel
+      - name: Build release targets
+        run: cmake --build build/release --parallel
+
+      - name: Test release build
+        run: |
+          ctest --test-dir build/release \
+            --label-exclude benchmark \
+            --output-on-failure \
+            --no-tests=error
 
       - name: Package source and CLI
         run: |

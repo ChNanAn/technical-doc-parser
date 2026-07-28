@@ -99,12 +99,15 @@ add_test(NAME text_model_smoke COMMAND text_model_smoke)
 
 add_subdirectory(unit)
 
-add_test(
-    NAME release_packaging_smoke
-    COMMAND bash
-        "${PROJECT_SOURCE_DIR}/tests/check_release_packaging.sh"
-        "${PROJECT_BINARY_DIR}"
-)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DOC_PARSER_ENABLE_PDFIUM AND DOC_PARSER_ENABLE_ONNXRUNTIME)
+    add_test(
+        NAME release_packaging_smoke
+        COMMAND bash
+            "${PROJECT_SOURCE_DIR}/tests/check_release_packaging.sh"
+            "${PROJECT_BINARY_DIR}"
+    )
+    set_tests_properties(release_packaging_smoke PROPERTIES LABELS packaging)
+endif()
 
 add_test(
     NAME model_pack_manifest

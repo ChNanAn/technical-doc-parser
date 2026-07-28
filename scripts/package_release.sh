@@ -276,7 +276,7 @@ EOF
       "sha256": "${pdfium_sha256}",
       "component": "pdfium-binaries",
       "version": "${BUNDLED_PDFIUM_VERSION}",
-      "license": "MIT"
+      "license": "BSD-3-Clause AND Apache-2.0"
     },
     {
       "path": "lib/${BUNDLED_ONNXRUNTIME_LIBRARY}",

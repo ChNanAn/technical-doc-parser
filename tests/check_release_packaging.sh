@@ -41,6 +41,7 @@ grep -q '/bin/document_intelligence_engine$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/PROGRAM-MANIFEST.json$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/share/LICENSE$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/share/licenses/pdfium/LICENSE$' "${TEMPORARY_DIR}/cli-files.txt"
+grep -q '/share/licenses/pdfium/licenses/pdfium.txt$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/share/licenses/onnxruntime/LICENSE$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/share/licenses/onnxruntime/ThirdPartyNotices.txt$' "${TEMPORARY_DIR}/cli-files.txt"
 grep -q '/CMakeLists.txt$' "${TEMPORARY_DIR}/source-files.txt"
@@ -64,6 +65,9 @@ assert b"models/paddleocr/baseline" in binary
 manifest = json.loads((root / "PROGRAM-MANIFEST.json").read_text())
 assert manifest["schema_version"] == 1
 assert manifest["models_included"] is False
+components = {entry["component"]: entry for entry in manifest["files"]}
+assert components["pdfium-binaries"]["license"] == "BSD-3-Clause AND Apache-2.0"
+assert components["onnxruntime"]["license"] == "MIT"
 for entry in manifest["files"]:
     path = root / entry["path"]
     assert path.is_file(), path

@@ -6,8 +6,8 @@
 #include <fstream>
 
 TEST(FileFingerprintTest, ComputesStandardSha256AndByteSize) {
-    const std::filesystem::path path =
-        std::filesystem::temp_directory_path() / "tdp_file_fingerprint_standard_vector.txt";
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "tdp_file_fingerprint_standard_vector."
+                                                                                "txt";
     {
         std::ofstream output(path, std::ios::binary);
         output << "abc";
@@ -23,8 +23,8 @@ TEST(FileFingerprintTest, ComputesStandardSha256AndByteSize) {
 }
 
 TEST(FileFingerprintTest, ReportsTheConcreteUnreadableSource) {
-    const std::filesystem::path path =
-        std::filesystem::temp_directory_path() / "tdp_file_fingerprint_missing_source.txt";
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "tdp_file_fingerprint_missing_source."
+                                                                                "txt";
     std::filesystem::remove(path);
     doc_parser::common::FileFingerprint fingerprint{42, "stale"};
 

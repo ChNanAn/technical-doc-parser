@@ -1,11 +1,11 @@
+#include "common/warning_codes.h"
+
 #include "document/page_artifact.h"
 #include "document/text_model.h"
 #include "document_source/document_source_interfaces.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/pipeline_context.h"
 #include "pipeline/text_extraction_stage.h"
-
-#include "common/warning_codes.h"
 #include "pipeline/text_quality.h"
 
 #include <gtest/gtest.h>

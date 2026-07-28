@@ -1,9 +1,10 @@
 #pragma once
 
 #include "common/status.h"
-#include "pipeline/backend_registry.h"
+
 #include "document_intelligence_engine/document_engine.h"
 #include "document_intelligence_engine/engine_config.h"
+#include "pipeline/backend_registry.h"
 
 #include <cstddef>
 #include <list>

@@ -1,5 +1,4 @@
 #include "document_intelligence_engine/c_api.h"
-
 #include "document_intelligence_engine/document_engine.h"
 #include "export/json_document_exporter.h"
 
@@ -89,8 +88,7 @@ die_result_t fail(die_error_t** out_error,
 }
 
 die_result_t fail(die_error_t** out_error, die_result_t result, const doc_parser::common::Status& status) {
-    return fail(
-        out_error, result, status.code(), status.message(), status.stage(), status.retryable());
+    return fail(out_error, result, status.code(), status.message(), status.stage(), status.retryable());
 }
 
 Json parseObject(const char* text, const std::string& code, const std::string& stage, const std::string& label) {
@@ -178,8 +176,7 @@ void applyString(const Json& object,
                  const std::string& stage,
                  bool allow_empty = false) {
     if (object.contains(key)) {
-        target = std::filesystem::u8path(
-            stringValue(object, key, code, stage, true, allow_empty));
+        target = std::filesystem::u8path(stringValue(object, key, code, stage, true, allow_empty));
     }
 }
 
@@ -265,14 +262,12 @@ void applySize(const Json& object,
     } else {
         const long long parsed = item->get<long long>();
         if (parsed < 0) {
-            throw InputError(
-                code, stage, std::string(key) + " must be at least " + std::to_string(minimum));
+            throw InputError(code, stage, std::string(key) + " must be at least " + std::to_string(minimum));
         }
         value = static_cast<unsigned long long>(parsed);
     }
     if (value < minimum || value > std::numeric_limits<std::size_t>::max()) {
-        throw InputError(
-            code, stage, std::string(key) + " must be at least " + std::to_string(minimum));
+        throw InputError(code, stage, std::string(key) + " must be at least " + std::to_string(minimum));
     }
     target = static_cast<std::size_t>(value);
 }
@@ -291,9 +286,7 @@ double numberValue(const Json& object,
     const double value = item->get<double>();
     const bool below_minimum = include_minimum ? value < minimum : value <= minimum;
     if (!std::isfinite(value) || below_minimum || value > maximum) {
-        throw InputError(code,
-                         stage,
-                         std::string(key) + " must be in the supported range");
+        throw InputError(code, stage, std::string(key) + " must be in the supported range");
     }
     return value;
 }
@@ -312,60 +305,53 @@ doc_parser::pipeline::EngineConfig engineConfig(const char* config_json) {
     constexpr const char* code = "c_api.invalid_config";
     constexpr const char* stage = "configure";
     const Json root = parseObject(config_json, code, stage, "engine configuration");
-    rejectUnknown(root,
-                  {"schema_version", "backends", "tesseract", "models"},
-                  "engine configuration",
-                  code,
-                  stage);
+    rejectUnknown(root, {"schema_version", "backends", "tesseract", "models"}, "engine configuration", code, stage);
     requireSchemaV1(root, code, stage);
 
     doc_parser::pipeline::EngineConfig config = doc_parser::pipeline::defaultEngineConfig();
-    if (const Json* backends = optionalObject(
-            root, "backends", {"document", "ocr", "layout", "table", "registry_config"}, code, stage)) {
+    if (const Json* backends =
+            optionalObject(root, "backends", {"document", "ocr", "layout", "table", "registry_config"}, code, stage)) {
         applyString(*backends, "document", config.backends.document, code, stage);
         applyString(*backends, "ocr", config.backends.ocr, code, stage);
         applyString(*backends, "layout", config.backends.layout, code, stage);
         applyString(*backends, "table", config.backends.table, code, stage);
         applyPath(*backends, "registry_config", config.backends.registry_config, code, stage, true);
     }
-    if (const Json* tesseract =
-            optionalObject(root, "tesseract", {"executable", "language"}, code, stage)) {
+    if (const Json* tesseract = optionalObject(root, "tesseract", {"executable", "language"}, code, stage)) {
         applyString(*tesseract, "executable", config.tesseract.executable, code, stage);
         applyString(*tesseract, "language", config.tesseract.language, code, stage);
     }
-    const Json* models = optionalObject(
-        root, "models", {"paddle_ocr", "doclaynet", "paddle_layout", "table_transformer"}, code, stage);
+    const Json* models =
+        optionalObject(root, "models", {"paddle_ocr", "doclaynet", "paddle_layout", "table_transformer"}, code, stage);
     if (models == nullptr) {
         return config;
     }
 
-    if (const Json* paddle = optionalObject(
-            *models,
-            "paddle_ocr",
-            {"detection_model",
-             "recognition_model",
-             "character_dict",
-             "profile",
-             "detection_limit_side",
-             "recognition_image_height",
-             "recognition_base_width",
-             "recognition_max_width",
-             "recognition_width_multiple",
-             "recognition_batch_size",
-             "detection_max_candidates",
-             "detection_threshold",
-             "box_threshold",
-             "recognition_threshold",
-             "unclip_ratio"},
-            code,
-            stage)) {
+    if (const Json* paddle = optionalObject(*models,
+                                            "paddle_ocr",
+                                            {"detection_model",
+                                             "recognition_model",
+                                             "character_dict",
+                                             "profile",
+                                             "detection_limit_side",
+                                             "recognition_image_height",
+                                             "recognition_base_width",
+                                             "recognition_max_width",
+                                             "recognition_width_multiple",
+                                             "recognition_batch_size",
+                                             "detection_max_candidates",
+                                             "detection_threshold",
+                                             "box_threshold",
+                                             "recognition_threshold",
+                                             "unclip_ratio"},
+                                            code,
+                                            stage)) {
         applyPath(*paddle, "detection_model", config.paddle_ocr.detection_model, code, stage);
         applyPath(*paddle, "recognition_model", config.paddle_ocr.recognition_model, code, stage);
         applyPath(*paddle, "character_dict", config.paddle_ocr.character_dict, code, stage);
         applyString(*paddle, "profile", config.paddle_ocr.profile.name, code, stage);
         applyInteger(*paddle, "detection_limit_side", config.paddle_ocr.detection_limit_side, code, stage, 1);
-        applyInteger(
-            *paddle, "recognition_image_height", config.paddle_ocr.recognition_image_height, code, stage, 1);
+        applyInteger(*paddle, "recognition_image_height", config.paddle_ocr.recognition_image_height, code, stage, 1);
         applyInteger(*paddle, "recognition_base_width", config.paddle_ocr.recognition_base_width, code, stage, 1);
         applyInteger(*paddle, "recognition_max_width", config.paddle_ocr.recognition_max_width, code, stage, 1);
         applyInteger(
@@ -377,13 +363,7 @@ doc_parser::pipeline::EngineConfig engineConfig(const char* config_json) {
         applyProbability(*paddle, "recognition_threshold", config.paddle_ocr.recognition_threshold, code, stage);
         if (paddle->contains("unclip_ratio")) {
             config.paddle_ocr.unclip_ratio =
-                numberValue(*paddle,
-                            "unclip_ratio",
-                            code,
-                            stage,
-                            0.0,
-                            std::numeric_limits<double>::max(),
-                            false);
+                numberValue(*paddle, "unclip_ratio", code, stage, 0.0, std::numeric_limits<double>::max(), false);
         }
     }
     if (const Json* doclaynet = optionalObject(
@@ -405,20 +385,17 @@ doc_parser::pipeline::EngineConfig engineConfig(const char* config_json) {
         applyProbability(
             *paddle_layout, "confidence_threshold", config.paddle_layout.confidence_threshold, code, stage);
     }
-    if (const Json* table =
-            optionalObject(*models,
-                           "table_transformer",
-                           {"detection_model",
-                            "structure_model",
-                            "detection_confidence_threshold",
-                            "structure_confidence_threshold",
-                            "crop_padding"},
-                           code,
-                           stage)) {
-        applyPath(
-            *table, "detection_model", config.table_transformer.detection_model_path, code, stage);
-        applyPath(
-            *table, "structure_model", config.table_transformer.structure_model_path, code, stage);
+    if (const Json* table = optionalObject(*models,
+                                           "table_transformer",
+                                           {"detection_model",
+                                            "structure_model",
+                                            "detection_confidence_threshold",
+                                            "structure_confidence_threshold",
+                                            "crop_padding"},
+                                           code,
+                                           stage)) {
+        applyPath(*table, "detection_model", config.table_transformer.detection_model_path, code, stage);
+        applyPath(*table, "structure_model", config.table_transformer.structure_model_path, code, stage);
         applyProbability(*table,
                          "detection_confidence_threshold",
                          config.table_transformer.detection_confidence_threshold,
@@ -453,10 +430,8 @@ doc_parser::pipeline::DocumentParseOptions parseOptions(const char* options_json
     requireSchemaV1(root, code, stage);
 
     doc_parser::pipeline::DocumentParseOptions options;
-    options.input_path =
-        std::filesystem::u8path(stringValue(root, "input_path", code, stage, true));
-    options.output_directory =
-        std::filesystem::u8path(stringValue(root, "output_directory", code, stage, true));
+    options.input_path = std::filesystem::u8path(stringValue(root, "input_path", code, stage, true));
+    options.output_directory = std::filesystem::u8path(stringValue(root, "output_directory", code, stage, true));
     if (root.contains("dpi")) {
         options.render.dpi = integerValue(root, "dpi", code, stage, 1, true);
     }
@@ -515,8 +490,7 @@ die_result_t die_engine_create(const char* config_json, die_engine_t** out_engin
     try {
         auto engine = std::make_unique<die_engine>(engineConfig(config_json));
         if (!engine->value.isReady()) {
-            return fail(
-                out_error, DIE_RESULT_CONFIGURATION_ERROR, engine->value.initializationStatus());
+            return fail(out_error, DIE_RESULT_CONFIGURATION_ERROR, engine->value.initializationStatus());
         }
         *out_engine = engine.release();
         return DIE_RESULT_OK;
@@ -607,25 +581,15 @@ size_t die_document_json_size(const die_document_t* document) {
     return document == nullptr ? 0U : document->json.size();
 }
 
-die_result_t die_error_result(const die_error_t* error) {
-    return error == nullptr ? DIE_RESULT_OK : error->result;
-}
+die_result_t die_error_result(const die_error_t* error) { return error == nullptr ? DIE_RESULT_OK : error->result; }
 
-const char* die_error_code(const die_error_t* error) {
-    return error == nullptr ? "" : error->code.c_str();
-}
+const char* die_error_code(const die_error_t* error) { return error == nullptr ? "" : error->code.c_str(); }
 
-const char* die_error_message(const die_error_t* error) {
-    return error == nullptr ? "" : error->message.c_str();
-}
+const char* die_error_message(const die_error_t* error) { return error == nullptr ? "" : error->message.c_str(); }
 
-const char* die_error_stage(const die_error_t* error) {
-    return error == nullptr ? "" : error->stage.c_str();
-}
+const char* die_error_stage(const die_error_t* error) { return error == nullptr ? "" : error->stage.c_str(); }
 
-int die_error_retryable(const die_error_t* error) {
-    return error != nullptr && error->retryable ? 1 : 0;
-}
+int die_error_retryable(const die_error_t* error) { return error != nullptr && error->retryable ? 1 : 0; }
 
 void die_document_destroy(die_document_t* document) {
     try {

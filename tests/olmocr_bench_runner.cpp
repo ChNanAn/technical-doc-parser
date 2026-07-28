@@ -1,5 +1,5 @@
-#include "export/structured_text_document_exporter.h"
 #include "document_intelligence_engine/document_engine.h"
+#include "export/structured_text_document_exporter.h"
 
 #include <algorithm>
 #include <chrono>

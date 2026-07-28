@@ -1,5 +1,4 @@
 #include <document_intelligence_engine/c_api.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,11 +22,9 @@ static int expect_error(const char* operation,
                         const char* expected_code,
                         const char* expected_stage,
                         die_error_t* error) {
-    int failed = actual_result != expected_result || error == NULL ||
-                 die_error_result(error) != expected_result ||
+    int failed = actual_result != expected_result || error == NULL || die_error_result(error) != expected_result ||
                  strcmp(die_error_code(error), expected_code) != 0 ||
-                 strcmp(die_error_stage(error), expected_stage) != 0 ||
-                 strlen(die_error_message(error)) == 0;
+                 strcmp(die_error_stage(error), expected_stage) != 0 || strlen(die_error_message(error)) == 0;
     if (failed) {
         fprintf(stderr,
                 "%s returned an unexpected error: result=%d error_result=%d "
@@ -44,12 +41,10 @@ static int expect_error(const char* operation,
 }
 
 int main(int argc, char** argv) {
-    static const char* valid_config =
-        "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\",\"ocr\":\"noop\","
-        "\"layout\":\"text\",\"table\":\"text\"}}";
-    static const char* unavailable_config =
-        "{\"schema_version\":1,\"backends\":{\"document\":\"not-registered\","
-        "\"ocr\":\"noop\",\"layout\":\"text\",\"table\":\"text\"}}";
+    static const char* valid_config = "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\",\"ocr\":\"noop\","
+                                      "\"layout\":\"text\",\"table\":\"text\"}}";
+    static const char* unavailable_config = "{\"schema_version\":1,\"backends\":{\"document\":\"not-registered\","
+                                            "\"ocr\":\"noop\",\"layout\":\"text\",\"table\":\"text\"}}";
     char options[8192];
     die_engine_t* engine = NULL;
     die_document_t* document = NULL;
@@ -60,61 +55,53 @@ int main(int argc, char** argv) {
         fprintf(stderr, "usage: c_api_smoke INPUT_PDF OUTPUT_DIRECTORY\n");
         return 2;
     }
-    if (sizeof(die_result_t) != sizeof(int32_t) ||
-        sizeof(die_engine_state_t) != sizeof(int32_t) ||
+    if (sizeof(die_result_t) != sizeof(int32_t) || sizeof(die_engine_state_t) != sizeof(int32_t) ||
         die_abi_version() != DIE_ABI_VERSION || strlen(die_engine_version()) == 0) {
         fprintf(stderr, "C ABI version query failed\n");
         return 1;
     }
 
     result = die_engine_create("{", &engine, &error);
-    if (engine != NULL ||
-        expect_error("malformed engine configuration",
-                     result,
-                     DIE_RESULT_INVALID_ARGUMENT,
-                     "c_api.invalid_config",
-                     "configure",
-                     error)) {
+    if (engine != NULL || expect_error("malformed engine configuration",
+                                       result,
+                                       DIE_RESULT_INVALID_ARGUMENT,
+                                       "c_api.invalid_config",
+                                       "configure",
+                                       error)) {
         return 1;
     }
     error = NULL;
 
-    result = die_engine_create(
-        "{\"schema_version\":1,\"unknown\":true}", &engine, &error);
-    if (engine != NULL ||
-        expect_error("unknown engine configuration field",
-                     result,
-                     DIE_RESULT_INVALID_ARGUMENT,
-                     "c_api.invalid_config",
-                     "configure",
-                     error)) {
+    result = die_engine_create("{\"schema_version\":1,\"unknown\":true}", &engine, &error);
+    if (engine != NULL || expect_error("unknown engine configuration field",
+                                       result,
+                                       DIE_RESULT_INVALID_ARGUMENT,
+                                       "c_api.invalid_config",
+                                       "configure",
+                                       error)) {
         return 1;
     }
     error = NULL;
 
-    result = die_engine_create(
-        "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\\u0000ignored\"}}",
-        &engine,
-        &error);
-    if (engine != NULL ||
-        expect_error("NUL in engine configuration",
-                     result,
-                     DIE_RESULT_INVALID_ARGUMENT,
-                     "c_api.invalid_config",
-                     "configure",
-                     error)) {
+    result =
+        die_engine_create("{\"schema_version\":1,\"backends\":{\"document\":\"pdf\\u0000ignored\"}}", &engine, &error);
+    if (engine != NULL || expect_error("NUL in engine configuration",
+                                       result,
+                                       DIE_RESULT_INVALID_ARGUMENT,
+                                       "c_api.invalid_config",
+                                       "configure",
+                                       error)) {
         return 1;
     }
     error = NULL;
 
     result = die_engine_create(unavailable_config, &engine, &error);
-    if (engine != NULL ||
-        expect_error("unavailable engine backend",
-                     result,
-                     DIE_RESULT_CONFIGURATION_ERROR,
-                     "configure.backend_unknown",
-                     "configure",
-                     error)) {
+    if (engine != NULL || expect_error("unavailable engine backend",
+                                       result,
+                                       DIE_RESULT_CONFIGURATION_ERROR,
+                                       "configure.backend_unknown",
+                                       "configure",
+                                       error)) {
         return 1;
     }
     error = NULL;
@@ -123,8 +110,7 @@ int main(int argc, char** argv) {
     if (result != DIE_RESULT_OK) {
         return report_error("die_engine_create", result, error);
     }
-    if (engine == NULL || error != NULL ||
-        die_engine_get_state(engine) != DIE_ENGINE_STATE_READY) {
+    if (engine == NULL || error != NULL || die_engine_get_state(engine) != DIE_ENGINE_STATE_READY) {
         fprintf(stderr, "engine create returned an invalid handle or state\n");
         die_engine_destroy(engine);
         return 1;
@@ -132,30 +118,24 @@ int main(int argc, char** argv) {
 
     result = die_engine_parse(engine, "{", &document, &error);
     if (document != NULL ||
-        expect_error("malformed parse options",
-                     result,
-                     DIE_RESULT_INVALID_ARGUMENT,
-                     "c_api.invalid_options",
-                     "parse",
-                     error)) {
+        expect_error(
+            "malformed parse options", result, DIE_RESULT_INVALID_ARGUMENT, "c_api.invalid_options", "parse", error)) {
         die_engine_destroy(engine);
         return 1;
     }
     error = NULL;
 
-    result = die_engine_parse(
-        engine,
-        "{\"schema_version\":1,\"input_path\":\"input.pdf\","
-        "\"output_directory\":\"output\",\"unknown\":true}",
-        &document,
-        &error);
-    if (document != NULL ||
-        expect_error("unknown parse option field",
-                     result,
-                     DIE_RESULT_INVALID_ARGUMENT,
-                     "c_api.invalid_options",
-                     "parse",
-                     error)) {
+    result = die_engine_parse(engine,
+                              "{\"schema_version\":1,\"input_path\":\"input.pdf\","
+                              "\"output_directory\":\"output\",\"unknown\":true}",
+                              &document,
+                              &error);
+    if (document != NULL || expect_error("unknown parse option field",
+                                         result,
+                                         DIE_RESULT_INVALID_ARGUMENT,
+                                         "c_api.invalid_options",
+                                         "parse",
+                                         error)) {
         die_engine_destroy(engine);
         return 1;
     }
@@ -173,9 +153,8 @@ int main(int argc, char** argv) {
     }
     result = die_engine_parse(engine, options, &document, &error);
     if (document != NULL || result != DIE_RESULT_PARSE_ERROR || error == NULL ||
-        die_error_result(error) != DIE_RESULT_PARSE_ERROR ||
-        strlen(die_error_code(error)) == 0 || strlen(die_error_message(error)) == 0 ||
-        strlen(die_error_stage(error)) == 0) {
+        die_error_result(error) != DIE_RESULT_PARSE_ERROR || strlen(die_error_code(error)) == 0 ||
+        strlen(die_error_message(error)) == 0 || strlen(die_error_stage(error)) == 0) {
         fprintf(stderr, "missing input did not return a structured parse error\n");
         die_error_destroy(error);
         die_engine_destroy(engine);
@@ -199,8 +178,7 @@ int main(int argc, char** argv) {
         die_engine_destroy(engine);
         return report_error("die_engine_parse", result, error);
     }
-    if (document == NULL || error != NULL ||
-        die_document_json_size(document) != strlen(die_document_json(document)) ||
+    if (document == NULL || error != NULL || die_document_json_size(document) != strlen(die_document_json(document)) ||
         strstr(die_document_json(document), "\"schema_version\": 1") == NULL ||
         strstr(die_document_json(document), "\"run_id\": \"c_api_smoke\"") == NULL) {
         fprintf(stderr, "C API returned an invalid Document v1 JSON result\n");

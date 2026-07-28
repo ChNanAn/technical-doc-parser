@@ -1,11 +1,12 @@
 #include "common/warning_codes.h"
+
+#include "document_intelligence_engine/document_engine.h"
 #include "document_source/document_source_factory.h"
 #include "export/document_exporter.h"
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/backend_registry.h"
 #include "pipeline/document_engine_internal.h"
-#include "document_intelligence_engine/document_engine.h"
 #include "table/table_backend.h"
 
 #include <filesystem>
@@ -25,16 +26,13 @@ public:
 };
 
 bool configureRegistry(doc_parser::pipeline::BackendRegistry& registry) {
-    return registry.registerDocument(
-               "pdf", [] { return doc_parser::document_source::createDocumentSource("pdf"); }) &&
-           registry.registerOcr(
-               "noop", [] { return std::make_unique<doc_parser::ocr::NoopOcrBackend>(); }) &&
-           registry.registerLayout(
-               "failing-layout", [] { return std::make_unique<FailingLayoutBackend>(); }) &&
-           registry.registerLayout(
-               "text", [] { return std::make_unique<doc_parser::layout::TextLayoutModelBackend>(); }) &&
-           registry.registerTable(
-               "text", [] { return std::make_unique<doc_parser::table::TextTableStructureBackend>(); });
+    return registry.registerDocument("pdf", [] { return doc_parser::document_source::createDocumentSource("pdf"); }) &&
+           registry.registerOcr("noop", [] { return std::make_unique<doc_parser::ocr::NoopOcrBackend>(); }) &&
+           registry.registerLayout("failing-layout", [] { return std::make_unique<FailingLayoutBackend>(); }) &&
+           registry.registerLayout("text",
+                                   [] { return std::make_unique<doc_parser::layout::TextLayoutModelBackend>(); }) &&
+           registry.registerTable("text",
+                                  [] { return std::make_unique<doc_parser::table::TextTableStructureBackend>(); });
 }
 
 int fail(const std::string& message) {

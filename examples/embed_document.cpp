@@ -1,5 +1,4 @@
 #include <document_intelligence_engine/document_engine.h>
-
 #include <iostream>
 
 int main(int argc, char** argv) {

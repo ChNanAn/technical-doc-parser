@@ -19,9 +19,7 @@ public:
         std::size_t maximum_length = 0;
     };
 
-    std::string addEvent(const std::string& stream,
-                         const std::string& json,
-                         std::size_t maximum_length) override {
+    std::string addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length) override {
         stream_writes.push_back({stream, json, maximum_length});
         return std::to_string(stream_writes.size()) + "-0";
     }
@@ -41,8 +39,8 @@ public:
 
 TEST(WorkerStageObserverTest, RefreshesRunStateAndEventStreamRetentionForEveryEvent) {
     RecordingEventWriter writer;
-    const std::filesystem::path run_directory =
-        std::filesystem::temp_directory_path() / "tdp_worker_stage_observer_test";
+    const std::filesystem::path run_directory = std::filesystem::temp_directory_path() / "tdp_worker_stage_observer_"
+                                                                                         "test";
     std::filesystem::remove_all(run_directory);
     doc_parser::platform::WorkerStageObserver observer(
         writer, "job_1", "run_1", "attempt_1", run_directory, 2'000, 100'000, 600);
@@ -73,8 +71,7 @@ TEST(WorkerStageObserverTest, RefreshesRunStateAndEventStreamRetentionForEveryEv
 
 TEST(WorkerStageObserverTest, RejectsNonPositiveRetention) {
     RecordingEventWriter writer;
-    EXPECT_THROW(
-        doc_parser::platform::WorkerStageObserver(
-            writer, "job_1", "run_1", "attempt_1", std::filesystem::temp_directory_path(), 2'000, 100'000, 0),
-        std::invalid_argument);
+    EXPECT_THROW(doc_parser::platform::WorkerStageObserver(
+                     writer, "job_1", "run_1", "attempt_1", std::filesystem::temp_directory_path(), 2'000, 100'000, 0),
+                 std::invalid_argument);
 }

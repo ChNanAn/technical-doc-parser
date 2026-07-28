@@ -611,9 +611,8 @@ common::Status validateCoreModel(const document::ParsedDocument& document) {
                 location + " ('" + warning.code + "') references unknown block_id '" + warning.block_id + "'");
         }
         if (warning.occurrence_count < 1U) {
-            return invalidCoreModel(
-                "export.document.invalid_warning",
-                location + " ('" + warning.code + "') has a non-positive occurrence_count");
+            return invalidCoreModel("export.document.invalid_warning",
+                                    location + " ('" + warning.code + "') has a non-positive occurrence_count");
         }
         if (!warning.page_id.empty() && !warning.page_ids.empty()) {
             return invalidCoreModel("export.document.invalid_warning",
@@ -634,8 +633,7 @@ common::Status validateCoreModel(const document::ParsedDocument& document) {
         }
         if (warning.occurrence_count < warning_page_ids.size()) {
             return invalidCoreModel("export.document.invalid_warning",
-                                    location + " ('" + warning.code +
-                                        "') has fewer occurrences than affected pages");
+                                    location + " ('" + warning.code + "') has fewer occurrences than affected pages");
         }
     }
     return common::Status::ok();
@@ -643,12 +641,11 @@ common::Status validateCoreModel(const document::ParsedDocument& document) {
 
 } // namespace
 
-JsonDocumentSerializationResult
-JsonDocumentExporter::serialize(const JsonDocumentSerializationRequest& request) const {
+JsonDocumentSerializationResult JsonDocumentExporter::serialize(const JsonDocumentSerializationRequest& request) const {
     JsonDocumentSerializationResult result;
     if (request.document == nullptr) {
-        result.status = common::Status::error(
-            "export.json.document_missing", "document export request has no document", "export");
+        result.status =
+            common::Status::error("export.json.document_missing", "document export request has no document", "export");
         return result;
     }
     if (common::Status status = validateCoreModel(*request.document); !status.okStatus()) {

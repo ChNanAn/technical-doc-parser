@@ -1,6 +1,7 @@
 #include "pipeline/text_extraction_stage.h"
 
 #include "common/warning_codes.h"
+
 #include "pipeline/text_quality.h"
 
 #include <spdlog/spdlog.h>

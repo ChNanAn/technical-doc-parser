@@ -3,7 +3,6 @@
 #include "pipeline/backend_registry.h"
 
 #include <document_intelligence_engine/document_engine.h>
-
 #include <memory>
 
 namespace doc_parser::pipeline {

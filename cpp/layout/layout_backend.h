@@ -7,7 +7,6 @@
 #include "document/text_model.h"
 
 #include <document_intelligence_engine/engine_config.h>
-
 #include <memory>
 #include <string>
 #include <vector>

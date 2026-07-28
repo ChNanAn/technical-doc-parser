@@ -48,18 +48,14 @@ enum {
 DIE_C_API uint32_t die_abi_version(void);
 DIE_C_API const char* die_engine_version(void);
 
-DIE_C_API die_result_t die_engine_create(
-    const char* config_json,
-    die_engine_t** out_engine,
-    die_error_t** out_error);
+DIE_C_API die_result_t die_engine_create(const char* config_json, die_engine_t** out_engine, die_error_t** out_error);
 
 DIE_C_API die_engine_state_t die_engine_get_state(const die_engine_t* engine);
 
-DIE_C_API die_result_t die_engine_parse(
-    die_engine_t* engine,
-    const char* options_json,
-    die_document_t** out_document,
-    die_error_t** out_error);
+DIE_C_API die_result_t die_engine_parse(die_engine_t* engine,
+                                        const char* options_json,
+                                        die_document_t** out_document,
+                                        die_error_t** out_error);
 
 DIE_C_API const char* die_document_json(const die_document_t* document);
 DIE_C_API size_t die_document_json_size(const die_document_t* document);

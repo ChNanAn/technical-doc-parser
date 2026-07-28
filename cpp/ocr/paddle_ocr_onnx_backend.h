@@ -3,7 +3,6 @@
 #include "ocr/ocr_backend.h"
 
 #include <document_intelligence_engine/engine_config.h>
-
 #include <memory>
 #include <string>
 

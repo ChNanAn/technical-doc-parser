@@ -1,4 +1,5 @@
 #include "common/warning_codes.h"
+
 #include "export/json_document_exporter.h"
 
 #include <gtest/gtest.h>
@@ -258,12 +259,11 @@ TEST(JsonDocumentExporterTest, WritesManifestWithoutDebugFieldsByDefault) {
 
 TEST(JsonDocumentExporterTest, SerializesDocumentV1InMemoryWithoutWritingAFile) {
     const DocumentFixture fixture = makeDocumentFixture();
-    const doc_parser::exporter::JsonDocumentSerializationResult result =
-        JsonDocumentExporter().serialize({
-            false,
-            &fixture.document,
-            &fixture.artifacts,
-        });
+    const doc_parser::exporter::JsonDocumentSerializationResult result = JsonDocumentExporter().serialize({
+        false,
+        &fixture.document,
+        &fixture.artifacts,
+    });
 
     ASSERT_TRUE(result.ok()) << result.status.message();
     const nlohmann::json manifest = nlohmann::json::parse(result.json);

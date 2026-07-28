@@ -1,6 +1,5 @@
 #include <document_intelligence_engine/document_engine.h>
 #include <document_intelligence_engine/engine_config.h>
-
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -62,8 +61,8 @@ int main() {
     engine_config.backends = {"pdf", "paddle", "text", "text", {}};
     const doc_parser::pipeline::DocumentEngine engine(std::move(engine_config));
     if (!engine.isReady()) {
-        std::cerr << "public SDK cannot load installed PaddleOCR models: "
-                  << engine.initializationStatus().message() << '\n';
+        std::cerr << "public SDK cannot load installed PaddleOCR models: " << engine.initializationStatus().message()
+                  << '\n';
         return 1;
     }
 #endif

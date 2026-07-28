@@ -1,12 +1,10 @@
 #include <document_intelligence_engine/c_api.h>
-
 #include <stdio.h>
 #include <string.h>
 
 int main(int argc, char** argv) {
-    static const char* config =
-        "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\",\"ocr\":\"noop\","
-        "\"layout\":\"text\",\"table\":\"text\"}}";
+    static const char* config = "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\",\"ocr\":\"noop\","
+                                "\"layout\":\"text\",\"table\":\"text\"}}";
     char options[8192];
     die_engine_t* engine = NULL;
     die_document_t* document = NULL;

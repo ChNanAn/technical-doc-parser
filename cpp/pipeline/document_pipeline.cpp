@@ -1,7 +1,8 @@
 #include "pipeline/document_pipeline.h"
 
-#include "assembly/document_assembler.h"
 #include "common/file_fingerprint.h"
+
+#include "assembly/document_assembler.h"
 #include "document/parsed_document.h"
 #include "document/warning_aggregator.h"
 #include "export/document_exporter.h"
@@ -242,9 +243,8 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         return stageFailed(
             observer, "open", fingerprint_status.code(), fingerprint_status.message(), fingerprint_status.retryable());
     }
-    spdlog::debug("source_fingerprint: size_bytes={} sha256={}",
-                  source_fingerprint.size_bytes,
-                  source_fingerprint.sha256);
+    spdlog::debug(
+        "source_fingerprint: size_bytes={} sha256={}", source_fingerprint.size_bytes, source_fingerprint.sha256);
     if (options.maximum_pages > 0 && document.source->pageCount() > options.maximum_pages) {
         return stageFailed(observer,
                            "open",

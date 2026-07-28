@@ -84,8 +84,8 @@ ParseResult DocumentEngine::parse(DocumentParseOptions options, IStageObserver& 
 
     bool expected = false;
     if (!impl_->parsing.compare_exchange_strong(expected, true)) {
-        result.status = common::Status::error(
-            "engine.busy", "document engine is already parsing another document", "engine", true);
+        result.status =
+            common::Status::error("engine.busy", "document engine is already parsing another document", "engine", true);
         return result;
     }
     const ParseLease parse_lease(impl_->parsing);
@@ -114,8 +114,8 @@ DocumentEngine DocumentEngineInternalAccess::create(EngineConfig config, const B
     return DocumentEngine(std::make_unique<DocumentEngine::Impl>(std::move(config), registry));
 }
 
-std::unique_ptr<DocumentEngine>
-DocumentEngineInternalAccess::createUnique(EngineConfig config, const BackendRegistry& registry) {
+std::unique_ptr<DocumentEngine> DocumentEngineInternalAccess::createUnique(EngineConfig config,
+                                                                           const BackendRegistry& registry) {
     return std::unique_ptr<DocumentEngine>(
         new DocumentEngine(std::make_unique<DocumentEngine::Impl>(std::move(config), registry)));
 }

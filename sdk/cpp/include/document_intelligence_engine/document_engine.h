@@ -21,8 +21,7 @@ enum class DocumentEngineState {
 };
 
 struct ParseResult {
-    common::Status status =
-        common::Status::error("engine.not_started", "document parsing has not started", "engine");
+    common::Status status = common::Status::error("engine.not_started", "document parsing has not started", "engine");
     document::ParsedDocument document;
     document::PipelineArtifacts artifacts;
     RunProvenance provenance;

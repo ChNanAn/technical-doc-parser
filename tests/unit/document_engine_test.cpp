@@ -1,18 +1,19 @@
 #include "common/warning_codes.h"
+
+#include "document_intelligence_engine/document_engine.h"
 #include "document_source/document_source_factory.h"
 #include "export/document_exporter.h"
 #include "layout/layout_backend.h"
 #include "ocr/ocr_backend.h"
 #include "pipeline/backend_registry.h"
 #include "pipeline/document_engine_internal.h"
-#include "document_intelligence_engine/document_engine.h"
 #include "pipeline/document_pipeline.h"
 #include "table/table_backend.h"
 
 #include <gtest/gtest.h>
 
-#include <cstdlib>
 #include <condition_variable>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -353,14 +354,11 @@ TEST(DocumentEngineTest, RejectsConcurrentParseWithRetryableBusyStatus) {
 
     BlockingObserver observer;
     doc_parser::pipeline::ParseResult first_result;
-    std::thread first_parse([&] {
-        first_result = engine.parse(fixtureParseOptions(output_root / "first"), observer);
-    });
+    std::thread first_parse([&] { first_result = engine.parse(fixtureParseOptions(output_root / "first"), observer); });
     observer.waitUntilStarted();
 
     EXPECT_EQ(engine.state(), doc_parser::pipeline::DocumentEngineState::Parsing);
-    const doc_parser::pipeline::ParseResult busy_result =
-        engine.parse(fixtureParseOptions(output_root / "second"));
+    const doc_parser::pipeline::ParseResult busy_result = engine.parse(fixtureParseOptions(output_root / "second"));
     EXPECT_FALSE(busy_result.ok());
     EXPECT_EQ(busy_result.status.code(), "engine.busy");
     EXPECT_EQ(busy_result.status.stage(), "engine");
@@ -389,8 +387,7 @@ TEST(DocumentEngineTest, ConvertsObserverExceptionAndReleasesParseLease) {
     EXPECT_NE(failed.status.message().find("observer test failure"), std::string::npos);
     EXPECT_EQ(engine.state(), doc_parser::pipeline::DocumentEngineState::Ready);
 
-    const doc_parser::pipeline::ParseResult recovered =
-        engine.parse(fixtureParseOptions(output_root / "recovered"));
+    const doc_parser::pipeline::ParseResult recovered = engine.parse(fixtureParseOptions(output_root / "recovered"));
     EXPECT_TRUE(recovered.ok()) << recovered.status.message();
     std::filesystem::remove_all(output_root);
 }

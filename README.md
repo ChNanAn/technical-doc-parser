@@ -211,6 +211,7 @@ Additional input formats, more interchangeable models, multi-tenant SaaS feature
 
 ## Get Started and Resources
 
+- [Changelog](CHANGELOG.md)
 - [Roadmap](docs/roadmap.md)
 - [Dependency Setup](docs/dependencies.md)
 - [Evaluation](docs/evaluation.md)

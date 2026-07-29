@@ -8,6 +8,16 @@ versioned document contract.
 
 ## [0.1.1] - 2026-07-29
 
+### Added
+
+- Added a Compose `model-init` health gate that downloads missing baseline
+  models, replaces files that fail SHA256 verification, and prevents the
+  Worker from starting until the complete model pack is verified.
+- Reworked the platform Web UI into a document inspection workspace with page
+  images, thumbnails, zoom controls, and overlays for Text, Layout, Table,
+  Reading Order, and final document blocks. Raw stage JSON remains available
+  in a copyable drawer.
+
 ### Fixed
 
 - Replaced the Ubuntu 24.04-specific CLI artifact with a Linux x86-64 bundle
@@ -18,6 +28,9 @@ versioned document contract.
   and `GLIBCXX_3.4.28`, with a second verification before upload.
 - Included resolved vcpkg versions and license notices for statically linked
   dependencies in the CLI bundle.
+- Artifact manifests are now written to temporary files and atomically
+  published before `artifact_ready` events, preventing API readers from
+  observing empty or partially written JSON during frequent refreshes.
 
 ### Compatibility
 

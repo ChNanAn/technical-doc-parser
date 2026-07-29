@@ -50,6 +50,14 @@ services:
     ports:
       - "8000:8000"
 
+  model-init:
+    build:
+      context: ../..
+      dockerfile: platform/deploy/model-init.Dockerfile
+    volumes:
+      - ${DIE_MODEL_DIR:-../../models}:/models
+    restart: "no"
+
   worker:
     build:
       context: ../..
@@ -68,6 +76,8 @@ services:
       RUN_RETENTION_SECONDS: "604800"
     depends_on:
       redis:
+        condition: service_healthy
+      model-init:
         condition: service_healthy
     volumes:
       - runtime-data:/runtime

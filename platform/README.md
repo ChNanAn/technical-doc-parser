@@ -19,14 +19,6 @@ uploaded files.
 ## Local platform build
 
 ```bash
-bash scripts/setup_paddleocr_baseline.sh
-bash scripts/setup_doclaynet_layout.sh
-bash scripts/setup_paddle_layout.sh
-bash scripts/setup_table_transformer.sh
-python3 scripts/package_model_pack.py verify
-
-cmake --preset platform-release
-cmake --build --preset platform-release --target document_intelligence_worker
 docker compose -f platform/deploy/docker-compose.yml up --build
 ```
 
@@ -38,12 +30,21 @@ The included Compose file is a local/private-network deployment baseline. Its de
 not secrets, and authentication, authorization, TLS termination, rate limiting, and malware scanning must be added
 before exposing it to an untrusted network.
 
-The Worker image is model-free. Compose mounts the repository's verified
-`models/` directory at `/models` by default, so rebuilding the image never
-downloads model weights or bakes them into an image layer. Run the four
-`scripts/setup_*` model scripts first, or extract the matching release model
-pack under `models/`. Set `DIE_MODEL_DIR=/absolute/model/path` when the model
-pack lives elsewhere.
+The first startup downloads about 500 MB of pinned baseline models. The
+`model-init` service verifies every file against the model-pack SHA256
+manifest, replaces missing or damaged files, and becomes healthy only after
+the complete pack passes verification. The Worker waits for that health gate
+and mounts the same directory read-only.
+
+The Worker image remains model-free, so rebuilding program images does not
+bake model weights into image layers. Models are cached under the repository's
+`models/` directory by default and subsequent starts only verify the existing
+files. Set `DIE_MODEL_DIR=/absolute/model/path` to use another persistent model
+directory. Run `bash scripts/setup_model_pack.sh --models-dir PATH` when models
+need to be prepared manually or ahead of an offline deployment.
+
+Docker Compose v1 users can run the equivalent command with `docker-compose`;
+the model readiness gate works with both Compose v1 and v2.
 
 The Worker is a persistent Redis Streams consumer. It processes one Run at a time, which avoids concurrent access
 to non-reentrant backend state. Multiple Worker containers provide horizontal concurrency. Each Worker keeps a

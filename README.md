@@ -207,10 +207,13 @@ The worker emits `run_configured` and `stage_warning` events so each run records
 model paths and profiles, and runtime fallback diagnostics.
 
 ```bash
-cmake --preset platform-release
-cmake --build --preset platform-release --target document_intelligence_worker --parallel
 docker compose -f platform/deploy/docker-compose.yml up --build
 ```
+
+On first startup, a model initialization service downloads and SHA256-verifies
+the pinned baseline model pack before the Worker is allowed to start. Models
+are cached outside the model-free Worker image for later runs. See the
+[platform guide](platform/README.md) for custom and offline model directories.
 
 The platform is also early-stage. Pending-job recovery, strict timeout enforcement, cancellation, and atomic retry publication remain roadmap work.
 

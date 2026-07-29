@@ -8,9 +8,13 @@ import gzip
 import hashlib
 import io
 import json
+import os
 import re
 import sys
 import tarfile
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -119,6 +123,76 @@ def verify_files(manifest: dict[str, Any], models_dir: Path) -> None:
         raise ManifestError("\n".join(failures))
 
 
+def download_verified_file(
+    entry: dict[str, Any],
+    destination: Path,
+    attempts: int = 3,
+) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f"{destination.name}.tmp.{os.getpid()}")
+    source_url = entry["source"]["url"]
+    expected_sha256 = entry["sha256"]
+
+    for attempt in range(1, attempts + 1):
+        try:
+            print(f"Downloading {entry['id']} to {destination}")
+            request = urllib.request.Request(
+                source_url,
+                headers={"User-Agent": "technical-doc-parser-model-sync/1"},
+            )
+            digest = hashlib.sha256()
+            with urllib.request.urlopen(request, timeout=120) as response:
+                with temporary.open("wb") as output:
+                    for chunk in iter(lambda: response.read(1024 * 1024), b""):
+                        output.write(chunk)
+                        digest.update(chunk)
+            actual_sha256 = digest.hexdigest()
+            if actual_sha256 != expected_sha256:
+                raise OSError(
+                    f"SHA256 mismatch: expected {expected_sha256}, "
+                    f"got {actual_sha256}"
+                )
+            os.replace(temporary, destination)
+            return
+        except (OSError, TimeoutError, urllib.error.URLError) as error:
+            temporary.unlink(missing_ok=True)
+            if attempt == attempts:
+                raise ManifestError(
+                    f"{entry['id']}: failed to download {source_url} "
+                    f"after {attempts} attempts: {error}"
+                ) from error
+            delay_seconds = min(2 ** (attempt - 1), 4)
+            print(
+                f"Download attempt {attempt}/{attempts} failed for "
+                f"{entry['id']}: {error}; retrying in {delay_seconds}s",
+                file=sys.stderr,
+            )
+            time.sleep(delay_seconds)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def sync_files(
+    manifest: dict[str, Any],
+    models_dir: Path,
+    force: bool = False,
+    download_attempts: int = 3,
+) -> None:
+    for entry in manifest["files"]:
+        destination = models_dir / entry["path"]
+        if not force and destination.is_file() and destination.stat().st_size > 0:
+            if file_sha256(destination) == entry["sha256"]:
+                print(f"Using verified file: {destination}")
+                continue
+            print(
+                f"Existing file failed SHA256 verification; downloading it "
+                f"again: {destination}",
+                file=sys.stderr,
+            )
+        download_verified_file(entry, destination, download_attempts)
+    verify_files(manifest, models_dir)
+
+
 def tar_info(name: str, size: int, epoch: int, mode: int = 0o644) -> tarfile.TarInfo:
     info = tarfile.TarInfo(name)
     info.size = size
@@ -185,13 +259,21 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument(
         "command",
-        choices=("validate", "verify", "package"),
-        help="validate metadata, verify local files, or create the model pack",
+        choices=("validate", "verify", "sync", "package"),
+        help=(
+            "validate metadata, verify or synchronize local files, "
+            "or create the model pack"
+        ),
     )
     result.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     result.add_argument("--models-dir", type=Path, default=ROOT_DIR / "models")
     result.add_argument("--output-dir", type=Path, default=ROOT_DIR / "dist")
     result.add_argument("--source-date-epoch", type=int, default=0)
+    result.add_argument(
+        "--force",
+        action="store_true",
+        help="re-download every file when synchronizing the model pack",
+    )
     return result
 
 
@@ -201,9 +283,15 @@ def main() -> int:
         if arguments.source_date_epoch < 0:
             raise ManifestError("source date epoch must be non-negative")
         manifest = load_manifest(arguments.manifest)
-        if arguments.command == "verify":
+        if arguments.command == "validate":
+            print(f"Validated model pack manifest v{manifest['schema_version']}")
+        elif arguments.command == "verify":
             verify_files(manifest, arguments.models_dir)
-        if arguments.command == "package":
+            print(f"Verified {len(manifest['files'])} model pack files")
+        elif arguments.command == "sync":
+            sync_files(manifest, arguments.models_dir, arguments.force)
+            print(f"Synchronized {len(manifest['files'])} model pack files")
+        else:
             output_path = package_models(
                 manifest,
                 arguments.manifest,
@@ -212,10 +300,6 @@ def main() -> int:
                 arguments.source_date_epoch,
             )
             print(f"{file_sha256(output_path)}  {output_path.name}")
-        elif arguments.command == "verify":
-            print(f"Verified {len(manifest['files'])} model pack files")
-        else:
-            print(f"Validated model pack manifest v{manifest['schema_version']}")
     except ManifestError as error:
         print(f"model pack error: {error}", file=sys.stderr)
         return 1

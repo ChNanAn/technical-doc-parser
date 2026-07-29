@@ -146,6 +146,11 @@ add_test(
     COMMAND ${Python3_EXECUTABLE}
         "${PROJECT_SOURCE_DIR}/tests/check_model_pack_manifest.py"
 )
+add_test(
+    NAME model_pack_download_sync
+    COMMAND ${Python3_EXECUTABLE}
+        "${PROJECT_SOURCE_DIR}/tests/check_model_pack_sync.py"
+)
 if(DOCUMENT_INTELLIGENCE_ENGINE_REQUIRE_BENCHMARK_MODELS)
     add_test(
         NAME model_pack_files

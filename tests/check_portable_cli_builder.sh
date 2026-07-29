@@ -12,6 +12,7 @@ import sys
 root = pathlib.Path(sys.argv[1])
 manifest = json.loads((root / "vcpkg.json").read_text())
 dockerfile = (root / "packaging/portable-cli.Dockerfile").read_text()
+workflow = (root / ".github/workflows/release.yml").read_text()
 
 baseline = manifest["builtin-baseline"]
 match = re.search(r"^ARG VCPKG_COMMIT=([0-9a-f]{40})$", dockerfile, re.MULTILINE)
@@ -27,4 +28,16 @@ required_fragments = (
 )
 for fragment in required_fragments:
     assert fragment in dockerfile, f"portable builder is missing: {fragment}"
+
+required_workflow_fragments = (
+    "file: packaging/portable-cli.Dockerfile",
+    "target: artifacts",
+    "outputs: type=local,dest=build/portable-artifacts",
+    "bash scripts/check_linux_cli_compatibility.sh",
+    "--kind source",
+)
+for fragment in required_workflow_fragments:
+    assert fragment in workflow, f"release workflow is missing: {fragment}"
+
+assert "--kind all" not in workflow, "release workflow must not publish the host-built CLI"
 PY

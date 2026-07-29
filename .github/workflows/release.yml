@@ -8,6 +8,11 @@ on:
       - 'v*'
     paths:
       - '.github/workflows/release.yml'
+      - 'packaging/portable-cli.Dockerfile'
+      - 'scripts/check_linux_cli_compatibility.sh'
+      - 'scripts/package_release.sh'
+      - 'tests/check_portable_cli_builder.sh'
+      - 'vcpkg.json'
   workflow_dispatch:
     inputs:
       release_tag:
@@ -35,16 +40,19 @@ jobs:
         run: |
           python3 scripts/package_model_pack.py validate
           bash -n scripts/package_release.sh
+          bash -n scripts/check_linux_cli_compatibility.sh
           bash -n scripts/setup_paddleocr_baseline.sh
           bash -n scripts/setup_doclaynet_layout.sh
           bash -n scripts/setup_paddle_layout.sh
           bash -n scripts/setup_table_transformer.sh
+          bash tests/check_portable_cli_builder.sh "$PWD"
 
   release:
     name: Source, Linux CLI, and container
     if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     permissions:
+      actions: write
       contents: write
       packages: write
     env:
@@ -65,6 +73,8 @@ jobs:
           tag_commit="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
           test "$(git rev-parse HEAD)" = "${tag_commit}"
           echo "RELEASE_REVISION=${tag_commit}" >> "${GITHUB_ENV}"
+          echo "RELEASE_SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" \
+            >> "${GITHUB_ENV}"
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -109,20 +119,55 @@ jobs:
             --output-on-failure \
             --no-tests=error
 
-      - name: Package source and CLI
+      - name: Package source
         run: |
           bash scripts/package_release.sh \
-            --kind all \
-            --build-dir build/release \
+            --kind source \
             --output-dir dist
           cd dist
           sha256sum --check SHA256SUMS
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build portable Linux CLI bundle
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packaging/portable-cli.Dockerfile
+          target: artifacts
+          outputs: type=local,dest=build/portable-artifacts
+          build-args: |
+            REVISION=${{ env.RELEASE_REVISION }}
+            SOURCE_DATE_EPOCH=${{ env.RELEASE_SOURCE_DATE_EPOCH }}
+          cache-from: type=gha,scope=portable-linux-cli
+          cache-to: type=gha,mode=max,scope=portable-linux-cli
+
+      - name: Verify portable Linux CLI bundle
+        shell: bash
+        run: |
+          shopt -s nullglob
+          (
+            cd build/portable-artifacts
+            sha256sum --check SHA256SUMS
+          )
+          cli_archive=(
+            build/portable-artifacts/technical-doc-parser-*-linux-x86_64-cli.tar.gz
+          )
+          test "${#cli_archive[@]}" -eq 1
+          mkdir -p build/portable-extracted
+          tar -xzf "${cli_archive[0]}" -C build/portable-extracted
+          cli_root=(
+            build/portable-extracted/technical-doc-parser-*-linux-x86_64-cli
+          )
+          test "${#cli_root[@]}" -eq 1
+          bash scripts/check_linux_cli_compatibility.sh "${cli_root[0]}"
+          mv "${cli_archive[0]}" dist/
+
       - name: Package models separately
         run: |
-          source_date_epoch="$(git show -s --format=%ct HEAD)"
           python3 scripts/package_model_pack.py package \
-            --source-date-epoch "${source_date_epoch}" \
+            --source-date-epoch "${RELEASE_SOURCE_DATE_EPOCH}" \
             --output-dir dist
           cd dist
           sha256sum ./*.tar.gz > SHA256SUMS
@@ -134,9 +179,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Build and publish CLI container
         uses: docker/build-push-action@v6

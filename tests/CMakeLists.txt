@@ -120,6 +120,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 add_test(
+    NAME portable_cli_builder_contract
+    COMMAND bash
+        "${PROJECT_SOURCE_DIR}/tests/check_portable_cli_builder.sh"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(portable_cli_builder_contract PROPERTIES LABELS packaging)
+
+add_test(
     NAME worker_container_model_boundary
     COMMAND bash
         "${PROJECT_SOURCE_DIR}/tests/check_worker_container_model_boundary.sh"

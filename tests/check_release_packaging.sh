@@ -15,6 +15,18 @@ bash "${ROOT_DIR}/scripts/package_release.sh" \
   --build-dir "$BUILD_DIR" \
   --output-dir "${TEMPORARY_DIR}/second"
 
+if bash "${ROOT_DIR}/scripts/package_release.sh" \
+    --kind cli \
+    --build-dir "$BUILD_DIR" \
+    --output-dir "${TEMPORARY_DIR}/must-reject" \
+    --require-portable-linux >"${TEMPORARY_DIR}/portable.log" 2>&1; then
+  echo "System OpenCV build unexpectedly passed portable Linux packaging" >&2
+  exit 1
+fi
+grep -Eq \
+  'must not depend on an OpenCV shared library' \
+  "${TEMPORARY_DIR}/portable.log"
+
 (
   cd "${TEMPORARY_DIR}/first"
   sha256sum --check SHA256SUMS

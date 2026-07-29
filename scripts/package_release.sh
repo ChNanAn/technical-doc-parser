@@ -8,6 +8,7 @@ OUTPUT_DIR="${ROOT_DIR}/dist"
 SOURCE_REF="HEAD"
 SOURCE_REVISION_OVERRIDE=""
 SOURCE_DATE_EPOCH_OVERRIDE=""
+REQUIRE_PORTABLE_LINUX=0
 
 usage() {
   cat <<EOF
@@ -21,6 +22,9 @@ Options:
   --source-ref REF       Git revision for the source archive. Default: HEAD.
   --revision SHA         Recorded revision for a CLI-only source tree.
   --source-date-epoch N  Archive timestamp for a CLI-only source tree.
+  --require-portable-linux
+                         Reject CLI builds that exceed the Ubuntu 20.04 ABI
+                         baseline or dynamically link OpenCV.
   -h, --help             Show this help message.
 
 The CLI bundle supports Linux x86-64 builds and intentionally excludes models.
@@ -52,6 +56,10 @@ while [[ $# -gt 0 ]]; do
     --source-date-epoch)
       SOURCE_DATE_EPOCH_OVERRIDE="${2:?--source-date-epoch requires a value}"
       shift 2
+      ;;
+    --require-portable-linux)
+      REQUIRE_PORTABLE_LINUX=1
+      shift
       ;;
     -h|--help)
       usage
@@ -127,6 +135,79 @@ package_source() {
   gzip -n -9 < "$temporary_tar" > "$archive"
   rm -f "$temporary_tar"
   generated_artifacts+=("$archive")
+}
+
+read_cmake_cache_value() {
+  local key="$1"
+  awk -F= -v key="$key" '
+    index($1, key ":") == 1 {
+      print substr($0, index($0, "=") + 1)
+      exit
+    }
+  ' "${BUILD_DIR}/CMakeCache.txt"
+}
+
+copy_vcpkg_metadata() {
+  local package_root="$1"
+  local installed_dir triplet status_file
+  local package copyright_file
+  local -a installed_packages=()
+  local required_packages=(
+    cli11
+    fmt
+    libjpeg-turbo
+    libpng
+    nlohmann-json
+    opencv4
+    spdlog
+    zlib
+  )
+
+  installed_dir="$(read_cmake_cache_value VCPKG_INSTALLED_DIR)"
+  triplet="$(read_cmake_cache_value VCPKG_TARGET_TRIPLET)"
+  if [[ -z "$installed_dir" || -z "$triplet" ]]; then
+    echo "Portable CLI packaging requires a vcpkg manifest build" >&2
+    return 1
+  fi
+
+  status_file="${installed_dir}/vcpkg/status"
+  if [[ ! -f "$status_file" ]]; then
+    echo "vcpkg resolved package status not found: ${status_file}" >&2
+    return 1
+  fi
+
+  mkdir -p \
+    "${package_root}/share/vcpkg" \
+    "${package_root}/share/licenses/vcpkg"
+  cp -- "$status_file" "${package_root}/share/vcpkg/status"
+  cp -- "${ROOT_DIR}/vcpkg.json" "${package_root}/share/vcpkg/vcpkg.json"
+
+  mapfile -t installed_packages < <(
+    awk '$1 == "Package:" {print $2}' "$status_file" | sort -u
+  )
+  if [[ "${#installed_packages[@]}" -eq 0 ]]; then
+    echo "vcpkg status contains no installed packages: ${status_file}" >&2
+    return 1
+  fi
+
+  for package in "${installed_packages[@]}"; do
+    copyright_file="${installed_dir}/${triplet}/share/${package}/copyright"
+    if [[ ! -f "$copyright_file" ]]; then
+      echo "vcpkg license missing for installed package '${package}': ${copyright_file}" >&2
+      return 1
+    fi
+    mkdir -p "${package_root}/share/licenses/vcpkg/${package}"
+    cp -- "$copyright_file" "${package_root}/share/licenses/vcpkg/${package}/copyright"
+  done
+
+  for package in "${required_packages[@]}"; do
+    if [[ ! -f "${package_root}/share/licenses/vcpkg/${package}/copyright" ]]; then
+      echo "Portable CLI is missing required static dependency metadata: ${package}" >&2
+      return 1
+    fi
+  done
+
+  VCPKG_BUNDLE_TRIPLET="$triplet"
 }
 
 copy_private_runtime_libraries() {
@@ -232,12 +313,23 @@ package_cli() {
   BUNDLED_PDFIUM_VERSION=""
   BUNDLED_ONNXRUNTIME_LIBRARY=""
   BUNDLED_ONNXRUNTIME_VERSION=""
+  VCPKG_BUNDLE_TRIPLET=""
   copy_private_runtime_libraries \
     "$build_executable" \
     "${package_root}/lib" \
     "${package_root}/share/licenses"
+  if [[ "$REQUIRE_PORTABLE_LINUX" == "1" ]]; then
+    if ! bash "${ROOT_DIR}/scripts/check_linux_cli_compatibility.sh" \
+        "$package_root" 2.31 3.4.28; then
+      rm -rf "$temporary_dir"
+      return 1
+    fi
+    copy_vcpkg_metadata "$package_root"
+  fi
 
   local engine_sha256 pdfium_sha256 onnxruntime_sha256
+  local portable_linux glibc_baseline glibcxx_baseline opencv_linkage
+  local static_dependency_provider static_dependency_versions static_dependency_licenses
   engine_sha256="$(sha256sum "$executable" | awk '{print $1}')"
   pdfium_sha256="$(
     sha256sum "${package_root}/lib/${BUNDLED_PDFIUM_LIBRARY}" | awk '{print $1}'
@@ -245,6 +337,22 @@ package_cli() {
   onnxruntime_sha256="$(
     sha256sum "${package_root}/lib/${BUNDLED_ONNXRUNTIME_LIBRARY}" | awk '{print $1}'
   )"
+  portable_linux=false
+  glibc_baseline=unspecified
+  glibcxx_baseline=unspecified
+  opencv_linkage=unspecified
+  static_dependency_provider=none
+  static_dependency_versions=none
+  static_dependency_licenses=none
+  if [[ "$REQUIRE_PORTABLE_LINUX" == "1" ]]; then
+    portable_linux=true
+    glibc_baseline=2.31
+    glibcxx_baseline=3.4.28
+    opencv_linkage=static
+    static_dependency_provider=vcpkg
+    static_dependency_versions=share/vcpkg/status
+    static_dependency_licenses=share/licenses/vcpkg
+  fi
 
   cat > "${package_root}/BUILD-INFO" <<EOF
 name=technical-doc-parser
@@ -253,6 +361,11 @@ revision=${SOURCE_REVISION}
 platform=linux-x86_64
 license=MIT
 models_included=false
+portable_linux=${portable_linux}
+glibc_baseline=${glibc_baseline}
+glibcxx_baseline=${glibcxx_baseline}
+opencv_linkage=${opencv_linkage}
+vcpkg_triplet=${VCPKG_BUNDLE_TRIPLET:-none}
 EOF
 
   cat > "${package_root}/PROGRAM-MANIFEST.json" <<EOF
@@ -263,6 +376,18 @@ EOF
   "revision": "${SOURCE_REVISION}",
   "platform": "linux-x86_64",
   "models_included": false,
+  "compatibility": {
+    "portable_linux": ${portable_linux},
+    "glibc_baseline": "${glibc_baseline}",
+    "glibcxx_baseline": "${glibcxx_baseline}",
+    "opencv_linkage": "${opencv_linkage}"
+  },
+  "static_dependencies": {
+    "provider": "${static_dependency_provider}",
+    "triplet": "${VCPKG_BUNDLE_TRIPLET:-none}",
+    "resolved_versions": "${static_dependency_versions}",
+    "licenses": "${static_dependency_licenses}"
+  },
   "files": [
     {
       "path": "bin/document_intelligence_engine",

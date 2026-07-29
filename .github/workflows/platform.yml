@@ -58,6 +58,10 @@ jobs:
         working-directory: platform/web
         run: npm audit --audit-level=high
 
+      - name: Test
+        working-directory: platform/web
+        run: npm test
+
       - name: Build
         working-directory: platform/web
         run: npm run build

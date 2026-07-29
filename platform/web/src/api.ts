@@ -55,3 +55,12 @@ export async function getArtifacts(runId: string): Promise<Artifact[]> {
   if (!response.ok) throw new Error(await response.text());
   return response.json();
 }
+
+export async function getArtifactJson(
+  runId: string,
+  artifactId: string,
+): Promise<Record<string, unknown>> {
+  const response = await fetch(`/api/v1/runs/${runId}/artifacts/${artifactId}`);
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}

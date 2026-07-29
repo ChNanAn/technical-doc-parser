@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif()
+
 project(document_intelligence_engine
     VERSION 0.1.0
     LANGUAGES C CXX
@@ -70,22 +74,22 @@ if(DOCUMENT_INTELLIGENCE_ENGINE_RESOLVED_DEPENDENCY_PROVIDER STREQUAL "PACKAGE")
 else()
     FetchContent_Declare(
         CLI11
-        GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-        GIT_TAG v2.4.2
+        URL https://github.com/CLIUtils/CLI11/archive/refs/tags/v2.4.2.tar.gz
+        URL_HASH SHA256=f2d893a65c3b1324c50d4e682c0cdc021dd0477ae2c048544f39eed6654b699a
     )
     FetchContent_MakeAvailable(CLI11)
 
     FetchContent_Declare(
         nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.11.3
+        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+        URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d
     )
     FetchContent_MakeAvailable(nlohmann_json)
 
     FetchContent_Declare(
         spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.14.1
+        URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz
+        URL_HASH SHA256=1586508029a7d0670dfcb2d97575dcdc242d3868a259742b69f100801ab4e16b
     )
     set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -100,9 +104,8 @@ if(BUILD_TESTING)
     else()
         FetchContent_Declare(
             googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG v1.14.0
-            GIT_SHALLOW TRUE
+            URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
+            URL_HASH SHA256=8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7
         )
         set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
         set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)

@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <system_error>
 #include <utility>
 
 namespace doc_parser::platform {
@@ -40,6 +41,41 @@ nlohmann::json backendOptions(const pipeline::BackendOptions& options) {
         {"table", options.table},
         {"registry_config", options.registry_config.string()},
     };
+}
+
+void writeJsonAtomically(const std::filesystem::path& destination, const nlohmann::json& value) {
+    std::filesystem::path temporary = destination;
+    temporary += ".tmp";
+
+    std::error_code cleanup_error;
+    std::filesystem::remove(temporary, cleanup_error);
+
+    try {
+        std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+        if (!output.is_open()) {
+            throw std::runtime_error("failed to open artifact manifest temporary file: " + temporary.string());
+        }
+
+        output << value.dump(2) << '\n';
+        output.flush();
+        if (!output) {
+            throw std::runtime_error("failed to write artifact manifest temporary file: " + temporary.string());
+        }
+        output.close();
+        if (!output) {
+            throw std::runtime_error("failed to close artifact manifest temporary file: " + temporary.string());
+        }
+
+        std::error_code rename_error;
+        std::filesystem::rename(temporary, destination, rename_error);
+        if (rename_error) {
+            throw std::runtime_error("failed to publish artifact manifest " + destination.string() + ": " +
+                                     rename_error.message());
+        }
+    } catch (...) {
+        std::filesystem::remove(temporary, cleanup_error);
+        throw;
+    }
 }
 
 } // namespace
@@ -196,8 +232,7 @@ void WorkerStageObserver::onArtifactReady(const pipeline::StageArtifactInfo& inf
         artifact["page_number"] = info.page_number;
     }
     const std::filesystem::path manifest = run_directory_ / "artifacts" / (artifact_id + ".json");
-    std::ofstream output(manifest);
-    output << artifact.dump(2) << '\n';
+    writeJsonAtomically(manifest, artifact);
     publish({
         {"type", "artifact_ready"},
         {"stage", info.stage},

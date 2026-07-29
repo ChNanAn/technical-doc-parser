@@ -3,7 +3,9 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <fstream>
 #include <map>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -74,4 +76,64 @@ TEST(WorkerStageObserverTest, RejectsNonPositiveRetention) {
     EXPECT_THROW(doc_parser::platform::WorkerStageObserver(
                      writer, "job_1", "run_1", "attempt_1", std::filesystem::temp_directory_path(), 2'000, 100'000, 0),
                  std::invalid_argument);
+}
+
+TEST(WorkerStageObserverTest, PublishesOnlyCompleteArtifactManifests) {
+    RecordingEventWriter writer;
+    const std::filesystem::path run_directory = std::filesystem::temp_directory_path() / "tdp_worker_stage_observer_"
+                                                                                         "artifact_test";
+    std::filesystem::remove_all(run_directory);
+    const std::filesystem::path artifact_path = run_directory / "stages" / "layout.json";
+    std::filesystem::create_directories(artifact_path.parent_path());
+    {
+        std::ofstream artifact_output(artifact_path);
+        artifact_output << R"({"blocks":[]})";
+    }
+
+    doc_parser::platform::WorkerStageObserver observer(
+        writer, "job_1", "run_1", "attempt_1", run_directory, 2'000, 100'000, 600);
+    observer.onArtifactReady({"layout", "layout", artifact_path, 2});
+
+    const std::filesystem::path manifest = run_directory / "artifacts" / "artifact_layout_layout_page_2.json";
+    ASSERT_TRUE(std::filesystem::is_regular_file(manifest));
+    EXPECT_FALSE(std::filesystem::exists(manifest.string() + ".tmp"));
+
+    std::ifstream manifest_input(manifest);
+    const nlohmann::json parsed = nlohmann::json::parse(manifest_input);
+    EXPECT_EQ(parsed.at("artifact_id"), "artifact_layout_layout_page_2");
+    EXPECT_EQ(parsed.at("page_number"), 2);
+    EXPECT_EQ(parsed.at("size_bytes"), std::filesystem::file_size(artifact_path));
+
+    ASSERT_EQ(writer.stream_writes.size(), 2U);
+    const nlohmann::json event = nlohmann::json::parse(writer.stream_writes.front().json);
+    EXPECT_EQ(event.at("type"), "artifact_ready");
+    EXPECT_EQ(event.at("artifact_id"), parsed.at("artifact_id"));
+
+    std::filesystem::remove_all(run_directory);
+}
+
+TEST(WorkerStageObserverTest, DoesNotPublishAnArtifactEventWhenManifestWritingFails) {
+    RecordingEventWriter writer;
+    const std::filesystem::path run_directory = std::filesystem::temp_directory_path() / "tdp_worker_stage_observer_"
+                                                                                         "artifact_failure_test";
+    std::filesystem::remove_all(run_directory);
+    const std::filesystem::path artifact_path = run_directory / "layout.json";
+    std::filesystem::create_directories(run_directory);
+    {
+        std::ofstream artifact_output(artifact_path);
+        artifact_output << R"({"blocks":[]})";
+    }
+
+    doc_parser::platform::WorkerStageObserver observer(
+        writer, "job_1", "run_1", "attempt_1", run_directory, 2'000, 100'000, 600);
+    std::filesystem::remove_all(run_directory / "artifacts");
+    {
+        std::ofstream blocking_file(run_directory / "artifacts");
+        blocking_file << "not a directory";
+    }
+
+    EXPECT_THROW(observer.onArtifactReady({"layout", "layout", artifact_path, 0}), std::runtime_error);
+    EXPECT_TRUE(writer.stream_writes.empty());
+
+    std::filesystem::remove_all(run_directory);
 }

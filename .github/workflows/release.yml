@@ -47,6 +47,71 @@ jobs:
           bash -n scripts/setup_table_transformer.sh
           bash tests/check_portable_cli_builder.sh "$PWD"
 
+  portable-smoke:
+    name: Build portable Linux CLI candidate
+    if: github.event_name == 'push' && github.ref_type == 'branch'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set portable build metadata
+        run: |
+          echo "RELEASE_REVISION=$(git rev-parse HEAD)" >> "${GITHUB_ENV}"
+          echo "RELEASE_SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" \
+            >> "${GITHUB_ENV}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build portable Linux CLI bundle
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packaging/portable-cli.Dockerfile
+          target: artifacts
+          outputs: type=local,dest=build/portable-artifacts
+          build-args: |
+            REVISION=${{ env.RELEASE_REVISION }}
+            SOURCE_DATE_EPOCH=${{ env.RELEASE_SOURCE_DATE_EPOCH }}
+          cache-from: type=gha,scope=portable-linux-cli
+          cache-to: type=gha,mode=max,scope=portable-linux-cli
+
+      - name: Verify portable Linux CLI bundle
+        shell: bash
+        run: |
+          shopt -s nullglob
+          (
+            cd build/portable-artifacts
+            sha256sum --check SHA256SUMS
+          )
+          cli_archive=(
+            build/portable-artifacts/technical-doc-parser-*-linux-x86_64-cli.tar.gz
+          )
+          test "${#cli_archive[@]}" -eq 1
+          mkdir -p build/portable-extracted
+          tar -xzf "${cli_archive[0]}" -C build/portable-extracted
+          cli_root=(
+            build/portable-extracted/technical-doc-parser-*-linux-x86_64-cli
+          )
+          test "${#cli_root[@]}" -eq 1
+          bash scripts/check_linux_cli_compatibility.sh "${cli_root[0]}"
+
+      - name: Upload portable CLI candidate
+        uses: actions/upload-artifact@v6
+        with:
+          name: portable-linux-cli-${{ github.sha }}
+          path: |
+            build/portable-artifacts/*.tar.gz
+            build/portable-artifacts/SHA256SUMS
+          if-no-files-found: error
+
   release:
     name: Source, Linux CLI, and container
     if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'

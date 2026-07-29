@@ -30,10 +30,12 @@ for fragment in required_fragments:
     assert fragment in dockerfile, f"portable builder is missing: {fragment}"
 
 required_workflow_fragments = (
+    "name: Build portable Linux CLI candidate",
     "file: packaging/portable-cli.Dockerfile",
     "target: artifacts",
     "outputs: type=local,dest=build/portable-artifacts",
     "bash scripts/check_linux_cli_compatibility.sh",
+    "name: portable-linux-cli-${{ github.sha }}",
     "--kind source",
 )
 for fragment in required_workflow_fragments:

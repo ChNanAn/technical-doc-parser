@@ -109,6 +109,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DOC_PARSER_ENABLE_PDFIUM AND DOC_PARSE
     set_tests_properties(release_packaging_smoke PROPERTIES LABELS packaging)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(
+        NAME linux_cli_compatibility_contract
+        COMMAND bash
+            "${PROJECT_SOURCE_DIR}/tests/check_linux_cli_compatibility.sh"
+            "${PROJECT_SOURCE_DIR}"
+    )
+    set_tests_properties(linux_cli_compatibility_contract PROPERTIES LABELS packaging)
+endif()
+
 add_test(
     NAME worker_container_model_boundary
     COMMAND bash

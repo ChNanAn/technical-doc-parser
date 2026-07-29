@@ -70,12 +70,33 @@ For the prebuilt CLI, extract both archives, place the model pack under the
 bundle's `models/` directory, and run from the bundle root:
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y \
+  libopencv-core406t64 \
+  libopencv-imgcodecs406t64 \
+  libopencv-imgproc406t64
+
 tar -xzf technical-doc-parser-0.1.0-linux-x86_64-cli.tar.gz
 cd technical-doc-parser-0.1.0-linux-x86_64-cli
 mkdir -p models
 tar -xzf ../technical-doc-parser-models-0.1.0.tar.gz \
   -C models --strip-components=1
 bin/document_intelligence_engine input.pdf --out output/
+```
+
+The prebuilt CLI is an Ubuntu 24.04 binary, not a distribution-independent
+Linux executable. On Ubuntu 20.04/22.04 or another Linux distribution, use the
+source build above or the published container. Do not symlink a different
+OpenCV ABI to satisfy a missing `libopencv_*.so.406` dependency.
+
+```bash
+mkdir -p output
+docker run --rm \
+  -v "$PWD/models:/models:ro" \
+  -v "$PWD/input.pdf:/work/input.pdf:ro" \
+  -v "$PWD/output:/output" \
+  ghcr.io/chnanan/technical-doc-parser:v0.1.0 \
+  /work/input.pdf --out /output
 ```
 
 For source builds, select backends explicitly or use the versioned registry

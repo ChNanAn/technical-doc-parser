@@ -65,12 +65,35 @@ ctest --preset core-release
 CLI 容器。程序包与模型包独立版本化，下载后应使用发布页中的 `SHA256SUMS`
 校验。具体边界和发布步骤见[发布说明](docs/releasing.md)。
 
-将发布页中的模型包安装到程序旁边：
+预编译 CLI 仅适用于 Ubuntu 24.04，不是跨发行版通用的 Linux
+可执行文件。安装运行时依赖、解压 CLI 和模型包，然后从 bundle 根目录运行：
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y \
+  libopencv-core406t64 \
+  libopencv-imgcodecs406t64 \
+  libopencv-imgproc406t64
+
+tar -xzf technical-doc-parser-0.1.0-linux-x86_64-cli.tar.gz
+cd technical-doc-parser-0.1.0-linux-x86_64-cli
 mkdir -p models
-tar -xzf technical-doc-parser-models-0.1.0.tar.gz \
+tar -xzf ../technical-doc-parser-models-0.1.0.tar.gz \
   -C models --strip-components=1
+bin/document_intelligence_engine input.pdf --out output/
+```
+
+Ubuntu 20.04/22.04 或其他 Linux 发行版应使用上面的源码构建流程，或者使用发布的容器。遇到
+`libopencv_*.so.406` 缺失时，不要把其他 OpenCV ABI 版本软链接成 `.406`。
+
+```bash
+mkdir -p output
+docker run --rm \
+  -v "$PWD/models:/models:ro" \
+  -v "$PWD/input.pdf:/work/input.pdf:ro" \
+  -v "$PWD/output:/output" \
+  ghcr.io/chnanan/technical-doc-parser:v0.1.0 \
+  /work/input.pdf --out /output
 ```
 
 可以显式选择 Backend，也可以使用版本化 Registry 配置：

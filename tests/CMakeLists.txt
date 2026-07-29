@@ -110,6 +110,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DOC_PARSER_ENABLE_PDFIUM AND DOC_PARSE
 endif()
 
 add_test(
+    NAME worker_container_model_boundary
+    COMMAND bash
+        "${PROJECT_SOURCE_DIR}/tests/check_worker_container_model_boundary.sh"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(worker_container_model_boundary PROPERTIES LABELS "packaging;platform")
+
+add_test(
     NAME model_pack_manifest
     COMMAND ${Python3_EXECUTABLE}
         "${PROJECT_SOURCE_DIR}/scripts/package_model_pack.py"

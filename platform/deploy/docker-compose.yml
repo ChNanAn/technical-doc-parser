@@ -71,6 +71,7 @@ services:
         condition: service_healthy
     volumes:
       - runtime-data:/runtime
+      - ${DIE_MODEL_DIR:-../../models}:/models:ro
     restart: unless-stopped
 
   web:

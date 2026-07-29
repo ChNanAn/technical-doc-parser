@@ -19,6 +19,12 @@ uploaded files.
 ## Local platform build
 
 ```bash
+bash scripts/setup_paddleocr_baseline.sh
+bash scripts/setup_doclaynet_layout.sh
+bash scripts/setup_paddle_layout.sh
+bash scripts/setup_table_transformer.sh
+python3 scripts/package_model_pack.py verify
+
 cmake --preset platform-release
 cmake --build --preset platform-release --target document_intelligence_worker
 docker compose -f platform/deploy/docker-compose.yml up --build
@@ -31,6 +37,13 @@ Event, or Artifact identities. Queue payloads contain only IDs and the canonical
 The included Compose file is a local/private-network deployment baseline. Its development database credentials are
 not secrets, and authentication, authorization, TLS termination, rate limiting, and malware scanning must be added
 before exposing it to an untrusted network.
+
+The Worker image is model-free. Compose mounts the repository's verified
+`models/` directory at `/models` by default, so rebuilding the image never
+downloads model weights or bakes them into an image layer. Run the four
+`scripts/setup_*` model scripts first, or extract the matching release model
+pack under `models/`. Set `DIE_MODEL_DIR=/absolute/model/path` when the model
+pack lives elsewhere.
 
 The Worker is a persistent Redis Streams consumer. It processes one Run at a time, which avoids concurrent access
 to non-reentrant backend state. Multiple Worker containers provide horizontal concurrency. Each Worker keeps a

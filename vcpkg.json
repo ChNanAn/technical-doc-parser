@@ -1,6 +1,6 @@
 {
   "name": "technical-doc-parser",
-  "version-semver": "0.1.0",
+  "version-semver": "0.1.1",
   "description": "C++ native document intelligence engine",
   "license": "MIT",
   "builtin-baseline": "b781af668027bbf77f2f827f47b5c6cd8d825c08",

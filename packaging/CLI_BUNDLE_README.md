@@ -1,20 +1,17 @@
 # Linux x86-64 CLI Bundle
 
 This bundle contains the Document Intelligence Engine command-line program for
-Ubuntu 24.04 x86-64. It is not a universal Linux binary.
+Linux x86-64 systems with glibc 2.31 or newer and a C++ runtime providing
+`GLIBCXX_3.4.28`, including Ubuntu 20.04 and newer. It does not support
+musl-based distributions such as Alpine Linux.
 
-Install the OpenCV runtime libraries before running the CLI:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y \
-  libopencv-core406t64 \
-  libopencv-imgcodecs406t64 \
-  libopencv-imgproc406t64
-```
+OpenCV and its image codecs are statically linked. Do not install or symlink a
+different OpenCV ABI for this bundle. PDFium and ONNX Runtime are included
+under `lib/`.
 
 Model weights are distributed separately. From the extracted CLI bundle root,
-extract the matching model pack into `models/`:
+extract the compatible model pack into `models/`. Engine v0.1.1 uses the
+unchanged model pack v0.1.0:
 
 ```bash
 mkdir -p models
@@ -41,7 +38,7 @@ export DOCUMENT_INTELLIGENCE_ENGINE_TABLE_STRUCTURE_MODEL=/opt/technical-doc-par
 /opt/technical-doc-parser/bin/document_intelligence_engine input.pdf --out output/
 ```
 
-`PROGRAM-MANIFEST.json` records the engine, PDFium, and ONNX Runtime versions,
-SPDX licenses, and SHA256 values for bundled executables and shared libraries.
-Their upstream licenses and third-party notices are included under
-`share/licenses/`.
+`PROGRAM-MANIFEST.json` records the Linux ABI baseline, static OpenCV linkage,
+engine, PDFium, and ONNX Runtime versions, SPDX licenses, and SHA256 values.
+The exact vcpkg dependency resolution is stored in `share/vcpkg/status`.
+Upstream licenses and third-party notices are included under `share/licenses/`.

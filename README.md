@@ -61,8 +61,8 @@ Parse a document:
 ./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/
 ```
 
-Tagged releases also provide a source archive, an Ubuntu 24.04 x86-64 CLI
-bundle, and a model-free CLI container. Program and model packages are
+Tagged releases also provide a source archive, a portable glibc Linux x86-64
+CLI bundle, and a model-free CLI container. Program and model packages are
 versioned separately; verify downloaded artifacts with the published
 `SHA256SUMS`. See the [release guide](docs/releasing.md).
 
@@ -70,24 +70,20 @@ For the prebuilt CLI, extract both archives, place the model pack under the
 bundle's `models/` directory, and run from the bundle root:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y \
-  libopencv-core406t64 \
-  libopencv-imgcodecs406t64 \
-  libopencv-imgproc406t64
-
-tar -xzf technical-doc-parser-0.1.0-linux-x86_64-cli.tar.gz
-cd technical-doc-parser-0.1.0-linux-x86_64-cli
+tar -xzf technical-doc-parser-0.1.1-linux-x86_64-cli.tar.gz
+cd technical-doc-parser-0.1.1-linux-x86_64-cli
 mkdir -p models
 tar -xzf ../technical-doc-parser-models-0.1.0.tar.gz \
   -C models --strip-components=1
 bin/document_intelligence_engine input.pdf --out output/
 ```
 
-The prebuilt CLI is an Ubuntu 24.04 binary, not a distribution-independent
-Linux executable. On Ubuntu 20.04/22.04 or another Linux distribution, use the
-source build above or the published container. Do not symlink a different
-OpenCV ABI to satisfy a missing `libopencv_*.so.406` dependency.
+The v0.1.1+ CLI is built on Ubuntu 20.04, requires glibc 2.31 or newer and
+`GLIBCXX_3.4.28`, and statically links OpenCV. It runs on supported x86-64
+glibc distributions without a system OpenCV package; Alpine Linux and other
+musl systems are not supported. The old v0.1.0 CLI is Ubuntu 24.04-specific.
+Use the v0.1.1+ bundle or container instead of symlinking a different OpenCV
+ABI to `.so.406`.
 
 ```bash
 mkdir -p output
@@ -95,7 +91,7 @@ docker run --rm \
   -v "$PWD/models:/models:ro" \
   -v "$PWD/input.pdf:/work/input.pdf:ro" \
   -v "$PWD/output:/output" \
-  ghcr.io/chnanan/technical-doc-parser:v0.1.0 \
+  ghcr.io/chnanan/technical-doc-parser:v0.1.1 \
   /work/input.pdf --out /output
 ```
 

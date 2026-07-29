@@ -32,7 +32,7 @@ RUN cmake -S . -B build/container \
 FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG VERSION=0.1.0
+ARG VERSION=0.1.1
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="Document Intelligence Engine CLI" \
       org.opencontainers.image.version="${VERSION}" \

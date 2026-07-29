@@ -5,7 +5,7 @@ if(POLICY CMP0135)
 endif()
 
 project(document_intelligence_engine
-    VERSION 0.1.0
+    VERSION 0.1.1
     LANGUAGES C CXX
 )
 

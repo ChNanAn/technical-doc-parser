@@ -6,7 +6,7 @@ and container labels.
 ## Supported Program Artifacts
 
 - Deterministic source archive.
-- Ubuntu 24.04 x86-64 CLI bundle.
+- Linux x86-64 CLI bundle built against the Ubuntu 20.04 ABI baseline.
 - `ghcr.io/chnanan/technical-doc-parser:<tag>` CLI container.
 - Separately versioned baseline model pack.
 
@@ -19,9 +19,14 @@ The model pack is defined by
 records an immutable upstream revision and URL, SHA256, SPDX license, and
 license source. Packaging fails unless every local file matches that manifest.
 
+The v0.1.1+ CLI supports glibc 2.31 and newer with `GLIBCXX_3.4.28`, statically
+links OpenCV, and does not require a distribution OpenCV package. It is not
+compatible with musl-based systems. The v0.1.0 CLI remains an Ubuntu
+24.04-only artifact.
+
 ## Local Packaging
 
-Build without downloading models, then create source and CLI archives:
+A normal local build can create development smoke packages:
 
 ```bash
 cmake -S . -B build/release \
@@ -36,6 +41,19 @@ bash scripts/package_release.sh \
   --build-dir build/release \
   --output-dir dist
 (cd dist && sha256sum --check SHA256SUMS)
+```
+
+These host-built CLI archives inherit the host ABI and are not release
+artifacts. Build the publishable CLI through the pinned Ubuntu 20.04 builder:
+
+```bash
+docker buildx build \
+  --target artifacts \
+  --output type=local,dest=dist/portable \
+  --build-arg REVISION="$(git rev-parse HEAD)" \
+  --build-arg SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
+  -f packaging/portable-cli.Dockerfile .
+(cd dist/portable && sha256sum --check SHA256SUMS)
 ```
 
 Create the model artifact only after the pinned setup scripts have completed:
@@ -63,9 +81,10 @@ For source builds that explicitly need CMake to install already downloaded
 models, configure with `-DDOCUMENT_INTELLIGENCE_ENGINE_INSTALL_MODELS=ON` and
 install the `Models` component. The option rejects incomplete model sets.
 
-The packaging script fails when the executable has unresolved libraries, when
-the configured build version differs from the project version, or when PDFium
-and ONNX Runtime are absent from the runtime dependency graph.
+Release packaging uses `--require-portable-linux` and fails when any bundled
+ELF requires newer than `GLIBC_2.31` or `GLIBCXX_3.4.28`, dynamically links
+OpenCV, has unresolved libraries, lacks vcpkg version/license metadata, uses a
+different configured project version, or omits PDFium or ONNX Runtime.
 
 ## Publishing
 

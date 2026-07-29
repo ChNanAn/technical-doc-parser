@@ -6,6 +6,28 @@ versioned document contract.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-29
+
+### Fixed
+
+- Replaced the Ubuntu 24.04-specific CLI artifact with a Linux x86-64 bundle
+  built against the Ubuntu 20.04 ABI baseline.
+- Statically linked OpenCV and its image codecs so the CLI no longer requires
+  a distribution-specific `libopencv_*.so` ABI.
+- Added release gates for unresolved libraries, dynamic OpenCV, `GLIBC_2.31`,
+  and `GLIBCXX_3.4.28`, with a second verification before upload.
+- Included resolved vcpkg versions and license notices for statically linked
+  dependencies in the CLI bundle.
+
+### Compatibility
+
+- The v0.1.1+ CLI supports x86-64 glibc Linux with glibc 2.31 or newer and
+  `GLIBCXX_3.4.28`. musl distributions are not supported.
+- The v0.1.0 CLI remains Ubuntu 24.04-specific and should not be repaired by
+  symlinking a different OpenCV ABI.
+- Model weights are unchanged; engine v0.1.1 continues to use model pack
+  v0.1.0.
+
 ## [0.1.0] - 2026-07-28
 
 ### Added
@@ -50,5 +72,6 @@ versioned document contract.
 - The published external score is an early baseline, not a production accuracy
   claim. Formula-heavy and degraded scanned documents remain weak categories.
 
-[Unreleased]: https://github.com/ChNanAn/technical-doc-parser/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ChNanAn/technical-doc-parser/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ChNanAn/technical-doc-parser/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ChNanAn/technical-doc-parser/releases/tag/v0.1.0

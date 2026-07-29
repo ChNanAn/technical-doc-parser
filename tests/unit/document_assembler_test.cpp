@@ -136,7 +136,7 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
     EXPECT_EQ(document.source.media_type, "application/pdf");
     EXPECT_FALSE(document.document_id.empty());
     EXPECT_EQ(document.producer.name, "technical-doc-parser");
-    EXPECT_EQ(document.producer.version, "0.1.0");
+    EXPECT_EQ(document.producer.version, "0.1.1");
     EXPECT_EQ(document.dpi, 144);
     ASSERT_EQ(document.pages.size(), 1U);
     EXPECT_EQ(document.pages[0].id, "page_1");

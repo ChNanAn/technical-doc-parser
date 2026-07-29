@@ -61,30 +61,26 @@ ctest --preset core-release
 ./build/core-release/cpp/app/document_intelligence_engine input.pdf --out output/
 ```
 
-带 Tag 的版本还会提供源码归档、Ubuntu 24.04 x86-64 CLI bundle，以及不含模型的
+带 Tag 的版本还会提供源码归档、可移植的 glibc Linux x86-64 CLI bundle，以及不含模型的
 CLI 容器。程序包与模型包独立版本化，下载后应使用发布页中的 `SHA256SUMS`
 校验。具体边界和发布步骤见[发布说明](docs/releasing.md)。
 
-预编译 CLI 仅适用于 Ubuntu 24.04，不是跨发行版通用的 Linux
-可执行文件。安装运行时依赖、解压 CLI 和模型包，然后从 bundle 根目录运行：
+解压 CLI 和兼容的模型包，然后从 bundle 根目录运行。引擎 v0.1.1 沿用未发生变化的
+模型包 v0.1.0：
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y \
-  libopencv-core406t64 \
-  libopencv-imgcodecs406t64 \
-  libopencv-imgproc406t64
-
-tar -xzf technical-doc-parser-0.1.0-linux-x86_64-cli.tar.gz
-cd technical-doc-parser-0.1.0-linux-x86_64-cli
+tar -xzf technical-doc-parser-0.1.1-linux-x86_64-cli.tar.gz
+cd technical-doc-parser-0.1.1-linux-x86_64-cli
 mkdir -p models
 tar -xzf ../technical-doc-parser-models-0.1.0.tar.gz \
   -C models --strip-components=1
 bin/document_intelligence_engine input.pdf --out output/
 ```
 
-Ubuntu 20.04/22.04 或其他 Linux 发行版应使用上面的源码构建流程，或者使用发布的容器。遇到
-`libopencv_*.so.406` 缺失时，不要把其他 OpenCV ABI 版本软链接成 `.406`。
+v0.1.1 及后续 CLI 基于 Ubuntu 20.04 构建，要求 glibc 2.31 或更新版本以及
+`GLIBCXX_3.4.28`，并静态链接 OpenCV，因此无需安装系统 OpenCV 包；Alpine Linux 等
+musl 系统暂不支持。旧版 v0.1.0 CLI 仅适用于 Ubuntu 24.04。应升级到 v0.1.1+ 或使用
+容器，不要把其他 OpenCV ABI 版本软链接成 `.so.406`。
 
 ```bash
 mkdir -p output
@@ -92,7 +88,7 @@ docker run --rm \
   -v "$PWD/models:/models:ro" \
   -v "$PWD/input.pdf:/work/input.pdf:ro" \
   -v "$PWD/output:/output" \
-  ghcr.io/chnanan/technical-doc-parser:v0.1.0 \
+  ghcr.io/chnanan/technical-doc-parser:v0.1.1 \
   /work/input.pdf --out /output
 ```
 

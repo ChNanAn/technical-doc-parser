@@ -250,7 +250,7 @@ TEST(DocumentEngineTest, RuntimeFallbackProducesExplainedPartialResultAndProvena
     EXPECT_EQ(*result.document.source.size_bytes, 105779U);
     EXPECT_EQ(result.document.source.sha256, "925853d98d67d5dae7473c635f932958e1695ce1029d23b2ecd2531cb65f1f14");
     EXPECT_EQ(result.document.producer.run_id, options.run_id);
-    EXPECT_EQ(result.document.producer.version, "0.1.0");
+    EXPECT_EQ(result.document.producer.version, "0.1.1");
     EXPECT_EQ(result.document.producer.git_revision, result.provenance.git_revision);
     if (!result.provenance.git_revision.empty()) {
         EXPECT_GE(result.provenance.git_revision.size(), 7U);

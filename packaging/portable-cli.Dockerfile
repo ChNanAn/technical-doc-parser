@@ -25,9 +25,7 @@ RUN git init /opt/vcpkg && \
     git -C /opt/vcpkg remote add origin https://github.com/microsoft/vcpkg.git && \
     git -C /opt/vcpkg fetch --depth=1 origin "${VCPKG_COMMIT}" && \
     git -C /opt/vcpkg checkout --detach FETCH_HEAD && \
-    /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics && \
-    cmake_binary="$(/opt/vcpkg/vcpkg fetch cmake)" && \
-    ln -s "${cmake_binary}" /usr/local/bin/cmake
+    /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
 ENV VCPKG_ROOT=/opt/vcpkg \
     VCPKG_DISABLE_METRICS=1 \
@@ -40,6 +38,9 @@ RUN --mount=type=cache,target=/root/.cache/vcpkg/archives \
       --x-install-root=/opt/vcpkg-installed \
       --triplet x64-linux \
       --clean-after-build
+
+RUN cmake_binary="$(/opt/vcpkg/vcpkg fetch cmake)" && \
+    ln -sf "${cmake_binary}" /usr/local/bin/cmake
 
 WORKDIR /workspace
 COPY . .

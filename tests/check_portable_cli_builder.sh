@@ -29,6 +29,12 @@ required_fragments = (
 for fragment in required_fragments:
     assert fragment in dockerfile, f"portable builder is missing: {fragment}"
 
+cleanup_position = dockerfile.index("--clean-after-build")
+cmake_fetch_position = dockerfile.index("/opt/vcpkg/vcpkg fetch cmake")
+assert cleanup_position < cmake_fetch_position, (
+    "CMake must be fetched after vcpkg download cleanup to avoid a dangling executable link"
+)
+
 required_workflow_fragments = (
     "name: Build portable Linux CLI candidate",
     "file: packaging/portable-cli.Dockerfile",

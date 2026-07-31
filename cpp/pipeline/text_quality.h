@@ -18,6 +18,11 @@ struct NativeTextQuality {
     NativeTextAction action = NativeTextAction::UseOcr;
     std::size_t non_whitespace_bytes = 0;
     std::size_t suspicious_bytes = 0;
+    std::size_t control_codepoints = 0;
+    std::size_t distinct_control_codepoints = 0;
+    std::size_t damaging_control_codepoints = 0;
+    std::size_t distinct_damaging_control_codepoints = 0;
+    double damaging_control_ratio = 0.0;
     double vertical_coverage = 0.0;
     std::string reason;
 };
@@ -26,6 +31,10 @@ struct NativeTextQualityConfig {
     std::size_t sparse_text_byte_threshold = 256;
     double sparse_vertical_coverage_threshold = 0.12;
     double suspicious_byte_ratio_threshold = 0.02;
+    std::size_t damaging_control_minimum = 8;
+    double severe_damaging_control_ratio_threshold = 0.20;
+    double diverse_damaging_control_ratio_threshold = 0.05;
+    std::size_t diverse_damaging_control_type_threshold = 4;
     double duplicate_overlap_threshold = 0.5;
 };
 

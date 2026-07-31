@@ -1,5 +1,7 @@
 #include "pipeline/reading_order_stage.h"
 
+#include <algorithm>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <utility>
 
@@ -28,6 +30,27 @@ ReadingOrderStage::order(const PipelineContext& context,
             ordering.status = common::Status::error("reading_order.backend_failed",
                                                     "reading order failed for page " + std::to_string(index + 1));
             return ordering;
+        }
+        int maximum_columns = 0;
+        int maximum_band = -1;
+        for (const document::ReadingOrderPlacement& placement : result.reading_order.trace.placements) {
+            maximum_columns = std::max(maximum_columns, placement.column_end + 1);
+            maximum_band = std::max(maximum_band, placement.band_index);
+        }
+        spdlog::debug("reading_order: page={} algorithm={} bands={} max_columns={} placements={} cycle_breaks={}",
+                      pages[index].page_number,
+                      result.reading_order.trace.algorithm,
+                      maximum_band + 1,
+                      maximum_columns,
+                      result.reading_order.trace.placements.size(),
+                      result.reading_order.trace.cycle_breaks.size());
+        for (const document::ReadingOrderCycleBreak& cycle_break : result.reading_order.trace.cycle_breaks) {
+            spdlog::debug("reading_order: page={} cycle_break={} -> {} reason={} confidence={:.2f}",
+                          pages[index].page_number,
+                          cycle_break.from_layout_block_id,
+                          cycle_break.to_layout_block_id,
+                          cycle_break.reason,
+                          cycle_break.confidence);
         }
         ordering.value.push_back(std::move(result.reading_order));
     }

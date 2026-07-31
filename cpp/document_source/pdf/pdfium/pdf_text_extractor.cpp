@@ -69,14 +69,30 @@ bool PdfTextExtractor::extractPageText(const PdfReader& reader,
         const common::DecodedUtf16CodePoint decoded = common::decodeUtf16CodePoint(first, following);
         const int first_index = index;
         index += decoded.code_units;
-        const std::uint32_t codepoint = decoded.value;
+        std::uint32_t codepoint = decoded.value;
         if (codepoint == 0) {
             continue;
         }
+        ++page_text.extraction_signals.decoded_codepoints;
+        if (!decoded.valid) {
+            ++page_text.extraction_signals.invalid_utf16_codepoints;
+        }
+        if (codepoint == common::kUnicodeReplacementCharacter) {
+            ++page_text.extraction_signals.replacement_codepoints;
+        }
         if (codepoint == '\r' || codepoint == '\n') {
+            ++page_text.extraction_signals.c0_control_counts[codepoint];
             document::TextToken line_break;
             line_break.kind = document::TextTokenKind::LineBreak;
             tokens.push_back(line_break);
+            continue;
+        }
+        if (codepoint < 0x20U) {
+            ++page_text.extraction_signals.c0_control_counts[codepoint];
+        }
+        if (codepoint == 0x02U) {
+            codepoint = ' ';
+        } else if (codepoint < 0x20U && codepoint != '\t') {
             continue;
         }
 
@@ -113,7 +129,9 @@ bool PdfTextExtractor::extractPageText(const PdfReader& reader,
         });
     }
 
+    const document::NativeTextExtractionSignals extraction_signals = page_text.extraction_signals;
     page_text = document::TextNormalizer().normalize(request.page_index, tokens);
+    page_text.extraction_signals = extraction_signals;
     return true;
 }
 

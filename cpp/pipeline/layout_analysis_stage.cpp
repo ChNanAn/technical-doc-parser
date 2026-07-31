@@ -1,6 +1,9 @@
 #include "pipeline/layout_analysis_stage.h"
 
+#include "layout/layout_postprocessing.h"
+
 #include <iterator>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <utility>
 
@@ -28,6 +31,22 @@ LayoutAnalysisStage::analyze(const PipelineContext& context,
             analysis.status = common::Status::error("layout.analysis_failed",
                                                     "layout analysis failed for page " + std::to_string(index + 1));
             return analysis;
+        }
+        const layout::detail::LayoutRefinementStats refinement =
+            layout::detail::refineMultiColumnTextLineOrder(page_texts[index], result.layout.blocks);
+        if (refinement.reordered_blocks > 0) {
+            spdlog::debug("layout_refinement: page={} reordered_blocks={} max_columns={}",
+                          pages[index].page_number,
+                          refinement.reordered_blocks,
+                          refinement.maximum_columns);
+        }
+        const layout::detail::EdgeFurnitureRefinementStats furniture =
+            layout::detail::refineEdgeFurniture(pages[index], result.layout.blocks);
+        if (furniture.headers > 0 || furniture.footers > 0) {
+            spdlog::debug("layout_furniture_refinement: page={} headers={} footers={}",
+                          pages[index].page_number,
+                          furniture.headers,
+                          furniture.footers);
         }
         analysis.value.push_back(std::move(result.layout));
         analysis.diagnostics.insert(analysis.diagnostics.end(),

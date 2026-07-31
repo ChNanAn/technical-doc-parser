@@ -23,6 +23,16 @@ TextToken glyph(const std::string& text, double x0, double x1) {
     };
 }
 
+TextToken positionedGlyph(const std::string& text, BBox bbox) {
+    return {
+        TextTokenKind::Glyph,
+        text,
+        bbox,
+        TextSource::PdfTextLayer,
+        1.0,
+    };
+}
+
 TextToken lineBreak() {
     TextToken token;
     token.kind = TextTokenKind::LineBreak;
@@ -100,4 +110,50 @@ TEST(TextNormalizerTest, IgnoresWhitespaceOnlyInput) {
     EXPECT_FALSE(page_text.has_text);
     EXPECT_EQ(page_text.preferred_source, TextSource::Unknown);
     EXPECT_TRUE(page_text.lines.empty());
+}
+
+TEST(TextNormalizerTest, SplitsOnAbruptVerticalGeometryJumpWithoutExplicitBreak) {
+    const std::vector<TextToken> tokens = {
+        positionedGlyph("left", {100.0, 700.0, 140.0, 720.0}),
+        positionedGlyph(" ", {140.0, 700.0, 150.0, 720.0}),
+        positionedGlyph("column", {150.0, 700.0, 210.0, 720.0}),
+        positionedGlyph("right", {600.0, 100.0, 650.0, 120.0}),
+        positionedGlyph(" ", {650.0, 100.0, 660.0, 120.0}),
+        positionedGlyph("column", {660.0, 100.0, 720.0, 120.0}),
+    };
+
+    const auto page_text = TextNormalizer().normalize(0, tokens);
+
+    ASSERT_EQ(page_text.lines.size(), 2U);
+    EXPECT_EQ(page_text.lines[0].text, "left column");
+    EXPECT_EQ(page_text.lines[1].text, "right column");
+    EXPECT_DOUBLE_EQ(page_text.lines[0].bbox.y0, 700.0);
+    EXPECT_DOUBLE_EQ(page_text.lines[1].bbox.y0, 100.0);
+}
+
+TEST(TextNormalizerTest, SplitsColumnsSeparatedByLargeHorizontalGap) {
+    const std::vector<TextToken> tokens = {
+        positionedGlyph("left", {100.0, 100.0, 140.0, 120.0}),
+        positionedGlyph(" ", {140.0, 100.0, 500.0, 120.0}),
+        positionedGlyph("right", {600.0, 100.0, 650.0, 120.0}),
+    };
+
+    const auto page_text = TextNormalizer().normalize(0, tokens);
+
+    ASSERT_EQ(page_text.lines.size(), 2U);
+    EXPECT_EQ(page_text.lines[0].text, "left ");
+    EXPECT_EQ(page_text.lines[1].text, "right");
+    EXPECT_DOUBLE_EQ(page_text.lines[0].bbox.x1, 140.0);
+}
+
+TEST(TextNormalizerTest, KeepsNearbySuperscriptOnTheSameLine) {
+    const std::vector<TextToken> tokens = {
+        positionedGlyph("x", {100.0, 100.0, 110.0, 120.0}),
+        positionedGlyph("2", {110.0, 94.0, 118.0, 106.0}),
+    };
+
+    const auto page_text = TextNormalizer().normalize(0, tokens);
+
+    ASSERT_EQ(page_text.lines.size(), 1U);
+    EXPECT_EQ(page_text.lines[0].text, "x2");
 }

@@ -211,6 +211,8 @@ int main(int argc, char** argv) {
                     {"id", block.id},
                     {"type", blockType(block.type)},
                     {"mapped_label", layoutLabel(block.type)},
+                    {"source_label", block.source_label},
+                    {"confidence", block.confidence},
                     {"bbox", {block.bbox.x0, block.bbox.y0, block.bbox.x1, block.bbox.y1}},
                     {"text", block.text},
                 });

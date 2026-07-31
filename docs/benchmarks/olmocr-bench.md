@@ -26,6 +26,18 @@ The two baseline facts committed inside other suite files explain why the table 
 the benchmark's `table` test-type summary contains 1,020. The official cross-suite test-type summary was: baseline
 `92.4%`, absence `93.8%`, table `50.6%`, order `44.0%`, presence `32.0%`, and math `0.0%`.
 
+### Unreleased reading-order checkpoint
+
+The post-v0.1.1 reading-order work was rerun on the complete multi-column suite on 2026-07-31. The unmodified official
+scorer passed **575 / 884 order tests (65.0%)**, up from **462 / 884 (52.3%)** in the published baseline. Candidate
+health remained **228 / 231 PDFs (98.7%)**, and the runner successfully parsed all 231 PDFs without reusing old
+candidates.
+
+This is a category-scoped development checkpoint, not a replacement full-benchmark score. The released, comparable
+cross-suite baseline remains **44.2% +/- 0.9%** until all seven suites are regenerated at one revision. The checkpoint
+uses the same pinned olmOCR source and data, 200 DPI render, CPU inference, and 1,000 bootstrap samples as the
+published run.
+
 ## Interpretation
 
 - Output health and header/footer suppression are already credible. All 1,403 PDFs produced a candidate file with

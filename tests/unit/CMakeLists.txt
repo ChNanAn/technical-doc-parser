@@ -7,6 +7,7 @@ add_executable(domain_unit_tests
     file_fingerprint_test.cpp
     json_document_exporter_test.cpp
     layout_backend_test.cpp
+    layout_postprocessing_test.cpp
     reading_order_backend_test.cpp
     structured_text_document_exporter_test.cpp
     table_backend_test.cpp

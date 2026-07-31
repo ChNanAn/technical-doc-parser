@@ -1,6 +1,7 @@
 #include "document/text_normalizer.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace doc_parser::document {
 namespace {
@@ -44,6 +45,38 @@ void appendTextToLine(PageText& page_text, const std::string& text, const BBox& 
     TextLine& line = page_text.lines.back();
     line.text += text;
     expandBBox(line.bbox, bbox);
+}
+
+void appendWhitespaceToLine(PageText& page_text, const std::string& text) {
+    if (!page_text.lines.empty()) {
+        page_text.lines.back().text += text;
+    }
+}
+
+double bboxHeight(const BBox& bbox) { return std::max(0.0, bbox.y1 - bbox.y0); }
+
+double verticalOverlap(const BBox& lhs, const BBox& rhs) {
+    return std::max(0.0, std::min(lhs.y1, rhs.y1) - std::max(lhs.y0, rhs.y0));
+}
+
+bool startsNewGeometricLine(const BBox& previous, const BBox& current) {
+    const double previous_height = bboxHeight(previous);
+    const double current_height = bboxHeight(current);
+    const double reference_height = std::max(previous_height, current_height);
+    const double shorter_height = std::min(previous_height, current_height);
+    if (reference_height <= 0.0 || shorter_height <= 0.0) {
+        return false;
+    }
+
+    const double overlap_ratio = verticalOverlap(previous, current) / shorter_height;
+    const double center_delta = std::abs((previous.y0 + previous.y1) * 0.5 - (current.y0 + current.y1) * 0.5);
+    if (overlap_ratio < 0.20 && center_delta > reference_height * 0.80) {
+        return true;
+    }
+
+    const double forward_gap = current.x0 - previous.x1;
+    const double backward_gap = previous.x0 - current.x1;
+    return overlap_ratio >= 0.50 && (forward_gap > reference_height * 6.0 || backward_gap > reference_height * 2.0);
 }
 
 std::vector<TextLine>::const_iterator findFirstTextLine(const std::vector<TextLine>& lines) {
@@ -99,11 +132,14 @@ PageText TextNormalizer::normalize(int page_index, const std::vector<TextToken>&
     page_text.page_number = page_index + 1;
 
     bool pending_new_line = false;
+    bool has_previous_glyph = false;
+    BBox previous_glyph_bbox;
     SpanAccumulator span_accumulator;
     for (const auto& token : tokens) {
         if (token.kind == TextTokenKind::LineBreak) {
             span_accumulator.flush(page_text);
             pending_new_line = true;
+            has_previous_glyph = false;
             continue;
         }
         if (token.text.empty()) {
@@ -116,6 +152,10 @@ PageText TextNormalizer::normalize(int page_index, const std::vector<TextToken>&
         }
 
         const TextSpan span = toSpan(token);
+        if (!whitespace && has_previous_glyph && startsNewGeometricLine(previous_glyph_bbox, span.bbox)) {
+            span_accumulator.flush(page_text);
+            pending_new_line = true;
+        }
         if (pending_new_line || page_text.lines.empty()) {
             span_accumulator.flush(page_text);
             startLine(page_text, span);
@@ -126,9 +166,11 @@ PageText TextNormalizer::normalize(int page_index, const std::vector<TextToken>&
 
         if (whitespace) {
             span_accumulator.flush(page_text);
-            appendTextToLine(page_text, span.text, span.bbox);
+            appendWhitespaceToLine(page_text, span.text);
         } else {
             span_accumulator.add(page_text, span);
+            previous_glyph_bbox = span.bbox;
+            has_previous_glyph = true;
         }
     }
     span_accumulator.flush(page_text);

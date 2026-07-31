@@ -1,9 +1,12 @@
 #include "pipeline/table_recognition_stage.h"
 
+#include "layout/layout_postprocessing.h"
+
 #include <algorithm>
 #include <cmath>
 #include <iterator>
 #include <set>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <utility>
 
@@ -117,6 +120,24 @@ TableRecognitionStage::recognize(const PipelineContext& context,
             return recognition;
         }
         attachDetectedTables(page_texts[index], page_layouts[index], result.tables);
+        const layout::detail::LayoutRecoveryStats recovery =
+            layout::detail::recoverUnassignedTextLines(page_texts[index], pages[index], page_layouts[index]);
+        if (recovery.recovered_lines > 0 || recovery.skipped_furniture_lines > 0 ||
+            recovery.skipped_marginalia_lines > 0) {
+            spdlog::debug("layout_recovery: page={} recovered_lines={} attached_lines={} attached_groups={} "
+                          "fallback_blocks={} grid_groups={} recovered_furniture_lines={} "
+                          "preserved_edge_body_lines={} skipped_furniture_lines={} skipped_marginalia_lines={}",
+                          pages[index].page_number,
+                          recovery.recovered_lines,
+                          recovery.attached_lines,
+                          recovery.attached_groups,
+                          recovery.fallback_blocks,
+                          recovery.coalesced_grid_groups,
+                          recovery.recovered_furniture_lines,
+                          recovery.preserved_edge_body_lines,
+                          recovery.skipped_furniture_lines,
+                          recovery.skipped_marginalia_lines);
+        }
         recognition.value.push_back(std::move(result.tables));
         recognition.diagnostics.insert(recognition.diagnostics.end(),
                                        std::make_move_iterator(result.diagnostics.begin()),

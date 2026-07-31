@@ -411,7 +411,38 @@ nlohmann::json pageReadingOrderToJson(const document::PageReadingOrder& page_rea
             {"sequence_index", item.sequence_index},
         });
     }
-    return {{"items", items}};
+
+    nlohmann::json placements = nlohmann::json::array();
+    for (const document::ReadingOrderPlacement& placement : page_reading_order.trace.placements) {
+        placements.push_back({
+            {"layout_block_id", placement.layout_block_id},
+            {"group", placement.group},
+            {"band_index", placement.band_index},
+            {"column_start", placement.column_start},
+            {"column_end", placement.column_end},
+        });
+    }
+
+    nlohmann::json cycle_breaks = nlohmann::json::array();
+    for (const document::ReadingOrderCycleBreak& cycle_break : page_reading_order.trace.cycle_breaks) {
+        cycle_breaks.push_back({
+            {"from_layout_block_id", cycle_break.from_layout_block_id},
+            {"to_layout_block_id", cycle_break.to_layout_block_id},
+            {"reason", cycle_break.reason},
+            {"confidence", cycle_break.confidence},
+        });
+    }
+
+    return {
+        {"items", items},
+        {"trace",
+         {
+             {"algorithm", page_reading_order.trace.algorithm},
+             {"placements", placements},
+             {"edge_counts", page_reading_order.trace.edge_counts},
+             {"cycle_breaks", cycle_breaks},
+         }},
+    };
 }
 
 nlohmann::json debugTableRowsToJson(const std::vector<document::TableRow>& table_rows) {

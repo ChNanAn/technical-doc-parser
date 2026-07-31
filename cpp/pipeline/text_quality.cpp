@@ -61,6 +61,10 @@ bool isDuplicateLine(const document::TextLine& candidate,
     });
 }
 
+bool isBenignControlCodepoint(std::size_t codepoint) {
+    return codepoint == 0x02U || codepoint == '\t' || codepoint == '\n' || codepoint == '\r';
+}
+
 } // namespace
 
 NativeTextQualityPolicy::NativeTextQualityPolicy(NativeTextQualityConfig config) : config_(std::move(config)) {}
@@ -83,11 +87,41 @@ NativeTextQuality NativeTextQualityPolicy::evaluate(const document::PageArtifact
             replacement = line.text.find("\xEF\xBF\xBD", replacement + 3);
         }
     }
+    for (std::size_t codepoint = 0; codepoint < native_text.extraction_signals.c0_control_counts.size(); ++codepoint) {
+        const std::size_t count = native_text.extraction_signals.c0_control_counts[codepoint];
+        quality.control_codepoints += count;
+        if (count > 0) {
+            ++quality.distinct_control_codepoints;
+        }
+        if (!isBenignControlCodepoint(codepoint)) {
+            quality.damaging_control_codepoints += count;
+            if (count > 0) {
+                ++quality.distinct_damaging_control_codepoints;
+            }
+        }
+    }
+    if (native_text.extraction_signals.decoded_codepoints > 0) {
+        quality.damaging_control_ratio = static_cast<double>(quality.damaging_control_codepoints) /
+                                         static_cast<double>(native_text.extraction_signals.decoded_codepoints);
+    }
     quality.vertical_coverage = verticalCoverage(page, native_text);
 
     if (!native_text.has_text || quality.non_whitespace_bytes == 0) {
         quality.action = NativeTextAction::UseOcr;
         quality.reason = "empty_native_text";
+        return quality;
+    }
+
+    const bool severe_control_damage = quality.damaging_control_codepoints >= config_.damaging_control_minimum &&
+                                       quality.damaging_control_ratio >=
+                                           config_.severe_damaging_control_ratio_threshold;
+    const bool diverse_control_damage =
+        quality.damaging_control_codepoints >= config_.damaging_control_minimum &&
+        quality.damaging_control_ratio >= config_.diverse_damaging_control_ratio_threshold &&
+        quality.distinct_damaging_control_codepoints >= config_.diverse_damaging_control_type_threshold;
+    if (severe_control_damage || diverse_control_damage) {
+        quality.action = NativeTextAction::UseOcr;
+        quality.reason = "corrupt_native_text_controls";
         return quality;
     }
 

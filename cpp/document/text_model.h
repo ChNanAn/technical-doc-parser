@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -34,12 +36,20 @@ struct TextLine {
     std::vector<TextSpan> spans;
 };
 
+struct NativeTextExtractionSignals {
+    std::size_t decoded_codepoints = 0;
+    std::size_t invalid_utf16_codepoints = 0;
+    std::size_t replacement_codepoints = 0;
+    std::array<std::size_t, 32> c0_control_counts{};
+};
+
 struct PageText {
     int page_index = 0;
     int page_number = 0;
     bool has_text = false;
     TextSource preferred_source = TextSource::Unknown;
     std::vector<TextLine> lines;
+    NativeTextExtractionSignals extraction_signals;
 };
 
 struct SourceReference {

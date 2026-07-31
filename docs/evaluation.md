@@ -288,9 +288,9 @@ regression under the pinned corpus and model policy; they are not production acc
 commands, metric scope, and corpus sources are in the [Benchmark Guide](../tests/benchmark/README.md).
 
 The Pipeline gate separately wraps the five committed DocLayNet images in deterministic 200 DPI PDFs and evaluates
-the final assembled `DocumentBlock` objects at IoU `0.5`. Against 151 reference blocks, the current output has 118
-predictions and 104 true positives: precision `0.8814`, recall `0.6887`, micro-F1 `0.7732`, and mean matched IoU
-`0.8740`. CI enforces micro-F1 `>= 0.75`. This is distinct from the direct layout-Backend benchmark because OCR,
+the final assembled `DocumentBlock` objects at IoU `0.5`. Against 151 reference blocks, the current output has 131
+predictions and 108 true positives: precision `0.8244`, recall `0.7152`, micro-F1 `0.7660`, and mean matched IoU
+`0.8635`. CI enforces micro-F1 `>= 0.75`. This is distinct from the direct layout-Backend benchmark because OCR,
 table recognition, and document assembly all run before scoring.
 
 ## External Validation
@@ -302,6 +302,10 @@ multi-column order (`52.3%`) performance, weak old-scan results (`16.3%`), and n
 This is intentionally published despite the low overall score. It is a reproducible external starting point, not a
 production claim, and it gives future OCR, reading-order, table, and formula-export changes an independent trend line.
 See the [full olmOCR-Bench report](benchmarks/olmocr-bench.md) for versions, counts, commands, and limitations.
+
+An unreleased post-v0.1.1 reading-order checkpoint passes `575 / 884` multi-column order tests (`65.0%`) while
+retaining `228 / 231` baseline-health checks (`98.7%`). It is a category-scoped development result, so it does not
+replace the published `44.2% +/- 0.9%` full-suite baseline.
 
 ## Implementation Priority
 

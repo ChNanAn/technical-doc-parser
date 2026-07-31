@@ -246,6 +246,107 @@ TEST(TextExtractionStageTest, ReplacesSuspiciousNativeTextWithOcr) {
     EXPECT_EQ(page_texts[0].preferred_source, doc_parser::document::TextSource::Ocr);
 }
 
+TEST(TextExtractionStageTest, ReplacesNativeTextContainingUnicodeReplacementCharactersWithOcr) {
+    FakeNativeTextExtractor native_text_extractor;
+    doc_parser::document::PageText native_text;
+    native_text.page_index = 0;
+    native_text.page_number = 1;
+    native_text.has_text = true;
+    native_text.preferred_source = doc_parser::document::TextSource::PdfTextLayer;
+    doc_parser::document::TextLine native_line;
+    native_line.text = "bad\xEF\xBF\xBD";
+    native_text.lines.push_back(native_line);
+    native_text_extractor.native_texts = {native_text};
+
+    const RecordingOcrBackend ocr_backend;
+    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
+
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(ocr_backend.recognize_calls, 1);
+    ASSERT_EQ(result.value.size(), 1U);
+    EXPECT_EQ(result.value[0].preferred_source, doc_parser::document::TextSource::Ocr);
+    ASSERT_EQ(result.value[0].lines.size(), 1U);
+    EXPECT_EQ(result.value[0].lines[0].text, "ocr text");
+}
+
+TEST(TextExtractionStageTest, KeepsNativeTextContainingOnlyPdfWordSeparators) {
+    FakeNativeTextExtractor native_text_extractor;
+    doc_parser::document::PageText native_text;
+    native_text.page_index = 0;
+    native_text.page_number = 1;
+    native_text.has_text = true;
+    native_text.preferred_source = doc_parser::document::TextSource::PdfTextLayer;
+    native_text.extraction_signals.decoded_codepoints = 100;
+    native_text.extraction_signals.c0_control_counts[0x02] = 10;
+    doc_parser::document::TextLine native_line;
+    native_line.text = std::string(300, 'a');
+    native_line.bbox = {0.0, 0.0, 100.0, 400.0};
+    native_text.lines.push_back(native_line);
+    native_text_extractor.native_texts = {native_text};
+
+    const RecordingOcrBackend ocr_backend;
+    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
+
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(ocr_backend.recognize_calls, 0);
+    EXPECT_EQ(result.value[0].preferred_source, doc_parser::document::TextSource::PdfTextLayer);
+}
+
+TEST(TextExtractionStageTest, ReplacesNativeTextWithHighDensityControlDamage) {
+    FakeNativeTextExtractor native_text_extractor;
+    doc_parser::document::PageText native_text;
+    native_text.page_index = 0;
+    native_text.page_number = 1;
+    native_text.has_text = true;
+    native_text.preferred_source = doc_parser::document::TextSource::PdfTextLayer;
+    native_text.extraction_signals.decoded_codepoints = 100;
+    native_text.extraction_signals.c0_control_counts[0x01] = 30;
+    doc_parser::document::TextLine native_line;
+    native_line.text = std::string(300, 'a');
+    native_text.lines.push_back(native_line);
+    native_text_extractor.native_texts = {native_text};
+
+    const RecordingOcrBackend ocr_backend;
+    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
+
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(ocr_backend.recognize_calls, 1);
+    EXPECT_EQ(result.value[0].preferred_source, doc_parser::document::TextSource::Ocr);
+}
+
+TEST(TextExtractionStageTest, ReplacesNativeTextWithDiverseControlDamage) {
+    FakeNativeTextExtractor native_text_extractor;
+    doc_parser::document::PageText native_text;
+    native_text.page_index = 0;
+    native_text.page_number = 1;
+    native_text.has_text = true;
+    native_text.preferred_source = doc_parser::document::TextSource::PdfTextLayer;
+    native_text.extraction_signals.decoded_codepoints = 100;
+    native_text.extraction_signals.c0_control_counts[0x01] = 2;
+    native_text.extraction_signals.c0_control_counts[0x03] = 2;
+    native_text.extraction_signals.c0_control_counts[0x04] = 2;
+    native_text.extraction_signals.c0_control_counts[0x05] = 2;
+    doc_parser::document::TextLine native_line;
+    native_line.text = std::string(300, 'a');
+    native_text.lines.push_back(native_line);
+    native_text_extractor.native_texts = {native_text};
+
+    const RecordingOcrBackend ocr_backend;
+    const doc_parser::pipeline::TextExtractionStage stage(&native_text_extractor, ocr_backend);
+
+    const auto result = stage.extract(makeContext(), {makePageArtifact()});
+
+    ASSERT_TRUE(result.ok());
+    EXPECT_EQ(ocr_backend.recognize_calls, 1);
+    EXPECT_EQ(result.value[0].preferred_source, doc_parser::document::TextSource::Ocr);
+}
+
 TEST(NativeTextQualityPolicyTest, DropsOverlappingOcrLinesDuringMerge) {
     doc_parser::document::PageText native_text;
     native_text.has_text = true;

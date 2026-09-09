@@ -23,16 +23,17 @@ import {
   getArtifactJson,
   getArtifacts,
   getCapabilities,
-  getStage,
   uploadDocument,
 } from "./api";
 import { DocumentViewer } from "./DocumentViewer";
 import { Inspector } from "./Inspector";
 import { RawDataDrawer } from "./RawDataDrawer";
+import { subscribeToRun } from "./runSubscription";
 import {
   OverlayItem,
   overlaysForStage,
   StageName,
+  stageOutputFromDocument,
   warningFromEvent,
 } from "./visualization";
 
@@ -81,13 +82,6 @@ function statusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-function eventStatus(event: Record<string, unknown>): string {
-  if (event.type === "job_succeeded") return "succeeded";
-  if (event.type === "job_failed") return "failed";
-  if (event.type === "job_cancelled") return "cancelled";
-  return "running";
-}
-
 function stageState(events: Array<Record<string, unknown>>, stage: StageName): StageState {
   const stageEvents = events.filter((event) => event.stage === stage);
   const latest = stageEvents[stageEvents.length - 1];
@@ -111,14 +105,20 @@ export function App() {
   const [runId, setRunId] = useState("");
   const [status, setStatus] = useState("idle");
   const [activeStage, setActiveStage] = useState<StageName>("layout");
-  const [stageOutput, setStageOutput] = useState<unknown>();
-  const [layoutOutput, setLayoutOutput] = useState<unknown>();
-  const [textOutput, setTextOutput] = useState<unknown>();
-  const [stageLoading, setStageLoading] = useState(false);
   const [events, setEvents] = useState<Array<Record<string, unknown>>>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const artifactRevision = events.filter((event) => event.type === "artifact_ready").length;
+  const documentArtifactId = artifacts.find((artifact) => artifact.kind === "document_json")?.artifact_id;
   const [documentOutput, setDocumentOutput] = useState<Record<string, unknown>>();
   const [error, setError] = useState("");
+  const stageOutput = useMemo(() => documentOutput && stageOutputFromDocument(documentOutput, activeStage),
+    [documentOutput, activeStage]);
+  const layoutOutput = useMemo(() => documentOutput && stageOutputFromDocument(documentOutput, "layout"),
+    [documentOutput]);
+  const textOutput = useMemo(() => documentOutput && stageOutputFromDocument(documentOutput, "text"),
+    [documentOutput]);
+  const stageLoading = Boolean(runId) && (status === "running" || status === "queued"
+    || (status === "succeeded" && !documentOutput && !error));
   const [dpi, setDpi] = useState(200);
   const [pageNumber, setPageNumber] = useState(1);
   const [selectedOverlay, setSelectedOverlay] = useState<OverlayItem>();
@@ -139,57 +139,14 @@ export function App() {
 
   useEffect(() => {
     if (!runId) return;
-    const source = new EventSource(`/api/v1/runs/${runId}/events`);
-    source.onmessage = (message) => {
-      const event = JSON.parse(message.data) as Record<string, unknown>;
-      setEvents((current) => {
-        const eventId = String(event.event_id ?? "");
-        return eventId && current.some((existing) => existing.event_id === eventId)
-          ? current
-          : [...current, event];
-      });
-      setStatus(eventStatus(event));
-    };
-    source.onerror = () => source.close();
-    return () => source.close();
+    return subscribeToRun(runId,
+      (event) => setEvents((current) => [...current, event]),
+      (nextStatus, reason) => {
+        setStatus(nextStatus);
+        if (reason) setError(reason);
+      },
+    );
   }, [runId]);
-
-  useEffect(() => {
-    if (!runId || status !== "succeeded") {
-      setStageOutput(undefined);
-      setStageLoading(Boolean(runId) && (status === "running" || status === "queued"));
-      return;
-    }
-    let active = true;
-    setStageLoading(true);
-    const requests: Promise<unknown>[] = [getStage(runId, activeStage)];
-    if (activeStage === "reading_order") {
-      requests.push(getStage(runId, "layout"), getStage(runId, "text"));
-    } else if (activeStage === "layout") {
-      requests.push(getStage(runId, "text"));
-    }
-
-    Promise.all(requests)
-      .then(([current, layoutOrText, text]) => {
-        if (!active) return;
-        setStageOutput(current);
-        if (activeStage === "reading_order") {
-          setLayoutOutput(layoutOrText);
-          setTextOutput(text);
-        } else if (activeStage === "layout") {
-          setTextOutput(layoutOrText);
-        }
-      })
-      .catch(() => {
-        if (active) setStageOutput(undefined);
-      })
-      .finally(() => {
-        if (active) setStageLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [runId, activeStage, status]);
 
   useEffect(() => {
     if (!runId) return;
@@ -202,26 +159,28 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [runId, events.length]);
+  }, [runId, artifactRevision, status]);
 
   useEffect(() => {
-    const artifact = artifacts.find((candidate) => candidate.kind === "document_json");
-    if (!runId || !artifact) {
+    if (!runId || !documentArtifactId) {
       setDocumentOutput(undefined);
       return;
     }
     let active = true;
-    getArtifactJson(runId, artifact.artifact_id)
+    getArtifactJson(runId, documentArtifactId)
       .then((output) => {
         if (active) setDocumentOutput(output);
       })
-      .catch(() => {
-        if (active) setDocumentOutput(undefined);
+      .catch((reason) => {
+        if (active) {
+          setDocumentOutput(undefined);
+          setError(`读取解析结果失败：${String(reason)}`);
+        }
       });
     return () => {
       active = false;
     };
-  }, [artifacts, runId]);
+  }, [documentArtifactId, runId]);
 
   const selectableBackends = useMemo(() => capabilities.available, [capabilities]);
   const pageArtifacts = useMemo(
@@ -293,9 +252,6 @@ export function App() {
     setEvents([]);
     setArtifacts([]);
     setDocumentOutput(undefined);
-    setStageOutput(undefined);
-    setLayoutOutput(undefined);
-    setTextOutput(undefined);
     setStatus("idle");
     setError("");
     setPageNumber(1);
@@ -321,7 +277,6 @@ export function App() {
       setEvents([]);
       setArtifacts([]);
       setDocumentOutput(undefined);
-      setStageOutput(undefined);
       setStatus(run.status);
       setActiveStage("layout");
     } catch (reason) {

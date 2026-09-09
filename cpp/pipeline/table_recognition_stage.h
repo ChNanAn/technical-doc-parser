@@ -21,6 +21,14 @@ public:
                                                              const std::vector<document::PageText>& page_texts,
                                                              std::vector<document::PageLayout>& page_layouts) const;
 
+    StageResult<document::PageTables> recognizePage(const PipelineContext& context,
+                                                    const document::PageArtifact& page,
+                                                    const document::PageText& text,
+                                                    document::PageLayout& layout) const;
+
+    static common::Status linkPages(const std::vector<document::PageArtifact>& pages,
+                                    std::vector<document::PageTables>& tables);
+
 private:
     const table::ITableBackend& table_;
 };

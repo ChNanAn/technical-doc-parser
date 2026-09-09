@@ -8,12 +8,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from .database import Database
+from .dispatcher import dispatch_jobs
 from .models import (
     CapabilitiesResponse,
     DocumentResponse,
@@ -107,15 +109,6 @@ async def _save_upload(upload: UploadFile, destination: Path, maximum_bytes: int
     return size, digest.hexdigest()
 
 
-async def _enqueue_job(redis: Redis, stream: str, fields: dict[str, str], maximum_length: int) -> None:
-    await redis.xadd(
-        stream,
-        fields,
-        maxlen=maximum_length,
-        approximate=True,
-    )
-
-
 def _document_stage_output(document: dict[str, Any], stage: str) -> Any:
     if stage in {"assembly", "export"}:
         return {"blocks": document.get("blocks", [])}
@@ -163,15 +156,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.redis = redis
         app.state.projector = projector
         app.state.projector_state = projector_state
+        dispatcher = asyncio.create_task(
+            dispatch_jobs(redis, database, resolved.job_stream, resolved.job_stream_max_length),
+            name="job-outbox-dispatcher",
+        )
+        app.state.dispatcher = dispatcher
         await asyncio.sleep(0)
-        yield
-        projector.cancel()
         try:
-            await projector
-        except asyncio.CancelledError:
-            pass
-        await redis.aclose()
-        await database.close()
+            yield
+        finally:
+            projector.cancel()
+            dispatcher.cancel()
+            await asyncio.gather(projector, dispatcher, return_exceptions=True)
+            await redis.aclose()
+            await database.close()
 
     app = FastAPI(title="Document Intelligence Platform API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
@@ -189,6 +187,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         projector_state: ProjectorState = request.app.state.projector_state
         if projector.done() or not projector_state.active:
             raise HTTPException(503, "worker event projector is not active")
+        if request.app.state.dispatcher.done():
+            raise HTTPException(503, "job dispatcher is not active")
         return {"status": "ok"}
 
     @app.get("/api/v1/capabilities", response_model=CapabilitiesResponse)
@@ -224,7 +224,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/v1/documents/{document_id}/runs", response_model=RunResponse, status_code=202)
     async def create_run(document_id: str, options: RunCreate, request: Request) -> RunResponse:
         _validate_backends(options)
-        workers = await _workers(request.app.state.redis)
+        try:
+            workers = await _workers(request.app.state.redis)
+        except RedisError:
+            # Backend names are still validated. Delivery waits in the outbox
+            # until Redis and Worker capability discovery are available again.
+            workers = []
         available = _common_worker_capabilities(workers)
         for stage, backend in options.backends.model_dump(exclude={"registry_config"}).items():
             if backend not in available[stage]:
@@ -268,19 +273,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         job_path.write_text(json.dumps(job, indent=2), encoding="utf-8")
         record = await database.create_run({
             "id": run_id,
+            "job_id": job_id,
             "document_id": document_id,
             "attempt_id": attempt_id,
             "options": options.model_dump(),
             "job_path": str(job_path.resolve()),
         })
-        redis: Redis = request.app.state.redis
-        await redis.hset(f"run:{run_id}", mapping={"status": "queued", "stage": ""})
-        await _enqueue_job(
-            redis,
-            resolved.job_stream,
-            {"job_id": job_id, "run_id": run_id, "job_path": str(job_path.resolve())},
-            resolved.job_stream_max_length,
-        )
         return RunResponse(
             run_id=run_id,
             document_id=document_id,
@@ -290,11 +288,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             created_at=record["created_at"],
         )
 
-    async def run_response(run_id: str, request: Request) -> RunResponse:
-        record = await request.app.state.database.get_run(run_id)
-        if record is None:
-            raise HTTPException(404, "run not found")
-        state = await request.app.state.redis.hgetall(f"run:{run_id}")
+    def response_from_record(record: Any, state: dict[str, str]) -> RunResponse:
+        if record["status"] in {"succeeded", "failed", "cancelled"}:
+            state = {}  # A stale cache cannot undo a durable terminal state.
         return RunResponse(
             run_id=record["id"], document_id=record["document_id"], attempt_id=record["attempt_id"],
             status=state.get("status", record["status"]), stage=state.get("stage") or record["stage"],
@@ -303,14 +299,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             error=state.get("error") or record["error"],
         )
 
+    async def run_response(run_id: str, request: Request) -> RunResponse:
+        record = await request.app.state.database.get_run(run_id)
+        if record is None:
+            raise HTTPException(404, "run not found")
+        try:
+            state = await request.app.state.redis.hgetall(f"run:{run_id}")
+        except RedisError:
+            state = {}
+        return response_from_record(record, state)
+
     @app.get("/api/v1/runs/{run_id}", response_model=RunResponse)
     async def get_run(run_id: str, request: Request) -> RunResponse:
         return await run_response(run_id, request)
 
     @app.get("/api/v1/documents/{document_id}/runs", response_model=list[RunResponse])
-    async def list_runs(document_id: str, request: Request) -> list[RunResponse]:
-        records = await request.app.state.database.list_runs(document_id)
-        return [await run_response(record["id"], request) for record in records]
+    async def list_runs(document_id: str, request: Request, limit: int = Query(100, ge=1, le=500),
+                        offset: int = Query(0, ge=0)) -> list[RunResponse]:
+        records = await request.app.state.database.list_runs(document_id, limit, offset)
+        if not records:
+            return []
+        try:
+            async with request.app.state.redis.pipeline(transaction=False) as pipe:
+                for record in records:
+                    pipe.hgetall(f"run:{record['id']}")
+                states = await pipe.execute()
+        except RedisError:
+            states = [{} for _ in records]
+        return [response_from_record(record, state) for record, state in zip(records, states)]
 
     @app.get("/api/v1/runs/{run_id}/events")
     async def stream_events(run_id: str, request: Request, last_event_id: str | None = None) -> StreamingResponse:
@@ -344,7 +360,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         manifests = resolved.runtime_root / "runs" / run_id / "artifacts"
         if not manifests.exists():
             return []
-        return [json.loads(path.read_text(encoding="utf-8")) for path in sorted(manifests.glob("*.json"))]
+        return await asyncio.to_thread(
+            lambda: [json.loads(path.read_text(encoding="utf-8")) for path in sorted(manifests.glob("*.json"))]
+        )
 
     @app.get("/api/v1/runs/{run_id}/artifacts/{artifact_id}")
     async def download_artifact(run_id: str, artifact_id: str, request: Request) -> FileResponse:
@@ -372,8 +390,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         output = resolved.runtime_root / "runs" / run_id / "output" / "document.json"
         if not output.is_file():
             raise HTTPException(409, "stage output is not available yet")
-        document = json.loads(output.read_text(encoding="utf-8"))
-        return _document_stage_output(document, stage)
+        return await asyncio.to_thread(
+            lambda: _document_stage_output(json.loads(output.read_text(encoding="utf-8")), stage)
+        )
 
     return app
 

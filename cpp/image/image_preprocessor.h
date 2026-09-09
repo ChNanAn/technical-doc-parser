@@ -22,6 +22,10 @@ public:
                         const std::filesystem::path& output_path,
                         const PreprocessOptions& options = {}) const;
 
+    bool preprocessToFile(const cv::Mat& input,
+                          const std::filesystem::path& output_path,
+                          const PreprocessOptions& options = {}) const;
+
 private:
     cv::Mat toGrayscale(const cv::Mat& input) const;
     cv::Mat denoise(const cv::Mat& grayscale) const;

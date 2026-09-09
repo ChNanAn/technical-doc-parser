@@ -19,6 +19,10 @@ public:
                                                            const std::vector<document::PageArtifact>& pages,
                                                            const std::vector<document::PageText>& page_texts) const;
 
+    StageResult<document::PageLayout> analyzePage(const PipelineContext& context,
+                                                  const document::PageArtifact& page,
+                                                  const document::PageText& text) const;
+
 private:
     const layout::ILayoutBackend& layout_;
 };

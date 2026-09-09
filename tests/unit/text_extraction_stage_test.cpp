@@ -318,6 +318,15 @@ TEST(TextExtractionStageTest, ReplacesNativeTextWithHighDensityControlDamage) {
     ASSERT_TRUE(result.ok());
     EXPECT_EQ(ocr_backend.recognize_calls, 1);
     EXPECT_EQ(result.value[0].preferred_source, doc_parser::document::TextSource::Ocr);
+
+    const doc_parser::ocr::UnavailableOcrBackend unavailable("injected OCR failure");
+    const doc_parser::pipeline::TextExtractionStage failing_stage(&native_text_extractor, unavailable);
+    const auto failed = failing_stage.extract(makeContext(), {makePageArtifact()});
+    EXPECT_FALSE(failed.ok());
+    ASSERT_EQ(failed.value.size(), 1U);
+    ASSERT_EQ(failed.value[0].lines.size(), 1U);
+    EXPECT_EQ(failed.value[0].lines[0].text, native_line.text);
+    EXPECT_EQ(failed.value[0].extraction_signals.c0_control_counts[0x01], 30U);
 }
 
 TEST(TextExtractionStageTest, ReplacesNativeTextWithDiverseControlDamage) {

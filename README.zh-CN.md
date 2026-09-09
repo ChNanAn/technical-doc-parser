@@ -92,6 +92,11 @@ docker run --rm \
   /work/input.pdf --out /output
 ```
 
+当前源码版逐页完成渲染、文本/OCR、版面和表格识别，再处理下一页。页面图像在渲染后立即通过
+阶段事件发布，缓存像素在该页表格识别后释放，保留预算为 64 MiB。
+可用 `--image-cache-bytes 0` 关闭，或指定其他字节上限；该预算不包含模型张量和
+当前未缓存页面的内存。详见[测量结果与限制](docs/optimization-2026-09.md)。
+
 可以显式选择 Backend，也可以使用版本化 Registry 配置：
 
 ```bash

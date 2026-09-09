@@ -41,7 +41,7 @@ struct DocumentAssembleRequest {
 
 class DocumentAssembler {
 public:
-    bool assemble(const DocumentAssembleRequest& request,
+    bool assemble(DocumentAssembleRequest request,
                   document::ParsedDocument& document,
                   document::PipelineArtifacts& artifacts) const;
 };

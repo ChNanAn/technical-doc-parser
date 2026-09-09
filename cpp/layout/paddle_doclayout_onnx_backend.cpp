@@ -1,3 +1,4 @@
+#include "image/page_image_cache.h"
 #include "layout/layout_backend.h"
 #include "layout/layout_postprocessing.h"
 
@@ -364,7 +365,7 @@ bool PaddleDocLayoutOnnxBackend::analyze(const LayoutRequest& request, LayoutRes
         return false;
     }
 
-    const cv::Mat image = cv::imread(request.page.output_path.string(), cv::IMREAD_COLOR);
+    const cv::Mat image = image::readPageImage(request.page);
     if (image.empty()) {
         return false;
     }

@@ -13,9 +13,15 @@ public:
     int pageCount() const override;
 
     bool renderPages(const RenderRequest& request, std::vector<document::PageArtifact>& pages) const override;
+    bool supportsPageRendering() const override { return true; }
+    bool renderPage(const RenderRequest& request, int page_index, document::PageArtifact& page) const override;
 
     bool extractNativeText(const NativeTextRequest& request,
                            std::vector<document::PageText>& page_texts) const override;
+    bool supportsPageTextExtraction() const override { return true; }
+    bool extractPageNativeText(const NativeTextRequest& request,
+                               int page_index,
+                               document::PageText& page_text) const override;
 
 private:
     std::string source_path_;

@@ -6,6 +6,14 @@
 
 namespace doc_parser::pdf {
 
+bool RenderService::renderPage(const PdfDocument& source,
+                               const RenderRequest& request,
+                               int page_index,
+                               document::PageArtifact& page) const {
+    page = {};
+    return source.isOpen() && PdfPageRenderer().renderPage(source.reader(), request, page_index, page);
+}
+
 bool RenderService::renderPages(const PdfDocument& source,
                                 const RenderRequest& request,
                                 std::vector<document::PageArtifact>& pages) const {

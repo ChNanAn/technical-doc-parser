@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bboxFrom, overlaysForStage } from "./visualization";
+import { bboxFrom, overlaysForStage, stageOutputFromDocument } from "./visualization";
 
 describe("bboxFrom", () => {
   it("accepts contract arrays and debug objects", () => {
@@ -10,6 +10,22 @@ describe("bboxFrom", () => {
   it("rejects empty or inverted boxes", () => {
     expect(bboxFrom([10, 20, 10, 40])).toBeUndefined();
     expect(bboxFrom({ x0: 5, y0: 6, x1: 4, y1: 8 })).toBeUndefined();
+  });
+});
+
+describe("stages from the downloaded document", () => {
+  it("uses contract page numbers and the tables debug key", () => {
+    const table = { tables: [{ id: "table_7" }] };
+    const document = { blocks: [{ id: "block_7" }], pages: [{
+      number: 7, image: { uri: "pages/page_7.png" },
+      extensions: { "io.github.chnanan.technical-doc-parser.pipeline_debug": { tables: table } },
+    }] };
+    expect(stageOutputFromDocument(document, "table")).toEqual([{ page_number: 7, output: table }]);
+    expect(stageOutputFromDocument(document, "render")).toEqual([
+      { page_number: 7, image: { uri: "pages/page_7.png" } },
+    ]);
+    expect(stageOutputFromDocument(document, "export")).toEqual({ blocks: document.blocks });
+    expect(stageOutputFromDocument(document, "text")).toEqual([{ page_number: 7, output: undefined }]);
   });
 });
 

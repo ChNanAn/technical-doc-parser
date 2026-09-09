@@ -6,6 +6,31 @@ versioned document contract.
 
 ## [Unreleased]
 
+### Fixed
+
+- Persist Run creation and queued delivery in a transactional PostgreSQL outbox, retry uncertain delivery without
+  duplicate enqueue, and keep full-queue backlogs without trimming unconsumed Jobs.
+- Publish Worker validation failures to the event projector before acknowledgment, and update both event streams
+  and cached Run state in one Redis script. Queue messages now carry Attempt identity.
+- Recover browser status after SSE interruptions and missed terminal events; durable terminal states override
+  stale Redis state.
+- Use transitive coordinate comparisons throughout reading-order sorting and reject non-finite coordinates.
+- Publish JSON, Markdown, and HTML files atomically so readers do not observe partial writes.
+
+### Changed
+
+- Process PDF pages through rendering, text/OCR, layout, and tables one at a time. Publish page-image events
+  immediately after rendering, release each page's cached pixels, and check deadlines between pages/stages.
+  Preserve legacy document backends, cross-page table linking, and exported warning order. Stage progress
+  now interleaves by page; stage durations accumulate execution time rather than overlapping wall time.
+- Reuse decoded BGR page images across OCR, layout, table, and debug preprocessing with a per-parse
+  64 MiB retained-pixel budget. CLI and SDK callers can configure or disable it with `image_cache_bytes`.
+  Release cached pixels after table recognition; preserve file fallback and record decode/cache statistics.
+- Transfer intermediate page data into document assembly instead of copying full text, layout, order, and table
+  vectors twice. Reuse the downloaded document for browser stage inspection.
+- Paginate Run listing and batch cached-state queries; move large stage/artifact reads off the API event loop.
+- Add real PostgreSQL/Redis delivery fault tests and Worker rejection coverage to CI.
+
 ## [0.1.1] - 2026-07-29
 
 ### Added

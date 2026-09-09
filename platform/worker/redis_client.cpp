@@ -6,6 +6,7 @@
 #include <netdb.h>
 #include <stdexcept>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <utility>
 
@@ -65,6 +66,14 @@ void RedisClient::connectSocket() {
     }
     for (addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
         socket_ = ::socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+        if (socket_ >= 0) {
+            const timeval timeout{10, 0};
+            if (::setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0 ||
+                ::setsockopt(socket_, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) != 0) {
+                closeSocket();
+                continue;
+            }
+        }
         if (socket_ >= 0 && ::connect(socket_, address->ai_addr, address->ai_addrlen) == 0) {
             break;
         }
@@ -154,15 +163,20 @@ RedisClient::Value RedisClient::readValue() {
 }
 
 RedisClient::Value RedisClient::command(const std::vector<std::string>& arguments) {
-    if (socket_ < 0) {
-        connectSocket();
+    try {
+        if (socket_ < 0) {
+            connectSocket();
+        }
+        sendAll(socket_, encodeCommand(arguments));
+        Value response = readValue();
+        if (response.type == Value::Type::Error) {
+            throw std::runtime_error("Redis error: " + response.string);
+        }
+        return response;
+    } catch (...) {
+        closeSocket();
+        throw;
     }
-    sendAll(socket_, encodeCommand(arguments));
-    Value response = readValue();
-    if (response.type == Value::Type::Error) {
-        throw std::runtime_error("Redis error: " + response.string);
-    }
-    return response;
 }
 
 void RedisClient::ensureConsumerGroup(const std::string& stream, const std::string& group) {
@@ -229,6 +243,46 @@ void RedisClient::setHash(const std::string& key, const std::map<std::string, st
 
 void RedisClient::expire(const std::string& key, int seconds) {
     (void)command({"EXPIRE", key, std::to_string(seconds)});
+}
+
+void RedisClient::publishEvent(const std::string& run_id,
+                               const std::string& event,
+                               const std::map<std::string, std::string>& state,
+                               std::size_t run_maximum_length,
+                               std::size_t platform_maximum_length,
+                               int retention_seconds) {
+    static const std::string script = R"(
+        local expected = {'stream', 'stream', 'hash'}
+        for i = 1, 3 do
+            local kind = redis.call('TYPE', KEYS[i]).ok
+            if kind ~= 'none' and kind ~= expected[i] then
+                return redis.error_reply('WRONGTYPE event publication key ' .. KEYS[i])
+            end
+        end
+        redis.call('XADD', KEYS[1], 'MAXLEN', '~', ARGV[2], '*', 'event', ARGV[1])
+        redis.call('XADD', KEYS[2], 'MAXLEN', '~', ARGV[3], '*', 'event', ARGV[1])
+        for i = 5, #ARGV, 2 do redis.call('HSET', KEYS[3], ARGV[i], ARGV[i + 1]) end
+        redis.call('EXPIRE', KEYS[1], ARGV[4])
+        redis.call('EXPIRE', KEYS[3], ARGV[4])
+        return 1
+    )";
+    std::vector<std::string> arguments{
+        "EVAL",
+        script,
+        "3",
+        "run-events:" + run_id,
+        "platform-events",
+        "run:" + run_id,
+        event,
+        std::to_string(run_maximum_length),
+        std::to_string(platform_maximum_length),
+        std::to_string(retention_seconds),
+    };
+    for (const auto& [key, value] : state) {
+        arguments.push_back(key);
+        arguments.push_back(value);
+    }
+    (void)command(arguments);
 }
 
 } // namespace doc_parser::platform

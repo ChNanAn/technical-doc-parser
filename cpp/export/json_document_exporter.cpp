@@ -1,5 +1,7 @@
 #include "export/json_document_exporter.h"
 
+#include "common/atomic_output_file.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -771,15 +773,14 @@ common::Status JsonDocumentExporter::write(const DocumentExportRequest& request)
     if (!serialization.ok()) {
         return serialization.status;
     }
-    std::ofstream manifest_file(request.output_path);
-    if (!manifest_file) {
+    common::AtomicOutputFile manifest_file(request.output_path);
+    if (!manifest_file.isOpen()) {
         return common::Status::error(
             "export.json.open_failed", "failed to open JSON output: " + request.output_path.string(), "export", true);
     }
 
-    manifest_file << serialization.json << '\n';
-    manifest_file.flush();
-    if (!manifest_file) {
+    manifest_file.stream() << serialization.json << '\n';
+    if (!manifest_file.commit()) {
         return common::Status::error(
             "export.json.write_failed", "failed to write JSON output: " + request.output_path.string(), "export", true);
     }

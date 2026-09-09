@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import asyncpg
@@ -35,6 +36,20 @@ ALTER TABLE runs ADD COLUMN IF NOT EXISTS error TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS last_event_sequence BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS runs_document_id_idx ON runs(document_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS job_outbox (
+    job_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),
+    attempt_id TEXT NOT NULL,
+    job_path TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
+    marker_cleaned BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS job_outbox_pending_idx ON job_outbox(created_at)
+    WHERE published_at IS NULL;
+CREATE INDEX IF NOT EXISTS job_outbox_cleanup_idx ON job_outbox(published_at)
+    WHERE published_at IS NOT NULL AND NOT marker_cleaned;
 """
 
 
@@ -70,19 +85,57 @@ class Database:
         return await self.pool.fetchrow("SELECT * FROM documents WHERE id=$1", document_id)
 
     async def create_run(self, values: dict[str, Any]) -> asyncpg.Record:
-        return await self.pool.fetchrow(
-            """INSERT INTO runs(id, document_id, attempt_id, status, options_json, job_path)
-               VALUES($1, $2, $3, 'queued', $4::jsonb, $5) RETURNING *""",
-            values["id"], values["document_id"], values["attempt_id"],
-            json.dumps(values["options"]), values["job_path"],
+        async with self.pool.acquire() as connection, connection.transaction():
+            record = await connection.fetchrow(
+                """INSERT INTO runs(id, document_id, attempt_id, status, options_json, job_path)
+                   VALUES($1, $2, $3, 'queued', $4::jsonb, $5) RETURNING *""",
+                values["id"], values["document_id"], values["attempt_id"],
+                json.dumps(values["options"]), values["job_path"],
+            )
+            await connection.execute(
+                """INSERT INTO job_outbox(job_id, run_id, attempt_id, job_path)
+                   VALUES($1, $2, $3, $4)""",
+                values["job_id"], values["id"], values["attempt_id"], values["job_path"],
+            )
+            return record
+
+    async def dispatch_next_job(
+        self, publish: Callable[[dict[str, str]], Awaitable[str | None]],
+    ) -> bool:
+        # The row lock serializes dispatchers. Redis keeps an idempotency marker
+        # until this transaction commits, including across connection failures.
+        async with self.pool.acquire() as connection, connection.transaction():
+            row = await connection.fetchrow(
+                """SELECT job_id, run_id, attempt_id, job_path FROM job_outbox
+                   WHERE published_at IS NULL ORDER BY created_at
+                   LIMIT 1 FOR UPDATE SKIP LOCKED"""
+            )
+            if row is None or await publish(dict(row)) is None:
+                return False
+            await connection.execute(
+                "UPDATE job_outbox SET published_at=NOW() WHERE job_id=$1", row["job_id"],
+            )
+        return True
+
+    async def published_outbox_jobs(self) -> list[asyncpg.Record]:
+        return await self.pool.fetch(
+            """SELECT job_id FROM job_outbox WHERE published_at IS NOT NULL
+               AND NOT marker_cleaned ORDER BY published_at LIMIT 50"""
+        )
+
+    async def mark_outbox_marker_cleaned(self, job_id: str) -> None:
+        await self.pool.execute(
+            """UPDATE job_outbox SET marker_cleaned=TRUE
+               WHERE job_id=$1 AND published_at IS NOT NULL""", job_id,
         )
 
     async def get_run(self, run_id: str) -> asyncpg.Record | None:
         return await self.pool.fetchrow("SELECT * FROM runs WHERE id=$1", run_id)
 
-    async def list_runs(self, document_id: str) -> list[asyncpg.Record]:
+    async def list_runs(self, document_id: str, limit: int = 100, offset: int = 0) -> list[asyncpg.Record]:
         return await self.pool.fetch(
-            "SELECT * FROM runs WHERE document_id=$1 ORDER BY created_at DESC", document_id
+            "SELECT * FROM runs WHERE document_id=$1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3",
+            document_id, limit, offset,
         )
 
     async def update_run(

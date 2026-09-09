@@ -15,6 +15,22 @@ jobs:
   api:
     name: API and protocol
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_USER: document
+          POSTGRES_PASSWORD: document
+          POSTGRES_DB: document
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U document" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4.2-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DIE_TEST_DATABASE_URL: postgresql://document:document@localhost:5432/document
+      DIE_TEST_REDIS_URL: redis://localhost:6379/0
 
     steps:
       - name: Checkout

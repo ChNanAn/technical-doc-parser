@@ -154,6 +154,26 @@ int main(int argc, char** argv) {
     }
     error = NULL;
 
+    const char* invalid_image_budgets[] = {"-1", "1.5", "true", "\"67108864\"", "18446744073709551616"};
+    for (size_t i = 0; i < sizeof(invalid_image_budgets) / sizeof(invalid_image_budgets[0]); ++i) {
+        snprintf(options,
+                 sizeof(options),
+                 "{\"schema_version\":1,\"input_path\":\"input.pdf\","
+                 "\"output_directory\":\"output\",\"image_cache_bytes\":%s}",
+                 invalid_image_budgets[i]);
+        result = die_engine_parse(engine, options, &document, &error);
+        if (document != NULL || expect_error("invalid image cache budget",
+                                             result,
+                                             DIE_RESULT_INVALID_ARGUMENT,
+                                             "c_api.invalid_options",
+                                             "parse",
+                                             error)) {
+            die_engine_destroy(engine);
+            return 1;
+        }
+        error = NULL;
+    }
+
     if (snprintf(options,
                  sizeof(options),
                  "{\"schema_version\":1,\"input_path\":\"%s.missing\","
@@ -179,7 +199,7 @@ int main(int argc, char** argv) {
     if (snprintf(options,
                  sizeof(options),
                  "{\"schema_version\":1,\"input_path\":\"%s\","
-                 "\"output_directory\":\"%s\",\"dpi\":72,\"run_id\":\"c_api_smoke\"}",
+                 "\"output_directory\":\"%s\",\"dpi\":72,\"run_id\":\"c_api_smoke\",\"image_cache_bytes\":0}",
                  argv[1],
                  argv[2]) >= (int)sizeof(options)) {
         fprintf(stderr, "test paths exceed options buffer\n");

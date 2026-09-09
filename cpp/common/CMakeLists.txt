@@ -1,4 +1,5 @@
 add_library(doc_parser_common
+    atomic_output_file.cpp
     file_fingerprint.cpp
 )
 

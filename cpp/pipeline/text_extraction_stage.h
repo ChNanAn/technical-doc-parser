@@ -20,6 +20,10 @@ public:
     StageResult<std::vector<document::PageText>> extract(const PipelineContext& context,
                                                          const std::vector<document::PageArtifact>& pages) const;
 
+    StageResult<document::PageText> extractPage(const PipelineContext& context,
+                                                const document::PageArtifact& page,
+                                                document::PageText native_text) const;
+
 private:
     const document_source::INativeTextExtractor* native_text_extractor_ = nullptr;
     const ocr::IOcrBackend& ocr_;

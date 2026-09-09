@@ -33,4 +33,16 @@ bool PdfDocumentBackend::extractNativeText(const NativeTextRequest& request,
     return text.extractText(source_, request.dpi, page_texts);
 }
 
+bool PdfDocumentBackend::renderPage(const RenderRequest& request, int page_index, document::PageArtifact& page) const {
+    const doc_parser::pdf::RenderService render;
+    return render.renderPage(source_, {request.dpi, request.output_root, request.pages_dir}, page_index, page);
+}
+
+bool PdfDocumentBackend::extractPageNativeText(const NativeTextRequest& request,
+                                               int page_index,
+                                               document::PageText& page_text) const {
+    const doc_parser::pdf::TextService text;
+    return text.extractPageText(source_, request.dpi, page_index, page_text);
+}
+
 } // namespace doc_parser::document_source::pdf

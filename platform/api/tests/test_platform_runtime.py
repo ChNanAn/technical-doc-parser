@@ -10,7 +10,6 @@ from app.database import Database
 from app.main import (
     PIPELINE_DEBUG_EXTENSION,
     _document_stage_output,
-    _enqueue_job,
 )
 from app.projector import (
     INFORMATION_EVENT_TYPES,
@@ -90,25 +89,6 @@ def test_stage_output_reads_document_v1_page_and_debug_fields() -> None:
         {"page_number": 7, "output": {"tables": []}}
     ]
     assert _document_stage_output(document, "export") == {"blocks": [{"id": "block_7"}]}
-
-
-def test_job_queue_uses_an_approximate_stream_limit() -> None:
-    class QueueRedis:
-        def __init__(self) -> None:
-            self.added: tuple[str, dict[str, str], dict[str, Any]] | None = None
-
-        async def xadd(self, stream: str, fields: dict[str, str], **options: Any) -> None:
-            self.added = (stream, fields, options)
-
-    redis = QueueRedis()
-    fields = {"job_id": "job_1", "run_id": "run_1", "job_path": "/runtime/job.json"}
-    asyncio.run(_enqueue_job(redis, "document-jobs", fields, 10_000))  # type: ignore[arg-type]
-
-    assert redis.added == (
-        "document-jobs",
-        fields,
-        {"maxlen": 10_000, "approximate": True},
-    )
 
 
 def test_projector_discards_and_acknowledges_malformed_events(caplog: Any) -> None:

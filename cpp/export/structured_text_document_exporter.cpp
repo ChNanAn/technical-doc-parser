@@ -1,5 +1,7 @@
 #include "export/structured_text_document_exporter.h"
 
+#include "common/atomic_output_file.h"
+
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -232,10 +234,11 @@ common::Status MarkdownDocumentExporter::write(const DocumentExportRequest& requ
     if (common::Status status = validateRequest(request, "markdown"); !status.okStatus()) {
         return status;
     }
-    std::ofstream output(request.output_path);
-    if (!output) {
+    common::AtomicOutputFile file(request.output_path);
+    if (!file.isOpen()) {
         return openFailed("markdown", request.output_path);
     }
+    std::ostream& output = file.stream();
     const auto& blocks = request.document->blocks;
     for (std::size_t index = 0; index < blocks.size(); ++index) {
         const document::DocumentBlock& block = blocks[index];
@@ -257,18 +260,18 @@ common::Status MarkdownDocumentExporter::write(const DocumentExportRequest& requ
             output << block.text << "\n\n";
         }
     }
-    output.flush();
-    return output ? common::Status::ok() : writeFailed("markdown", request.output_path);
+    return file.commit() ? common::Status::ok() : writeFailed("markdown", request.output_path);
 }
 
 common::Status HtmlDocumentExporter::write(const DocumentExportRequest& request) const {
     if (common::Status status = validateRequest(request, "html"); !status.okStatus()) {
         return status;
     }
-    std::ofstream output(request.output_path);
-    if (!output) {
+    common::AtomicOutputFile file(request.output_path);
+    if (!file.isOpen()) {
         return openFailed("html", request.output_path);
     }
+    std::ostream& output = file.stream();
     output << "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>"
            << htmlEscape(request.document->source.path) << "</title></head><body>\n";
     const auto& blocks = request.document->blocks;
@@ -287,8 +290,7 @@ common::Status HtmlDocumentExporter::write(const DocumentExportRequest& request)
         output << '<' << tag << '>' << htmlEscape(block.text) << "</" << tag << ">\n";
     }
     output << "</body></html>\n";
-    output.flush();
-    return output ? common::Status::ok() : writeFailed("html", request.output_path);
+    return file.commit() ? common::Status::ok() : writeFailed("html", request.output_path);
 }
 
 } // namespace doc_parser::exporter

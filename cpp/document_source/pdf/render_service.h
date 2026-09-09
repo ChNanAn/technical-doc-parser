@@ -22,6 +22,10 @@ public:
     bool renderPages(const PdfDocument& source,
                      const RenderRequest& request,
                      std::vector<document::PageArtifact>& pages) const;
+    bool renderPage(const PdfDocument& source,
+                    const RenderRequest& request,
+                    int page_index,
+                    document::PageArtifact& page) const;
 };
 
 } // namespace doc_parser::pdf

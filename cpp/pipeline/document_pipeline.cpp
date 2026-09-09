@@ -17,6 +17,10 @@
 #include "image/image_preprocessor.h"
 #endif
 
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+#include "image/page_image_cache.h"
+#endif
+
 #include <chrono>
 #include <spdlog/spdlog.h>
 #include <string>
@@ -32,11 +36,55 @@ long long elapsedMilliseconds(const Clock::time_point& started) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
 }
 
+// Stages overlap in lifecycle while pages are processed serially. Measure only
+// time spent executing each stage, and emit one start/completion per document.
+class PageStage {
+public:
+    PageStage(IStageObserver& observer, std::string name, std::string backend, int total)
+        : observer_(observer), info_{std::move(name), std::move(backend), total} {}
+
+    void begin() {
+        if (!started_) {
+            observer_.onStageStarted(info_);
+            started_ = true;
+        }
+    }
+    template <typename Operation> auto measure(Operation&& operation) {
+        const auto started = Clock::now();
+        auto result = operation();
+        active_time_ += Clock::now() - started;
+        return result;
+    }
+    void progress(int completed) { observer_.onStageProgress({info_.stage, completed, info_.total}); }
+    void warnings(std::vector<common::Diagnostic> values) {
+        for (auto& value : values) {
+            observer_.onStageWarning(value);
+            diagnostics.push_back(std::move(value));
+        }
+    }
+    void complete() {
+        if (!started_) {
+            begin();
+            progress(0);
+        }
+        observer_.onStageCompleted(
+            {info_.stage, std::chrono::duration_cast<std::chrono::milliseconds>(active_time_).count()});
+    }
+    std::vector<common::Diagnostic> diagnostics;
+
+private:
+    IStageObserver& observer_;
+    StageStartedInfo info_;
+    Clock::duration active_time_{};
+    bool started_ = false;
+};
+
 common::Status stageFailed(IStageObserver& observer,
                            const std::string& stage,
                            const std::string& code,
                            const std::string& message,
                            bool retryable = false) {
+    spdlog::error("pipeline_failed: stage={} code={} reason={}", stage, code, message);
     observer.onStageFailed({stage, code, message, retryable});
     return common::Status::error(code, message, stage, retryable);
 }
@@ -123,30 +171,28 @@ std::string relativeToOutputRoot(const std::filesystem::path& path, const Pipeli
 }
 #endif
 
-bool preprocessDebugImages(const PipelineContext& context, std::vector<document::PageArtifact>& pages) {
+bool preprocessDebugImage(const PipelineContext& context, document::PageArtifact& page) {
     if (!context.debug) {
         return true;
     }
 
 #if DOC_PARSER_ENABLE_OPENCV
     const image::ImagePreprocessor preprocessor;
-    for (auto& page : pages) {
-        const std::filesystem::path output_path =
-            context.output.debug_dir / ("page_" + std::to_string(page.page_number) + "_preprocessed.png");
-        if (!preprocessor.preprocessFile(page.output_path, output_path)) {
-            spdlog::error("failed to preprocess image for page {}", page.page_number);
-            return false;
-        }
-
-        page.debug_images.push_back({
-            "preprocessed",
-            relativeToOutputRoot(output_path, context),
-            output_path,
-        });
-        spdlog::info("wrote: {}", output_path.string());
+    const std::filesystem::path output_path =
+        context.output.debug_dir / ("page_" + std::to_string(page.page_number) + "_preprocessed.png");
+    if (!preprocessor.preprocessToFile(image::readPageImage(page), output_path)) {
+        spdlog::error("failed to preprocess image for page {}", page.page_number);
+        return false;
     }
+
+    page.debug_images.push_back({
+        "preprocessed",
+        relativeToOutputRoot(output_path, context),
+        output_path,
+    });
+    spdlog::info("wrote: {}", output_path.string());
 #else
-    (void)pages;
+    (void)page;
 #endif
 
     return true;
@@ -270,100 +316,217 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         return stageFailed(observer, "render", "renderer_unavailable", "document source cannot render pages");
     }
 
-    stage_started = Clock::now();
-    observer.onStageStarted({"render",
-                             resolvedBackend(run_provenance.backends.resolved.document, context.backends.document),
-                             document.source->pageCount()});
-    std::vector<document::PageArtifact> rendered_pages;
-    if (!document.renderer->renderPages({context.render.dpi, context.output.root, context.output.pages_dir},
-                                        rendered_pages)) {
-        spdlog::error("render_pages: failed to render page artifacts");
-        return stageFailed(observer, "render", "render_failed", "failed to render page artifacts", true);
+    const int page_count = document.source->pageCount();
+    if (page_count < 0) {
+        return stageFailed(observer, "render", "render.invalid_page_count", "document page count must be non-negative");
     }
-    spdlog::info("rendered pages: {}", rendered_pages.size());
-
-    for (const auto& page : rendered_pages) {
-        spdlog::info("wrote: {}", page.output_path.string());
-        observer.onArtifactReady({"render", "page_image", page.output_path, page.page_number});
-        observer.onStageProgress({"render", page.page_number, static_cast<int>(rendered_pages.size())});
-    }
-
-    if (!preprocessDebugImages(context, rendered_pages)) {
-        spdlog::error("preprocess_debug_images: failed to write debug preprocessing images");
-        return stageFailed(observer, "render", "preprocess_failed", "failed to write debug preprocessing images");
-    }
-    observer.onStageCompleted({"render", elapsedMilliseconds(stage_started)});
-    spdlog::debug("preprocessed debug images");
-
-    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "text"); !deadline.okStatus()) {
-        return deadline;
-    }
-    stage_started = Clock::now();
-    observer.onStageStarted({"text",
-                             resolvedBackend(run_provenance.backends.resolved.ocr, context.backends.ocr),
-                             static_cast<int>(rendered_pages.size())});
-    const TextExtractionStage text_extraction(document.native_text_extractor, *services->ocr);
-    StageResult<std::vector<document::PageText>> text_result = text_extraction.extract(context, rendered_pages);
-    if (!text_result.ok()) {
-        spdlog::error("text_extraction: {}", text_result.status.message());
-        return stageFailed(
-            observer, "text", text_result.status.code(), text_result.status.message(), text_result.status.retryable());
-    }
-    recordDiagnostics(text_result.diagnostics, run_diagnostics, run_provenance, observer);
-    std::vector<document::PageText> page_texts = std::move(text_result.value);
-    observer.onStageProgress({"text", static_cast<int>(page_texts.size()), static_cast<int>(rendered_pages.size())});
-    observer.onStageCompleted({"text", elapsedMilliseconds(stage_started)});
-    spdlog::info("extracted text pages: {}", page_texts.size());
-
-    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "layout");
-        !deadline.okStatus()) {
-        return deadline;
-    }
-    stage_started = Clock::now();
-    observer.onStageStarted({"layout",
-                             resolvedBackend(run_provenance.backends.resolved.layout, context.backends.layout),
-                             static_cast<int>(rendered_pages.size())});
-    const LayoutAnalysisStage layout_analysis(*services->layout);
-    StageResult<std::vector<document::PageLayout>> layout_result =
-        layout_analysis.analyze(context, rendered_pages, page_texts);
-    if (!layout_result.ok()) {
-        spdlog::error("layout_analysis: {}", layout_result.status.message());
-        return stageFailed(observer,
+    PageStage render_stage(observer,
+                           "render",
+                           resolvedBackend(run_provenance.backends.resolved.document, context.backends.document),
+                           page_count);
+    PageStage text_stage(
+        observer, "text", resolvedBackend(run_provenance.backends.resolved.ocr, context.backends.ocr), page_count);
+    PageStage layout_stage(observer,
                            "layout",
-                           layout_result.status.code(),
-                           layout_result.status.message(),
-                           layout_result.status.retryable());
-    }
-    recordDiagnostics(layout_result.diagnostics, run_diagnostics, run_provenance, observer);
-    std::vector<document::PageLayout> page_layouts = std::move(layout_result.value);
-    observer.onStageProgress(
-        {"layout", static_cast<int>(page_layouts.size()), static_cast<int>(rendered_pages.size())});
-    observer.onStageCompleted({"layout", elapsedMilliseconds(stage_started)});
-    spdlog::info("analyzed layout pages: {}", page_layouts.size());
+                           resolvedBackend(run_provenance.backends.resolved.layout, context.backends.layout),
+                           page_count);
+    PageStage table_stage(
+        observer, "table", resolvedBackend(run_provenance.backends.resolved.table, context.backends.table), page_count);
+    render_stage.begin();
 
-    if (const common::Status deadline = deadlineStatus(options, run_started, observer, "table"); !deadline.okStatus()) {
+    std::vector<document::PageArtifact> rendered_pages;
+    std::vector<document::PageText> page_texts;
+    std::vector<document::PageLayout> page_layouts;
+    std::vector<document::PageTables> page_tables;
+    rendered_pages.reserve(static_cast<std::size_t>(page_count));
+    page_texts.reserve(static_cast<std::size_t>(page_count));
+    page_layouts.reserve(static_cast<std::size_t>(page_count));
+    page_tables.reserve(static_cast<std::size_t>(page_count));
+
+    const document_source::RenderRequest render_request{
+        context.render.dpi, context.output.root, context.output.pages_dir};
+    const bool page_rendering = document.renderer->supportsPageRendering();
+    auto* native = document.native_text_extractor;
+    const bool page_native_text = native != nullptr && native->supportsPageTextExtraction();
+    spdlog::info("page_pipeline: pages={} incremental_render={} incremental_native_text={}",
+                 page_count,
+                 page_rendering,
+                 page_native_text);
+    std::vector<document::PageArtifact> legacy_pages;
+    std::vector<document::PageText> legacy_texts;
+    bool legacy_text_loaded = false;
+    if (!page_rendering) {
+        if (!render_stage.measure([&] { return document.renderer->renderPages(render_request, legacy_pages); })) {
+            return stageFailed(observer, "render", "render_failed", "failed to render page artifacts", true);
+        }
+        if (legacy_pages.size() != static_cast<std::size_t>(page_count)) {
+            return stageFailed(
+                observer, "render", "render.page_count_mismatch", "rendered page count does not match the document");
+        }
+    }
+
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+    auto image_cache = std::make_shared<image::PageImageCache>(options.image_cache_bytes);
+#endif
+    const TextExtractionStage text_extraction(native, *services->ocr);
+    const LayoutAnalysisStage layout_analysis(*services->layout);
+    const TableRecognitionStage table_recognition(*services->table);
+    for (int index = 0; index < page_count; ++index) {
+        const auto page_started = Clock::now();
+        if (const auto deadline = deadlineStatus(options, run_started, observer, "render"); !deadline.okStatus()) {
+            return deadline;
+        }
+        document::PageArtifact page;
+        if (page_rendering) {
+            if (!render_stage.measure([&] { return document.renderer->renderPage(render_request, index, page); })) {
+                return stageFailed(
+                    observer, "render", "render_failed", "failed to render page " + std::to_string(index + 1), true);
+            }
+        } else {
+            page = std::move(legacy_pages[static_cast<std::size_t>(index)]);
+        }
+        if (page.page_index != index || page.page_number != index + 1) {
+            return stageFailed(observer,
+                               "render",
+                               "render.page_identity_mismatch",
+                               "rendered page identity does not match page " + std::to_string(index + 1));
+        }
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+        page.image_cache = image_cache;
+#endif
+        if (index == 0) {
+            spdlog::info("page_pipeline: first_page_image_ms={}", elapsedMilliseconds(run_started));
+        }
+        observer.onArtifactReady({"render", "page_image", page.output_path, page.page_number});
+        spdlog::info("wrote: {}", page.output_path.string());
+        if (!render_stage.measure([&] { return preprocessDebugImage(context, page); })) {
+            return stageFailed(observer, "render", "preprocess_failed", "failed to write debug preprocessing images");
+        }
+        render_stage.progress(index + 1);
+
+        text_stage.begin();
+        if (const auto deadline = deadlineStatus(options, run_started, observer, "text"); !deadline.okStatus()) {
+            return deadline;
+        }
+        auto text_result = text_stage.measure([&]() -> StageResult<document::PageText> {
+            document::PageText native_text;
+            native_text.page_index = index;
+            native_text.page_number = index + 1;
+            if (native != nullptr) {
+                bool extracted = true;
+                if (page_native_text) {
+                    extracted = native->extractPageNativeText({context.render.dpi}, index, native_text);
+                } else {
+                    if (!legacy_text_loaded) {
+                        extracted = native->extractNativeText({context.render.dpi}, legacy_texts);
+                        legacy_text_loaded = true;
+                    }
+                    if (extracted && legacy_texts.size() != static_cast<std::size_t>(page_count)) {
+                        StageResult<document::PageText> failed;
+                        failed.status = common::Status::error("text.page_count_mismatch",
+                                                              "native text page count does not match page artifacts");
+                        return failed;
+                    }
+                    if (extracted) {
+                        native_text = std::move(legacy_texts[static_cast<std::size_t>(index)]);
+                    }
+                }
+                if (!extracted) {
+                    StageResult<document::PageText> failed;
+                    failed.status =
+                        common::Status::error("text.native_extraction_failed",
+                                              "native text extraction failed for page " + std::to_string(index + 1));
+                    return failed;
+                }
+            }
+            return text_extraction.extractPage(context, page, std::move(native_text));
+        });
+        if (!text_result.ok()) {
+            return stageFailed(observer,
+                               "text",
+                               text_result.status.code(),
+                               text_result.status.message(),
+                               text_result.status.retryable());
+        }
+        text_stage.warnings(std::move(text_result.diagnostics));
+        text_stage.progress(index + 1);
+
+        layout_stage.begin();
+        if (const auto deadline = deadlineStatus(options, run_started, observer, "layout"); !deadline.okStatus()) {
+            return deadline;
+        }
+        auto layout_result =
+            layout_stage.measure([&] { return layout_analysis.analyzePage(context, page, text_result.value); });
+        if (!layout_result.ok()) {
+            return stageFailed(observer,
+                               "layout",
+                               layout_result.status.code(),
+                               layout_result.status.message(),
+                               layout_result.status.retryable());
+        }
+        layout_stage.warnings(std::move(layout_result.diagnostics));
+        layout_stage.progress(index + 1);
+
+        table_stage.begin();
+        if (const auto deadline = deadlineStatus(options, run_started, observer, "table"); !deadline.okStatus()) {
+            return deadline;
+        }
+        auto table_result = table_stage.measure(
+            [&] { return table_recognition.recognizePage(context, page, text_result.value, layout_result.value); });
+        if (!table_result.ok()) {
+            return stageFailed(observer,
+                               "table",
+                               table_result.status.code(),
+                               table_result.status.message(),
+                               table_result.status.retryable());
+        }
+        table_stage.warnings(std::move(table_result.diagnostics));
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+        spdlog::debug(
+            "page_pipeline: page={} cache_resident_bytes={}", page.page_number, image_cache->stats().resident_bytes);
+        image_cache->clear();
+#endif
+        rendered_pages.push_back(std::move(page));
+        page_texts.push_back(std::move(text_result.value));
+        page_layouts.push_back(std::move(layout_result.value));
+        page_tables.push_back(std::move(table_result.value));
+        table_stage.progress(index + 1);
+        spdlog::debug("page_pipeline: page={} elapsed_ms={}", index + 1, elapsedMilliseconds(page_started));
+    }
+
+    // Events expose warnings immediately. Preserve the previous stage-major
+    // order in exported warnings and fallback provenance for stable documents.
+    NullStageObserver recorded_warnings;
+    recordDiagnostics(text_stage.diagnostics, run_diagnostics, run_provenance, recorded_warnings);
+    recordDiagnostics(layout_stage.diagnostics, run_diagnostics, run_provenance, recorded_warnings);
+    recordDiagnostics(table_stage.diagnostics, run_diagnostics, run_provenance, recorded_warnings);
+    render_stage.complete();
+    text_stage.complete();
+    layout_stage.complete();
+    if (const auto deadline = deadlineStatus(options, run_started, observer, "table"); !deadline.okStatus()) {
         return deadline;
     }
-    stage_started = Clock::now();
-    observer.onStageStarted({"table",
-                             resolvedBackend(run_provenance.backends.resolved.table, context.backends.table),
-                             static_cast<int>(rendered_pages.size())});
-    const TableRecognitionStage table_recognition(*services->table);
-    StageResult<std::vector<document::PageTables>> table_result =
-        table_recognition.recognize(context, rendered_pages, page_texts, page_layouts);
-    if (!table_result.ok()) {
-        spdlog::error("table_recognition: {}", table_result.status.message());
-        return stageFailed(observer,
-                           "table",
-                           table_result.status.code(),
-                           table_result.status.message(),
-                           table_result.status.retryable());
+    const auto link_status =
+        table_stage.measure([&] { return TableRecognitionStage::linkPages(rendered_pages, page_tables); });
+    if (!link_status.okStatus()) {
+        return stageFailed(observer, "table", link_status.code(), link_status.message());
     }
-    recordDiagnostics(table_result.diagnostics, run_diagnostics, run_provenance, observer);
-    std::vector<document::PageTables> page_tables = std::move(table_result.value);
-    observer.onStageProgress({"table", static_cast<int>(page_tables.size()), static_cast<int>(rendered_pages.size())});
-    observer.onStageCompleted({"table", elapsedMilliseconds(stage_started)});
-    spdlog::info("recognized table pages: {}", page_tables.size());
+    table_stage.complete();
+
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+    const auto image_stats = image_cache->stats();
+    spdlog::info("page_image_cache: budget_bytes={} resident_bytes={} peak_resident_bytes={} hits={} decodes={} "
+                 "uncached_decodes={} failures={} decode_us={}",
+                 options.image_cache_bytes,
+                 image_stats.resident_bytes,
+                 image_stats.peak_resident_bytes,
+                 image_stats.hits,
+                 image_stats.decodes,
+                 image_stats.uncached_decodes,
+                 image_stats.failures,
+                 image_stats.decode_microseconds);
+    image_cache.reset();
+#endif
 
     if (const common::Status deadline = deadlineStatus(options, run_started, observer, "reading_order");
         !deadline.okStatus()) {
@@ -400,15 +563,15 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         document.source->sourcePath(),
         document.source->sourceType(),
         context.render.dpi,
-        rendered_pages,
-        page_texts,
-        page_layouts,
-        page_reading_orders,
-        page_tables,
+        std::move(rendered_pages),
+        std::move(page_texts),
+        std::move(page_layouts),
+        std::move(page_reading_orders),
+        std::move(page_tables),
     };
     assemble_request.source_size_bytes = source_fingerprint.size_bytes;
     assemble_request.source_sha256 = source_fingerprint.sha256;
-    if (!document_assembler.assemble(assemble_request, parsed_document, artifacts)) {
+    if (!document_assembler.assemble(std::move(assemble_request), parsed_document, artifacts)) {
         spdlog::error("document_assembly: failed to assemble document");
         return stageFailed(observer, "assembly", "assembly_failed", "failed to assemble document");
     }
@@ -416,8 +579,8 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     observer.onStageProgress({"assembly", 1, 1});
     observer.onStageCompleted({"assembly", elapsedMilliseconds(stage_started)});
     std::size_t detected_furniture = 0;
-    for (const document::PageLayout& layout : page_layouts) {
-        for (const document::LayoutBlock& block : layout.blocks) {
+    for (const auto& page : artifacts.pages) {
+        for (const document::LayoutBlock& block : page.layout.blocks) {
             if (block.type == document::LayoutBlockType::Header || block.type == document::LayoutBlockType::Footer) {
                 ++detected_furniture;
             }

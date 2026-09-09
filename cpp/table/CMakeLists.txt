@@ -60,6 +60,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_link_libraries(doc_parser_table
         PUBLIC
             ONNXRuntime::onnxruntime
+            doc_parser_image
             opencv_core
             opencv_imgproc
             opencv_imgcodecs

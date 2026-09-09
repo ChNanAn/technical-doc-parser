@@ -1,9 +1,11 @@
 include(GoogleTest)
 
 add_executable(domain_unit_tests
+    atomic_output_file_test.cpp
     backend_registry_test.cpp
     document_assembler_test.cpp
     document_engine_test.cpp
+    page_pipeline_test.cpp
     file_fingerprint_test.cpp
     json_document_exporter_test.cpp
     layout_backend_test.cpp
@@ -41,5 +43,10 @@ target_compile_definitions(domain_unit_tests
 )
 
 doc_parser_set_common_warnings(domain_unit_tests)
+
+if(DOC_PARSER_ENABLE_OPENCV OR DOC_PARSER_ENABLE_ONNXRUNTIME)
+    target_sources(domain_unit_tests PRIVATE page_image_cache_test.cpp)
+    target_link_libraries(domain_unit_tests PRIVATE doc_parser_image)
+endif()
 
 gtest_discover_tests(domain_unit_tests)

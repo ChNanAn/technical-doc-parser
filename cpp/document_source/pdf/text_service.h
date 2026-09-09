@@ -13,6 +13,7 @@ public:
     TextService() = default;
 
     bool extractText(const PdfDocument& source, int dpi, std::vector<document::PageText>& page_texts) const;
+    bool extractPageText(const PdfDocument& source, int dpi, int page_index, document::PageText& page_text) const;
 };
 
 } // namespace doc_parser::pdf

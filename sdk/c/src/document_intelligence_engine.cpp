@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <limits>
@@ -439,6 +440,7 @@ doc_parser::pipeline::DocumentParseOptions parseOptions(const char* options_json
                    "debug",
                    "timeout_seconds",
                    "maximum_pages",
+                   "image_cache_bytes",
                    "run_id"},
                   "parse options",
                   code,
@@ -462,6 +464,14 @@ doc_parser::pipeline::DocumentParseOptions parseOptions(const char* options_json
     }
     if (root.contains("maximum_pages")) {
         options.maximum_pages = integerValue(root, "maximum_pages", code, stage, 0, true);
+    }
+    if (root.contains("image_cache_bytes")) {
+        const Json& bytes = root["image_cache_bytes"];
+        if (!bytes.is_number_integer() || (!bytes.is_number_unsigned() && bytes.get<std::int64_t>() < 0) ||
+            bytes.get<std::uint64_t>() > std::numeric_limits<std::size_t>::max()) {
+            throw InputError(code, stage, "image_cache_bytes must be a non-negative integer fitting size_t");
+        }
+        options.image_cache_bytes = bytes.get<std::size_t>();
     }
     if (root.contains("run_id")) {
         options.run_id = stringValue(root, "run_id", code, stage, true, true);

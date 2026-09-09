@@ -46,68 +46,86 @@ TextExtractionStage::extract(const PipelineContext& context, const std::vector<d
         return extraction;
     }
 
-    const NativeTextQualityPolicy quality_policy;
     for (std::size_t index = 0; index < page_texts.size(); ++index) {
-        const NativeTextQuality quality = quality_policy.evaluate(pages[index], page_texts[index]);
-        spdlog::debug("text_quality: page={} action={} reason={} bytes={} suspicious={} decoded={} controls={} "
-                      "control_types={} damaging_controls={} damaging_control_types={} damaging_ratio={:.3f} "
-                      "invalid_utf16={} replacements={} vertical_coverage={:.3f}",
-                      pages[index].page_number,
-                      nativeTextActionName(quality.action),
-                      quality.reason,
-                      quality.non_whitespace_bytes,
-                      quality.suspicious_bytes,
-                      page_texts[index].extraction_signals.decoded_codepoints,
-                      quality.control_codepoints,
-                      quality.distinct_control_codepoints,
-                      quality.damaging_control_codepoints,
-                      quality.distinct_damaging_control_codepoints,
-                      quality.damaging_control_ratio,
-                      page_texts[index].extraction_signals.invalid_utf16_codepoints,
-                      page_texts[index].extraction_signals.replacement_codepoints,
-                      quality.vertical_coverage);
-        for (std::size_t codepoint = 0; codepoint < page_texts[index].extraction_signals.c0_control_counts.size();
-             ++codepoint) {
-            const std::size_t count = page_texts[index].extraction_signals.c0_control_counts[codepoint];
-            if (count > 0) {
-                spdlog::debug(
-                    "text_quality: page={} control=U+{:04X} count={}", pages[index].page_number, codepoint, count);
-            }
-        }
-        if (quality.action == NativeTextAction::UseNative) {
-            continue;
-        }
-
-        ocr::OcrResult result;
-        if (!ocr_.recognize({pages[index], context.render.dpi}, result)) {
-            if (quality.action == NativeTextAction::MergeOcr) {
-                const std::string message = "OCR enhancement failed; retained usable native text";
-                spdlog::warn("text_quality: {} for page {}", message, pages[index].page_number);
-                extraction.diagnostics.push_back({
-                    common::warning_codes::kOcrEnhancementFailed,
-                    message,
-                    "text",
-                    pages[index].page_number,
-                    {{"fallback", "native_text"}, {"reason", quality.reason}},
-                });
-                continue;
-            }
-            const std::string unavailable_reason = ocr_.unavailableReason();
-            const std::string message =
-                unavailable_reason.empty()
-                    ? "OCR failed for page " + std::to_string(index + 1)
-                    : "OCR is required for page " + std::to_string(index + 1) + ": " + unavailable_reason;
-            extraction.status = common::Status::error("text.ocr_failed", message);
+        auto result = extractPage(context, pages[index], std::move(page_texts[index]));
+        page_texts[index] = std::move(result.value);
+        if (!result.ok()) {
+            extraction.status = result.status;
             return extraction;
         }
-        if (quality.action == NativeTextAction::MergeOcr) {
-            TextMergeResult merged = quality_policy.merge(page_texts[index], result.page_text);
-            spdlog::debug(
-                "text_quality: page={} merged_ocr_lines={}", pages[index].page_number, merged.added_ocr_lines);
-            page_texts[index] = std::move(merged.text);
-        } else {
-            page_texts[index] = std::move(result.page_text);
+        extraction.diagnostics.insert(
+            extraction.diagnostics.end(), result.diagnostics.begin(), result.diagnostics.end());
+    }
+    return extraction;
+}
+
+StageResult<document::PageText> TextExtractionStage::extractPage(const PipelineContext& context,
+                                                                 const document::PageArtifact& page,
+                                                                 document::PageText native_text) const {
+    StageResult<document::PageText> extraction;
+    extraction.value = std::move(native_text);
+    if (context.render.dpi <= 0) {
+        extraction.status = common::Status::error("text.invalid_dpi", "render DPI must be positive");
+        return extraction;
+    }
+    const NativeTextQualityPolicy quality_policy;
+    const NativeTextQuality quality = quality_policy.evaluate(page, extraction.value);
+    spdlog::debug("text_quality: page={} action={} reason={} bytes={} suspicious={} decoded={} controls={} "
+                  "control_types={} damaging_controls={} damaging_control_types={} damaging_ratio={:.3f} "
+                  "invalid_utf16={} replacements={} vertical_coverage={:.3f}",
+                  page.page_number,
+                  nativeTextActionName(quality.action),
+                  quality.reason,
+                  quality.non_whitespace_bytes,
+                  quality.suspicious_bytes,
+                  extraction.value.extraction_signals.decoded_codepoints,
+                  quality.control_codepoints,
+                  quality.distinct_control_codepoints,
+                  quality.damaging_control_codepoints,
+                  quality.distinct_damaging_control_codepoints,
+                  quality.damaging_control_ratio,
+                  extraction.value.extraction_signals.invalid_utf16_codepoints,
+                  extraction.value.extraction_signals.replacement_codepoints,
+                  quality.vertical_coverage);
+    for (std::size_t codepoint = 0; codepoint < extraction.value.extraction_signals.c0_control_counts.size();
+         ++codepoint) {
+        const std::size_t count = extraction.value.extraction_signals.c0_control_counts[codepoint];
+        if (count > 0) {
+            spdlog::debug("text_quality: page={} control=U+{:04X} count={}", page.page_number, codepoint, count);
         }
+    }
+    if (quality.action == NativeTextAction::UseNative) {
+        return extraction;
+    }
+
+    ocr::OcrResult result;
+    if (!ocr_.recognize({page, context.render.dpi}, result)) {
+        if (quality.action == NativeTextAction::MergeOcr) {
+            const std::string message = "OCR enhancement failed; retained usable native text";
+            spdlog::warn("text_quality: {} for page {}", message, page.page_number);
+            extraction.diagnostics.push_back({
+                common::warning_codes::kOcrEnhancementFailed,
+                message,
+                "text",
+                page.page_number,
+                {{"fallback", "native_text"}, {"reason", quality.reason}},
+            });
+            return extraction;
+        }
+        const std::string unavailable_reason = ocr_.unavailableReason();
+        const std::string message =
+            unavailable_reason.empty()
+                ? "OCR failed for page " + std::to_string(page.page_number)
+                : "OCR is required for page " + std::to_string(page.page_number) + ": " + unavailable_reason;
+        extraction.status = common::Status::error("text.ocr_failed", message);
+        return extraction;
+    }
+    if (quality.action == NativeTextAction::MergeOcr) {
+        TextMergeResult merged = quality_policy.merge(extraction.value, result.page_text);
+        spdlog::debug("text_quality: page={} merged_ocr_lines={}", page.page_number, merged.added_ocr_lines);
+        extraction.value = std::move(merged.text);
+    } else {
+        extraction.value = std::move(result.page_text);
     }
 
     return extraction;

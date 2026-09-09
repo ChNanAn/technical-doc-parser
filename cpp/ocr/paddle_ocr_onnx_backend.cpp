@@ -1,6 +1,7 @@
 #include "ocr/paddle_ocr_onnx_backend.h"
 
 #include "document/text_model.h"
+#include "image/page_image_cache.h"
 
 #include <algorithm>
 #include <array>
@@ -845,7 +846,7 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
         return false;
     }
 
-    const cv::Mat image = cv::imread(request.page.output_path.string(), cv::IMREAD_COLOR);
+    const cv::Mat image = image::readPageImage(request.page);
     if (image.empty()) {
         if (debug) {
             std::cerr << "[paddleocr] failed to read image path=" << request.page.output_path.string() << '\n';
@@ -948,7 +949,7 @@ bool PaddleOcrOnnxBackend::detect(const OcrRequest& request, OcrDetectionResult&
     if (model_ == nullptr || request.dpi <= 0 || !fileExists(request.page.output_path)) {
         return false;
     }
-    const cv::Mat image = cv::imread(request.page.output_path.string(), cv::IMREAD_COLOR);
+    const cv::Mat image = image::readPageImage(request.page);
     if (image.empty()) {
         return false;
     }
@@ -992,7 +993,7 @@ bool PaddleOcrOnnxBackend::recognizeRegions(const OcrRegionRequest& request, Ocr
     if (model_ == nullptr || request.dpi <= 0 || !fileExists(request.page.output_path)) {
         return false;
     }
-    const cv::Mat image = cv::imread(request.page.output_path.string(), cv::IMREAD_COLOR);
+    const cv::Mat image = image::readPageImage(request.page);
     if (image.empty()) {
         return false;
     }

@@ -320,44 +320,74 @@ int main(int argc, char** argv) {
                 continue;
             }
 
+            std::unique_ptr<doc_parser::platform::WorkerStageObserver> observer;
+            bool succeeded = false;
+            std::string failure_message;
             try {
+                const std::filesystem::path job_file = job_path->second;
+                if (!isInside(job_file, runtime_root)) {
+                    throw std::runtime_error("Job path must remain inside WORKER_RUNTIME_ROOT");
+                }
+                // Queue identities let us report even a missing or malformed
+                // canonical Job. Older queue messages are supported below.
+                if (message->fields.count("job_id") && message->fields.count("run_id") &&
+                    message->fields.count("attempt_id")) {
+                    observer = std::make_unique<doc_parser::platform::WorkerStageObserver>(
+                        redis,
+                        message->fields.at("job_id"),
+                        message->fields.at("run_id"),
+                        message->fields.at("attempt_id"),
+                        job_file.parent_path(),
+                        static_cast<std::size_t>(run_event_stream_maximum_length),
+                        static_cast<std::size_t>(platform_event_stream_maximum_length),
+                        run_retention_seconds);
+                }
                 const nlohmann::json job = loadJob(job_path->second);
-                validateJob(job, runtime_root);
                 const std::string job_id = job.at("job_id").get<std::string>();
                 const std::string run_id = job.at("run_id").get<std::string>();
                 const std::string attempt_id = job.at("attempt_id").get<std::string>();
-                const std::filesystem::path run_directory =
-                    std::filesystem::path(job.at("output_directory").get<std::string>()).parent_path();
-                doc_parser::platform::WorkerStageObserver observer(
-                    redis,
-                    job_id,
-                    run_id,
-                    attempt_id,
-                    run_directory,
-                    static_cast<std::size_t>(run_event_stream_maximum_length),
-                    static_cast<std::size_t>(platform_event_stream_maximum_length),
-                    run_retention_seconds);
-                heartbeat.setRunning(run_id);
-                observer.publishJobEvent("job_started");
-                try {
-                    const WorkerRunOptions options = optionsFromJob(job, engine_config.backends);
-                    const doc_parser::common::Status status =
-                        processor.process(options.parse, options.backends, observer);
-                    observer.publishJobEvent(status.okStatus() ? "job_succeeded" : "job_failed", status.message());
-                } catch (const std::exception& error) {
-                    observer.publishJobEvent("job_failed", error.what());
+                if (!observer) {
+                    observer = std::make_unique<doc_parser::platform::WorkerStageObserver>(
+                        redis,
+                        job_id,
+                        run_id,
+                        attempt_id,
+                        job_file.parent_path(),
+                        static_cast<std::size_t>(run_event_stream_maximum_length),
+                        static_cast<std::size_t>(platform_event_stream_maximum_length),
+                        run_retention_seconds);
                 }
-                redis.acknowledge(job_stream, consumer_group, message->id);
+                for (const char* key : {"job_id", "run_id", "attempt_id"}) {
+                    const auto queued = message->fields.find(key);
+                    if (queued != message->fields.end() && queued->second != job.at(key).get<std::string>()) {
+                        throw std::runtime_error(std::string("Job identity differs from queue: ") + key);
+                    }
+                }
+                validateJob(job, runtime_root);
+                if (std::filesystem::weakly_canonical(
+                        std::filesystem::path(job.at("output_directory").get<std::string>()).parent_path()) !=
+                    std::filesystem::weakly_canonical(job_file.parent_path())) {
+                    throw std::runtime_error("Job output must belong to its canonical Run directory");
+                }
+                heartbeat.setRunning(run_id);
+                observer->publishJobEvent("job_started");
+                const WorkerRunOptions options = optionsFromJob(job, engine_config.backends);
+                const doc_parser::common::Status status = processor.process(options.parse, options.backends, *observer);
+                succeeded = status.okStatus();
+                failure_message = status.message();
             } catch (const std::exception& error) {
                 std::cerr << "job " << message->id << " failed: " << error.what() << '\n';
-                const auto run_id = message->fields.find("run_id");
-                if (run_id != message->fields.end()) {
-                    const std::string run_key = "run:" + run_id->second;
-                    redis.setHash(run_key, {{"status", "failed"}, {"error", error.what()}});
-                    redis.expire(run_key, run_retention_seconds);
+                if (!observer) {
+                    // Without a trustworthy Attempt identity we cannot persist
+                    // a terminal state. Retain the pending message for diagnosis.
+                    continue;
                 }
-                redis.acknowledge(job_stream, consumer_group, message->id);
+                failure_message = error.what();
             }
+            // A lost terminal-publication response must not turn a success into
+            // a failure. Let transport failures escape without acknowledging.
+            observer->publishJobEvent(succeeded ? "job_succeeded" : "job_failed", failure_message);
+            redis.acknowledge(job_stream, consumer_group, message->id);
         }
     } catch (const std::exception& error) {
         std::cerr << "worker fatal error: " << error.what() << '\n';

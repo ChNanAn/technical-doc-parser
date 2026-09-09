@@ -1,8 +1,13 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
+
+namespace doc_parser::image {
+class PageImageCache;
+}
 
 namespace doc_parser::document {
 
@@ -29,6 +34,8 @@ struct PageArtifact {
     int width = 0;
     int height = 0;
     std::vector<DebugImageArtifact> debug_images;
+    // Runtime-only access; exported artifacts never keep decoded pixels alive.
+    std::weak_ptr<image::PageImageCache> image_cache{};
 };
 
 } // namespace doc_parser::document

@@ -33,6 +33,10 @@ class IPageRenderer {
 public:
     virtual ~IPageRenderer() = default;
     virtual bool renderPages(const RenderRequest& request, std::vector<document::PageArtifact>& pages) const = 0;
+
+    // Optional capability. Legacy backends keep their whole-document path.
+    virtual bool supportsPageRendering() const { return false; }
+    virtual bool renderPage(const RenderRequest&, int, document::PageArtifact&) const { return false; }
 };
 
 class INativeTextExtractor {
@@ -40,6 +44,9 @@ public:
     virtual ~INativeTextExtractor() = default;
     virtual bool extractNativeText(const NativeTextRequest& request,
                                    std::vector<document::PageText>& page_texts) const = 0;
+
+    virtual bool supportsPageTextExtraction() const { return false; }
+    virtual bool extractPageNativeText(const NativeTextRequest&, int, document::PageText&) const { return false; }
 };
 
 } // namespace doc_parser::document_source

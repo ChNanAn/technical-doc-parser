@@ -44,6 +44,12 @@ export async function getCapabilities(): Promise<Capabilities> {
   return response.json();
 }
 
+export async function getRun(runId: string, signal?: AbortSignal): Promise<{ status: string; error?: string | null }> {
+  const response = await fetch(`/api/v1/runs/${runId}`, { signal });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
 export async function getStage(runId: string, stage: string): Promise<unknown> {
   const response = await fetch(`/api/v1/runs/${runId}/stages/${stage}`);
   if (!response.ok) throw new Error(await response.text());

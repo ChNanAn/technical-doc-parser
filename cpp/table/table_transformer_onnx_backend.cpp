@@ -1,3 +1,4 @@
+#include "image/page_image_cache.h"
 #include "table/table_backend.h"
 
 #include <algorithm>
@@ -526,7 +527,7 @@ bool TableTransformerOnnxBackend::recognize(const TableRequest& request, TableRe
     if (models_ == nullptr || !fileExists(request.page.output_path)) {
         return false;
     }
-    const cv::Mat image = cv::imread(request.page.output_path.string(), cv::IMREAD_COLOR);
+    const cv::Mat image = image::readPageImage(request.page);
     if (image.empty()) {
         return false;
     }

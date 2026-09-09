@@ -113,40 +113,60 @@ TableRecognitionStage::recognize(const PipelineContext& context,
 
     recognition.value.reserve(pages.size());
     for (std::size_t index = 0; index < pages.size(); ++index) {
-        table::TableResult result;
-        if (!table_.recognize({pages[index], page_texts[index], page_layouts[index]}, result)) {
-            recognition.status = common::Status::error(
-                "table.recognition_failed", "table recognition failed for page " + std::to_string(index + 1));
+        auto page = recognizePage(context, pages[index], page_texts[index], page_layouts[index]);
+        if (!page.ok()) {
+            recognition.status = page.status;
             return recognition;
         }
-        attachDetectedTables(page_texts[index], page_layouts[index], result.tables);
-        const layout::detail::LayoutRecoveryStats recovery =
-            layout::detail::recoverUnassignedTextLines(page_texts[index], pages[index], page_layouts[index]);
-        if (recovery.recovered_lines > 0 || recovery.skipped_furniture_lines > 0 ||
-            recovery.skipped_marginalia_lines > 0) {
-            spdlog::debug("layout_recovery: page={} recovered_lines={} attached_lines={} attached_groups={} "
-                          "fallback_blocks={} grid_groups={} recovered_furniture_lines={} "
-                          "preserved_edge_body_lines={} skipped_furniture_lines={} skipped_marginalia_lines={}",
-                          pages[index].page_number,
-                          recovery.recovered_lines,
-                          recovery.attached_lines,
-                          recovery.attached_groups,
-                          recovery.fallback_blocks,
-                          recovery.coalesced_grid_groups,
-                          recovery.recovered_furniture_lines,
-                          recovery.preserved_edge_body_lines,
-                          recovery.skipped_furniture_lines,
-                          recovery.skipped_marginalia_lines);
-        }
-        recognition.value.push_back(std::move(result.tables));
-        recognition.diagnostics.insert(recognition.diagnostics.end(),
-                                       std::make_move_iterator(result.diagnostics.begin()),
-                                       std::make_move_iterator(result.diagnostics.end()));
+        recognition.value.push_back(std::move(page.value));
+        recognition.diagnostics.insert(recognition.diagnostics.end(), page.diagnostics.begin(), page.diagnostics.end());
     }
+    recognition.status = linkPages(pages, recognition.value);
+    return recognition;
+}
 
-    linkCrossPageTables(pages, recognition.value);
+StageResult<document::PageTables> TableRecognitionStage::recognizePage(const PipelineContext& context,
+                                                                       const document::PageArtifact& page,
+                                                                       const document::PageText& text,
+                                                                       document::PageLayout& layout) const {
+    (void)context;
+    StageResult<document::PageTables> recognition;
+    table::TableResult result;
+    if (!table_.recognize({page, text, layout}, result)) {
+        recognition.status = common::Status::error(
+            "table.recognition_failed", "table recognition failed for page " + std::to_string(page.page_number));
+        return recognition;
+    }
+    attachDetectedTables(text, layout, result.tables);
+    const layout::detail::LayoutRecoveryStats recovery = layout::detail::recoverUnassignedTextLines(text, page, layout);
+    if (recovery.recovered_lines > 0 || recovery.skipped_furniture_lines > 0 || recovery.skipped_marginalia_lines > 0) {
+        spdlog::debug("layout_recovery: page={} recovered_lines={} attached_lines={} attached_groups={} "
+                      "fallback_blocks={} grid_groups={} recovered_furniture_lines={} "
+                      "preserved_edge_body_lines={} skipped_furniture_lines={} skipped_marginalia_lines={}",
+                      page.page_number,
+                      recovery.recovered_lines,
+                      recovery.attached_lines,
+                      recovery.attached_groups,
+                      recovery.fallback_blocks,
+                      recovery.coalesced_grid_groups,
+                      recovery.recovered_furniture_lines,
+                      recovery.preserved_edge_body_lines,
+                      recovery.skipped_furniture_lines,
+                      recovery.skipped_marginalia_lines);
+    }
+    recognition.value = std::move(result.tables);
+    recognition.diagnostics = std::move(result.diagnostics);
 
     return recognition;
+}
+
+common::Status TableRecognitionStage::linkPages(const std::vector<document::PageArtifact>& pages,
+                                                std::vector<document::PageTables>& tables) {
+    if (pages.size() != tables.size()) {
+        return common::Status::error("table.page_count_mismatch", "page and table counts must match before linking");
+    }
+    linkCrossPageTables(pages, tables);
+    return common::Status::ok();
 }
 
 } // namespace doc_parser::pipeline

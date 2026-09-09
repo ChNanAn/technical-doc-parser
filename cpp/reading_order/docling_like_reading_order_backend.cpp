@@ -123,10 +123,10 @@ std::vector<int> sortedByPosition(const std::vector<PageElement>& elements, std:
     std::sort(indices.begin(), indices.end(), [&](int lhs, int rhs) {
         const PageElement& left = elements[static_cast<std::size_t>(lhs)];
         const PageElement& right = elements[static_cast<std::size_t>(rhs)];
-        if (std::abs(left.bbox.y0 - right.bbox.y0) > kEpsilon) {
+        if (left.bbox.y0 != right.bbox.y0) {
             return left.bbox.y0 < right.bbox.y0;
         }
-        if (std::abs(left.bbox.x0 - right.bbox.x0) > kEpsilon) {
+        if (left.bbox.x0 != right.bbox.x0) {
             return left.bbox.x0 < right.bbox.x0;
         }
         return left.layout_block_index < right.layout_block_index;
@@ -188,7 +188,7 @@ std::vector<Column> inferColumns(const std::vector<PageElement>& elements, const
     std::sort(regular.begin(), regular.end(), [&](int lhs, int rhs) {
         const BBox& left = elements[static_cast<std::size_t>(lhs)].bbox;
         const BBox& right = elements[static_cast<std::size_t>(rhs)].bbox;
-        if (std::abs(centerX(left) - centerX(right)) > kEpsilon) {
+        if (centerX(left) != centerX(right)) {
             return centerX(left) < centerX(right);
         }
         return left.x0 < right.x0;
@@ -267,7 +267,7 @@ std::vector<Column> inferColumns(const std::vector<PageElement>& elements, const
     std::sort(columns.begin(), columns.end(), [](const Column& lhs, const Column& rhs) {
         const double lhs_center = (lhs.x0 + lhs.x1) * 0.5;
         const double rhs_center = (rhs.x0 + rhs.x1) * 0.5;
-        if (std::abs(lhs_center - rhs_center) > kEpsilon) {
+        if (lhs_center != rhs_center) {
             return lhs_center < rhs_center;
         }
         return lhs.x0 < rhs.x0;
@@ -359,10 +359,10 @@ bool comesBefore(const std::vector<PageElement>& elements,
         ranges[static_cast<std::size_t>(lhs)].first != ranges[static_cast<std::size_t>(rhs)].first) {
         return ranges[static_cast<std::size_t>(lhs)].first < ranges[static_cast<std::size_t>(rhs)].first;
     }
-    if (std::abs(left.bbox.y0 - right.bbox.y0) > kEpsilon) {
+    if (left.bbox.y0 != right.bbox.y0) {
         return left.bbox.y0 < right.bbox.y0;
     }
-    if (std::abs(left.bbox.x0 - right.bbox.x0) > kEpsilon) {
+    if (left.bbox.x0 != right.bbox.x0) {
         return left.bbox.x0 < right.bbox.x0;
     }
     return left.layout_block_index < right.layout_block_index;
@@ -539,10 +539,10 @@ BandOrder orderBand(const std::vector<PageElement>& group_elements,
     const auto vertical_order = [&](int lhs, int rhs) {
         const BBox& left = elements[static_cast<std::size_t>(lhs)].bbox;
         const BBox& right = elements[static_cast<std::size_t>(rhs)].bbox;
-        if (std::abs(centerY(left) - centerY(right)) > kEpsilon) {
+        if (centerY(left) != centerY(right)) {
             return centerY(left) < centerY(right);
         }
-        if (std::abs(left.x0 - right.x0) > kEpsilon) {
+        if (left.x0 != right.x0) {
             return left.x0 < right.x0;
         }
         return elements[static_cast<std::size_t>(lhs)].layout_block_index <
@@ -788,6 +788,14 @@ std::vector<PageElement> collectElements(const document::PageLayout& layout,
 
 bool DoclingLikeReadingOrderBackend::order(const ReadingOrderRequest& request, ReadingOrderResult& result) const {
     result.reading_order = {};
+    // Tolerances belong to geometric grouping, not to a sort comparator: an
+    // epsilon-based equality is not transitive. Reject NaNs before ordering.
+    for (const auto& block : request.layout.blocks) {
+        if (!std::isfinite(block.bbox.x0) || !std::isfinite(block.bbox.y0) || !std::isfinite(block.bbox.x1) ||
+            !std::isfinite(block.bbox.y1)) {
+            return false;
+        }
+    }
     result.reading_order.page_index = request.layout.page_index;
     result.reading_order.page_number = request.layout.page_number;
     result.reading_order.trace.algorithm = "band-column-topological-v2";

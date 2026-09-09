@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -71,6 +72,29 @@ TEST(ReadingOrderBackendTest, OrdersMultiColumnBlocksTopToBottomPerColumn) {
     EXPECT_EQ(order.items[1].layout_block_id, "left_bottom");
     EXPECT_EQ(order.items[2].layout_block_id, "right_top");
     EXPECT_EQ(order.items[3].layout_block_id, "right_bottom");
+}
+
+TEST(ReadingOrderBackendTest, OrdersNearlyEqualCoordinatesConsistentlyAcrossInputPermutations) {
+    const std::vector<doc_parser::document::LayoutBlock> blocks{
+        makeBlock("a", doc_parser::document::LayoutBlockType::Text, {102.0, 100.0, 902.0, 150.0}),
+        makeBlock("b", doc_parser::document::LayoutBlockType::Text, {101.0, 100.00075, 901.0, 150.00075}),
+        makeBlock("c", doc_parser::document::LayoutBlockType::Text, {100.0, 100.0015, 900.0, 150.0015}),
+    };
+    std::vector<int> permutation{0, 1, 2};
+    do {
+        EXPECT_EQ(orderedIds(orderLayout(
+                      makeLayout({blocks[permutation[0]], blocks[permutation[1]], blocks[permutation[2]]}))),
+                  (std::vector<std::string>{"a", "b", "c"}));
+    } while (std::next_permutation(permutation.begin(), permutation.end()));
+}
+
+TEST(ReadingOrderBackendTest, RejectsNonFiniteCoordinatesBeforeSorting) {
+    const auto layout = makeLayout({makeBlock("invalid",
+                                              doc_parser::document::LayoutBlockType::Text,
+                                              {0.0, std::numeric_limits<double>::quiet_NaN(), 100.0, 200.0})});
+    const doc_parser::reading_order::DoclingLikeReadingOrderBackend backend;
+    doc_parser::reading_order::ReadingOrderResult result;
+    EXPECT_FALSE(backend.order({makePage(), layout}, result));
 }
 
 TEST(ReadingOrderBackendTest, KeepsHeadersBeforeBodyAndFootersAfterBody) {

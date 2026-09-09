@@ -30,6 +30,8 @@ struct StageArtifactInfo {
 
 struct StageCompletedInfo {
     std::string stage;
+    // Accumulated execution time for this stage. With page-wise scheduling,
+    // stage lifecycles overlap; this excludes time spent in other stages.
     long long duration_ms = 0;
 };
 
@@ -46,6 +48,8 @@ public:
 
     virtual void onRunConfigured(const RunProvenance&) {}
     virtual void onStageWarning(const common::Diagnostic&) {}
+    // Each stage starts/completes once per document. Render/text/layout/table
+    // progress interleaves across pages and is monotonic within each stage.
     virtual void onStageStarted(const StageStartedInfo& info) = 0;
     virtual void onStageProgress(const StageProgressInfo& info) = 0;
     virtual void onArtifactReady(const StageArtifactInfo& info) = 0;

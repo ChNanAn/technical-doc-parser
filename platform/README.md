@@ -96,7 +96,15 @@ run repeatedly with different OCR, Layout, and Table combinations.
 - `maximum_pages` is enforced immediately after opening the document. `timeout_seconds` is a cooperative deadline
   checked between pipeline stages; it does not forcibly interrupt a backend call already in progress.
 - Worker validates that the input is a regular PDF, its byte size matches the Job metadata, and—when
-  `WORKER_RUNTIME_ROOT` is set—input and output paths stay inside that root.
+  `WORKER_RUNTIME_ROOT` is set—Job, input, and output paths stay inside that root. Queue and Job identities must
+  agree, and output belongs to the canonical Run directory. Queue messages include the Attempt ID, allowing
+  missing or malformed Job files to produce a `job_failed` event before acknowledgment.
+- Creating a Run inserts both the Run and a pending delivery into PostgreSQL in one transaction. The API returns
+  `202` once this commits. A background dispatcher retries delivery with a bounded delay; a Redis idempotency
+  marker prevents duplicate enqueue when Redis accepted a Job but its response or the database commit was lost.
+  Markers remain until the database records successful dispatch, then a recoverable cleanup removes them.
+  The new `job_outbox` table and indexes are created at API startup. Previously created Runs are not re-enqueued
+  automatically. Start the updated API and Worker together to use the queue's Attempt identity.
 - Redis Streams provides durable delivery, but abandoned pending-message recovery (`XAUTOCLAIM`) and user-requested
   cancellation for Worker jobs are intentionally deferred. The API event projector does replay its own pending
   events, reclaims events abandoned by a previous projector, and restarts after transient Redis or database failures.
@@ -104,8 +112,11 @@ run repeatedly with different OCR, Layout, and Table combinations.
   reset interval with `DIE_PROJECTOR_RESTART_DELAY_SECONDS`, `DIE_PROJECTOR_RESTART_MAX_DELAY_SECONDS`, and
   `DIE_PROJECTOR_RESTART_RESET_SECONDS`.
   Do not advertise Worker job recovery or cancellation in this version.
-- Job, per-Run event, and global projection streams use approximate `MAXLEN` caps. Defaults are 10,000 Jobs, 2,000
-  events per Run, and 100,000 global events; size these limits above the expected unconsumed backlog for a deployment.
+- The Job stream defaults to a 10,000-entry limit (`DIE_JOB_STREAM_MAX_LENGTH`). Dispatch trims only entries no
+  consumer group still needs; a full stream leaves new deliveries in the durable outbox. Abandoned pending Jobs
+  therefore require operator attention until Worker recovery is implemented. Per-Run and global event streams
+  retain their approximate `MAXLEN` caps of 2,000 and 100,000; size these above the expected unconsumed event backlog.
+  Worker event publication updates both streams and the Run cache in one Redis script.
   The Worker refreshes a seven-day TTL on `run:{id}` and `run-events:{id}` after every event; configure
   `RUN_RETENTION_SECONDS` for the desired post-run inspection window. Postgres and the artifact store remain the
   durable sources.
@@ -113,7 +124,14 @@ run repeatedly with different OCR, Layout, and Table combinations.
   Document, Run, Job, Event, or Artifact identities. API and Worker intentionally share numeric UID `10001` in this
   deployment so both can access the same Run directory.
 - Page images and final JSON/Markdown/HTML are emitted as immediate Artifacts. Text, Layout, Table, and reading-order
-  inspection currently comes from debug fields in the final `document.json`.
+  inspection comes from debug fields in the final `document.json`. Each exported result file and Artifact manifest
+  is written privately and renamed into place after a successful close; this provides atomic file visibility,
+  not an atomic multi-file Attempt commit or a power-loss durability guarantee.
+- The browser keeps SSE reconnection enabled and polls Run state every three seconds until a terminal status.
+  Artifact lists refresh on Artifact/Run changes; stage inspection reuses the downloaded document instead of
+  fetching and parsing the full document again for each stage. Run listing supports `limit` (default 100,
+  maximum 500) and `offset`, and fetches Redis state in one pipeline. Durable terminal states take precedence
+  over cached state; Run queries fall back to PostgreSQL during Redis outages.
 
 ## Local verification
 
@@ -125,4 +143,15 @@ npm audit --prefix platform/web
 npm run build --prefix platform/web
 cmake --preset platform-release
 cmake --build --preset platform-release --target document_intelligence_worker --parallel
+```
+
+Delivery integration tests use real, disposable PostgreSQL and Redis services. They create a temporary database
+schema and unique queue/Run keys; the optional Worker tests spawn the executable and exercise successful export,
+missing input, missing Job files, and malformed JSON. These checks also run in CI:
+
+```bash
+export DIE_TEST_DATABASE_URL=postgresql://document:document@127.0.0.1:5432/document
+export DIE_TEST_REDIS_URL=redis://127.0.0.1:6379/0
+export DIE_TEST_WORKER="$PWD/build/platform-release/platform/worker/document_intelligence_worker"
+PYTHONPATH=platform/api pytest -s platform/api/tests/test_delivery_integration.py
 ```

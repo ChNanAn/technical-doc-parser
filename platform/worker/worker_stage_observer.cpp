@@ -1,5 +1,7 @@
 #include "worker_stage_observer.h"
 
+#include "common/atomic_output_file.h"
+
 #include <chrono>
 #include <fstream>
 #include <iomanip>
@@ -44,37 +46,13 @@ nlohmann::json backendOptions(const pipeline::BackendOptions& options) {
 }
 
 void writeJsonAtomically(const std::filesystem::path& destination, const nlohmann::json& value) {
-    std::filesystem::path temporary = destination;
-    temporary += ".tmp";
-
-    std::error_code cleanup_error;
-    std::filesystem::remove(temporary, cleanup_error);
-
-    try {
-        std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
-        if (!output.is_open()) {
-            throw std::runtime_error("failed to open artifact manifest temporary file: " + temporary.string());
-        }
-
-        output << value.dump(2) << '\n';
-        output.flush();
-        if (!output) {
-            throw std::runtime_error("failed to write artifact manifest temporary file: " + temporary.string());
-        }
-        output.close();
-        if (!output) {
-            throw std::runtime_error("failed to close artifact manifest temporary file: " + temporary.string());
-        }
-
-        std::error_code rename_error;
-        std::filesystem::rename(temporary, destination, rename_error);
-        if (rename_error) {
-            throw std::runtime_error("failed to publish artifact manifest " + destination.string() + ": " +
-                                     rename_error.message());
-        }
-    } catch (...) {
-        std::filesystem::remove(temporary, cleanup_error);
-        throw;
+    common::AtomicOutputFile output(destination);
+    if (!output.isOpen()) {
+        throw std::runtime_error("failed to open artifact manifest: " + destination.string());
+    }
+    output.stream() << value.dump(2) << '\n';
+    if (!output.commit()) {
+        throw std::runtime_error("failed to publish artifact manifest: " + destination.string());
     }
 }
 
@@ -89,8 +67,7 @@ WorkerStageObserver::WorkerStageObserver(IRedisEventWriter& redis,
                                          std::size_t platform_event_stream_maximum_length,
                                          int run_retention_seconds)
     : redis_(redis), job_id_(std::move(job_id)), run_id_(std::move(run_id)), attempt_id_(std::move(attempt_id)),
-      run_directory_(std::move(run_directory)), event_stream_("run-events:" + run_id_),
-      run_event_stream_maximum_length_(run_event_stream_maximum_length),
+      run_directory_(std::move(run_directory)), run_event_stream_maximum_length_(run_event_stream_maximum_length),
       platform_event_stream_maximum_length_(platform_event_stream_maximum_length),
       run_retention_seconds_(run_retention_seconds) {
     if (run_retention_seconds_ <= 0) {
@@ -109,12 +86,29 @@ void WorkerStageObserver::publish(nlohmann::json event) {
     event["sequence"] = sequence_;
     event["timestamp"] = timestamp();
     const std::string encoded = event.dump();
-    (void)redis_.addEvent(event_stream_, encoded, run_event_stream_maximum_length_);
-    redis_.expire(event_stream_, run_retention_seconds_);
-    (void)redis_.addEvent("platform-events", encoded, platform_event_stream_maximum_length_);
-    const std::string run_key = "run:" + run_id_;
-    redis_.setHash(run_key, {{"last_event", encoded}, {"updated_at", event["timestamp"]}});
-    redis_.expire(run_key, run_retention_seconds_);
+    std::map<std::string, std::string> state{{"last_event", encoded}, {"updated_at", event["timestamp"]}};
+    const std::string type = event.at("type");
+    if (type == "job_succeeded") {
+        state["status"] = "succeeded";
+    } else if (type == "job_failed" || type == "stage_failed") {
+        state["status"] = "failed";
+    } else if (type == "job_cancelled") {
+        state["status"] = "cancelled";
+    } else if (type == "job_started" || type == "stage_started") {
+        state["status"] = "running";
+    }
+    if (event.contains("stage")) {
+        state["stage"] = event.at("stage");
+    }
+    if (event.contains("error")) {
+        state["error"] = event.at("error").at("message");
+    }
+    redis_.publishEvent(run_id_,
+                        encoded,
+                        state,
+                        run_event_stream_maximum_length_,
+                        platform_event_stream_maximum_length_,
+                        run_retention_seconds_);
     std::ofstream log(run_directory_ / "events.ndjson", std::ios::app);
     log << encoded << '\n';
 }
@@ -123,7 +117,7 @@ void WorkerStageObserver::publishJobEvent(const std::string& type, const std::st
     nlohmann::json event{{"type", type}};
     const std::string effective_error = message.empty() && type == "job_failed" ? last_error_ : message;
     if (!effective_error.empty()) {
-        const bool uses_stage_error = message.empty() && !last_error_.empty();
+        const bool uses_stage_error = !last_error_.empty() && effective_error == last_error_;
         event["error"] = {
             {"code", uses_stage_error ? last_error_code_ : "worker_failure"},
             {"message", effective_error},
@@ -131,19 +125,6 @@ void WorkerStageObserver::publishJobEvent(const std::string& type, const std::st
         };
     }
     publish(std::move(event));
-    std::string status = "running";
-    if (type == "job_succeeded") {
-        status = "succeeded";
-    } else if (type == "job_failed") {
-        status = "failed";
-    } else if (type == "job_cancelled") {
-        status = "cancelled";
-    }
-    std::map<std::string, std::string> state{{"status", status}};
-    if (!effective_error.empty()) {
-        state["error"] = effective_error;
-    }
-    redis_.setHash("run:" + run_id_, state);
 }
 
 void WorkerStageObserver::onRunConfigured(const pipeline::RunProvenance& provenance) {
@@ -197,7 +178,6 @@ void WorkerStageObserver::onStageWarning(const common::Diagnostic& diagnostic) {
 
 void WorkerStageObserver::onStageStarted(const pipeline::StageStartedInfo& info) {
     publish({{"type", "stage_started"}, {"stage", info.stage}, {"backend", info.backend}});
-    redis_.setHash("run:" + run_id_, {{"status", "running"}, {"stage", info.stage}});
 }
 
 void WorkerStageObserver::onStageProgress(const pipeline::StageProgressInfo& info) {

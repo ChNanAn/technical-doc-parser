@@ -32,6 +32,19 @@ public:
 
     void expire(const std::string& key, int seconds) override { expirations.emplace_back(key, seconds); }
 
+    void publishEvent(const std::string& run_id,
+                      const std::string& event,
+                      const std::map<std::string, std::string>& state,
+                      std::size_t run_maximum_length,
+                      std::size_t platform_maximum_length,
+                      int retention_seconds) override {
+        addEvent("run-events:" + run_id, event, run_maximum_length);
+        addEvent("platform-events", event, platform_maximum_length);
+        setHash("run:" + run_id, state);
+        expire("run-events:" + run_id, retention_seconds);
+        expire("run:" + run_id, retention_seconds);
+    }
+
     std::vector<StreamWrite> stream_writes;
     std::vector<std::pair<std::string, std::map<std::string, std::string>>> hash_writes;
     std::vector<std::pair<std::string, int>> expirations;
@@ -63,7 +76,7 @@ TEST(WorkerStageObserverTest, RefreshesRunStateAndEventStreamRetentionForEveryEv
     EXPECT_EQ(writer.expirations[1], std::make_pair(std::string("run:run_1"), 600));
     EXPECT_EQ(writer.expirations[2], std::make_pair(std::string("run-events:run_1"), 600));
     EXPECT_EQ(writer.expirations[3], std::make_pair(std::string("run:run_1"), 600));
-    ASSERT_GE(writer.hash_writes.size(), 3U);
+    ASSERT_EQ(writer.hash_writes.size(), 2U);
     EXPECT_EQ(writer.hash_writes[0].first, "run:run_1");
     EXPECT_TRUE(writer.hash_writes[0].second.count("last_event"));
     EXPECT_EQ(writer.hash_writes.back().second.at("stage"), "layout");

@@ -30,6 +30,16 @@ export function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+export function stageOutputFromDocument(document: Record<string, unknown>, stage: StageName): unknown {
+  if (stage === "assembly" || stage === "export") return { blocks: asArray(document.blocks) };
+  return asArray(document.pages).map((value) => {
+    const page = asRecord(value) ?? {};
+    if (stage === "render") return { page_number: page.number, image: page.image };
+    const debug = asRecord(asRecord(page.extensions)?.["io.github.chnanan.technical-doc-parser.pipeline_debug"]);
+    return { page_number: page.number, output: debug?.[stage === "table" ? "tables" : stage] };
+  });
+}
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }

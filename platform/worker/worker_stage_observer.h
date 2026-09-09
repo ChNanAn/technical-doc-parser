@@ -38,7 +38,6 @@ private:
     std::string run_id_;
     std::string attempt_id_;
     std::filesystem::path run_directory_;
-    std::string event_stream_;
     std::size_t run_event_stream_maximum_length_;
     std::size_t platform_event_stream_maximum_length_;
     int run_retention_seconds_;

@@ -20,6 +20,12 @@ public:
     virtual std::string addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length) = 0;
     virtual void setHash(const std::string& key, const std::map<std::string, std::string>& values) = 0;
     virtual void expire(const std::string& key, int seconds) = 0;
+    virtual void publishEvent(const std::string& run_id,
+                              const std::string& event,
+                              const std::map<std::string, std::string>& state,
+                              std::size_t run_maximum_length,
+                              std::size_t platform_maximum_length,
+                              int retention_seconds) = 0;
 };
 
 class RedisClient final : public IRedisEventWriter {
@@ -37,6 +43,12 @@ public:
     void acknowledge(const std::string& stream, const std::string& group, const std::string& message_id);
     void setHash(const std::string& key, const std::map<std::string, std::string>& values) override;
     void expire(const std::string& key, int seconds) override;
+    void publishEvent(const std::string& run_id,
+                      const std::string& event,
+                      const std::map<std::string, std::string>& state,
+                      std::size_t run_maximum_length,
+                      std::size_t platform_maximum_length,
+                      int retention_seconds) override;
 
 private:
     struct Value;

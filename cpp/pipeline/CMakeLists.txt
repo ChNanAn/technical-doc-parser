@@ -37,12 +37,14 @@ target_link_libraries(doc_parser_pipeline
         $<BUILD_INTERFACE:spdlog::spdlog_header_only>
 )
 
-if(DOC_PARSER_ENABLE_OPENCV)
+if(DOC_PARSER_ENABLE_OPENCV OR DOC_PARSER_ENABLE_ONNXRUNTIME)
     target_link_libraries(doc_parser_pipeline
         PUBLIC
             doc_parser_image
     )
+endif()
 
+if(DOC_PARSER_ENABLE_OPENCV)
     target_compile_definitions(doc_parser_pipeline
         PRIVATE
             DOC_PARSER_ENABLE_OPENCV=1

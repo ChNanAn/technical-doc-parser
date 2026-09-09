@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 
 namespace doc_parser::app {
@@ -17,6 +18,7 @@ struct CliOptions {
     std::string backend_config;
     int timeout_seconds = 0;
     int maximum_pages = 0;
+    std::size_t image_cache_bytes = 64 * 1024 * 1024;
 };
 
 } // namespace doc_parser::app

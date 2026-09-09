@@ -112,9 +112,16 @@ debug artifacts are written under the output directory; the owned
   "debug": false,
   "timeout_seconds": 0,
   "maximum_pages": 0,
+  "image_cache_bytes": 67108864,
   "run_id": "job-123"
 }
 ```
+
+`image_cache_bytes` is optional and defaults to 64 MiB. It limits retained decoded
+page pixels for this parse; `0` disables retention. It must be a non-negative integer
+that fits the platform's `size_t`. This is not a process-memory limit: the current
+uncached page, renderer, and model tensors require additional memory. Cached pixels
+are released after each page's table recognition and are never retained by the returned document.
 
 ## Errors
 

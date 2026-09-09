@@ -25,6 +25,12 @@ bool ImagePreprocessor::preprocessFile(const std::filesystem::path& input_path,
                                        const std::filesystem::path& output_path,
                                        const PreprocessOptions& options) const {
     const cv::Mat input = cv::imread(input_path.string(), cv::IMREAD_COLOR);
+    return preprocessToFile(input, output_path, options);
+}
+
+bool ImagePreprocessor::preprocessToFile(const cv::Mat& input,
+                                         const std::filesystem::path& output_path,
+                                         const PreprocessOptions& options) const {
     const cv::Mat output = preprocess(input, options);
     if (output.empty()) {
         return false;

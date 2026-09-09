@@ -299,7 +299,7 @@ std::set<std::string> repeatedFurniture(const std::vector<document::PipelinePage
 
 } // namespace
 
-bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
+bool DocumentAssembler::assemble(DocumentAssembleRequest request,
                                  document::ParsedDocument& document,
                                  document::PipelineArtifacts& artifacts) const {
     if (!hasMatchingPageCounts(request)) {
@@ -334,11 +334,11 @@ bool DocumentAssembler::assemble(const DocumentAssembleRequest& request,
         artifacts.pages.push_back({
             request.pages[index].page_index,
             request.pages[index].page_number,
-            request.pages[index],
-            request.page_texts[index],
-            request.page_layouts[index],
-            request.page_reading_orders[index],
-            request.page_tables[index],
+            std::move(request.pages[index]),
+            std::move(request.page_texts[index]),
+            std::move(request.page_layouts[index]),
+            std::move(request.page_reading_orders[index]),
+            std::move(request.page_tables[index]),
         });
     }
 

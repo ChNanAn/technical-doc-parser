@@ -18,6 +18,7 @@ doc_parser::pipeline::DocumentParseOptions parseOptions(const doc_parser::app::C
     parse_options.debug = options.debug;
     parse_options.timeout_seconds = options.timeout_seconds;
     parse_options.maximum_pages = options.maximum_pages;
+    parse_options.image_cache_bytes = options.image_cache_bytes;
     return parse_options;
 }
 
@@ -46,6 +47,10 @@ int main(int argc, char** argv) {
     app.add_option("-o,--out", options.output_dir, "Output directory");
     app.add_option("--run-id", options.run_id, "Caller-provided run identifier");
     app.add_option("--dpi", options.dpi, "Render DPI")->check(CLI::PositiveNumber);
+    app.add_option("--image-cache-bytes",
+                   options.image_cache_bytes,
+                   "Maximum retained decoded page bytes (default 67108864; 0 disables retention)")
+        ->check(CLI::NonNegativeNumber);
     app.add_flag("--debug", options.debug, "Write intermediate debug files");
     app.add_option("--document-backend", options.document_backend, "Document source: auto, pdf");
     app.add_option("--ocr-backend", options.ocr_backend, "OCR backend: auto, tesseract, paddle, noop");

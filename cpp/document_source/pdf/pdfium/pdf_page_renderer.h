@@ -16,6 +16,10 @@ public:
     bool renderPages(const PdfReader& reader,
                      const RenderRequest& request,
                      std::vector<document::PageArtifact>& pages) const;
+    bool renderPage(const PdfReader& reader,
+                    const RenderRequest& request,
+                    int page_index,
+                    document::PageArtifact& page) const;
 
 private:
     bool renderPageBitmap(const PdfReader& reader, int page_index, int dpi, document::PageBitmap& bitmap) const;

@@ -48,26 +48,34 @@ bool PdfPageRenderer::renderPages(const PdfReader& reader,
     pages.reserve(static_cast<std::size_t>(page_count));
 
     for (int page_index = 0; page_index < page_count; ++page_index) {
-        const std::string relative_image = "pages/page_" + std::to_string(page_index + 1) + ".png";
-        const auto output_path = request.output_root / std::filesystem::path(relative_image);
-
-        document::PageBitmap bitmap;
-        if (!renderPageBitmap(reader, page_index, request.dpi, bitmap) || !writePng(bitmap, output_path)) {
-            std::cerr << "error: failed to render page " << page_index + 1 << '\n';
+        document::PageArtifact page;
+        if (!renderPage(reader, request, page_index, page)) {
             return false;
         }
-
-        pages.push_back({
-            page_index,
-            page_index + 1,
-            relative_image,
-            output_path,
-            bitmap.width,
-            bitmap.height,
-            {},
-        });
+        pages.push_back(std::move(page));
     }
 
+    return true;
+}
+
+bool PdfPageRenderer::renderPage(const PdfReader& reader,
+                                 const RenderRequest& request,
+                                 int page_index,
+                                 document::PageArtifact& page) const {
+    page = {};
+    const std::string relative_image = "pages/page_" + std::to_string(page_index + 1) + ".png";
+    const auto output_path = request.output_root / std::filesystem::path(relative_image);
+    std::error_code ec;
+    std::filesystem::create_directories(output_path.parent_path(), ec);
+    if (ec) {
+        return false;
+    }
+    document::PageBitmap bitmap;
+    if (!renderPageBitmap(reader, page_index, request.dpi, bitmap) || !writePng(bitmap, output_path)) {
+        std::cerr << "error: failed to render page " << page_index + 1 << '\n';
+        return false;
+    }
+    page = {page_index, page_index + 1, relative_image, output_path, bitmap.width, bitmap.height, {}};
     return true;
 }
 

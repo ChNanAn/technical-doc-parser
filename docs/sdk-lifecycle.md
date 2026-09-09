@@ -8,6 +8,10 @@ bindings and embedded applications may rely on from v0.1.
 - `DocumentEngine` requires an explicit `EngineConfig`.
 - One engine owns one initialized set of backend and model sessions.
 - Repeated sequential `parse()` calls reuse those sessions.
+- Decoded page images use a separate cache owned by each parse. Configure
+  `DocumentParseOptions::image_cache_bytes` (default 64 MiB; `0` disables retention).
+  Pixels are released after each page's table recognition, including on early return or an
+  exception. Returned artifacts carry only weak references to this runtime cache.
 - The engine is move-only. A moved-from instance remains destructible and
   reports `DocumentEngineState::MovedFrom`.
 - Destruction is not synchronized with active calls. The owner must keep the
@@ -41,6 +45,30 @@ backend sessions.
 
 `isReady()` reports whether initialization succeeded, including while a parse
 is active. `initializationStatus()` is immutable for the engine lifetime.
+
+## Page scheduling and observers
+
+PDFium renders and extracts native text one page at a time. Each page completes
+text/OCR, layout, and table recognition before the next page is rendered. Its
+page-image artifact is announced as soon as rendering finishes. Cross-page table
+linking, reading order, and assembly still run after the page loop.
+
+Render, text, layout, and table each emit one `onStageStarted` and one
+`onStageCompleted` on success, with monotonically increasing per-stage page
+progress. Their events interleave, so consumers must track each stage separately.
+For these four stages, `duration_ms` reports accumulated execution time, excluding other stages
+and observer callbacks; it is not the elapsed interval between start and completion.
+Warnings are emitted as encountered, while exported warnings retain stage-major order.
+
+Legacy document backend sources remain supported through the whole-document
+`renderPages` / `extractNativeText` interfaces. Their batches are loaded once per
+parse; early rendering and page-level text extraction require the optional
+`supportsPageRendering` / `supportsPageTextExtraction` capabilities and their
+single-page methods. Recompile C++ backend implementations with the updated headers.
+
+Deadlines are checked before each page and between its expensive stages. An
+in-flight renderer/model call or a legacy whole-document call is not interrupted.
+After a failure, later pages are not scheduled and the Engine can be reused.
 
 ## Errors
 

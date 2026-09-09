@@ -8,7 +8,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { Artifact } from "./api";
+import { Artifact, artifactUrl as artifactHref } from "./api";
 import { OverlayItem } from "./visualization";
 
 type DocumentViewerProps = {
@@ -25,10 +25,6 @@ type DocumentViewerProps = {
   onZoomChange: (zoom: number) => void;
   loading: boolean;
 };
-
-function artifactHref(runId: string, artifact: Artifact): string {
-  return `/api/v1/runs/${runId}/artifacts/${artifact.artifact_id}`;
-}
 
 function overlayClass(kind: string): string {
   const normalized = kind.toLowerCase().replace(/[^a-z0-9_-]/g, "-");

@@ -107,8 +107,11 @@ export function App() {
   const [activeStage, setActiveStage] = useState<StageName>("layout");
   const [events, setEvents] = useState<Array<Record<string, unknown>>>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const artifactRevision = events.filter((event) => event.type === "artifact_ready").length;
-  const documentArtifactId = artifacts.find((artifact) => artifact.kind === "document_json")?.artifact_id;
+  const artifactRevision = events.filter((event) => event.type === "artifact_ready" || event.type === "job_started").length;
+  const documentArtifact = artifacts.find((artifact) => artifact.kind === "document_json");
+  const documentArtifactId = documentArtifact?.artifact_id;
+  const documentExecutionId = documentArtifact?.execution_id;
+  const executionId = events.find((event) => event.execution_id)?.execution_id;
   const [documentOutput, setDocumentOutput] = useState<Record<string, unknown>>();
   const [error, setError] = useState("");
   const stageOutput = useMemo(() => documentOutput && stageOutputFromDocument(documentOutput, activeStage),
@@ -139,8 +142,20 @@ export function App() {
 
   useEffect(() => {
     if (!runId) return;
+    let currentExecutionId: unknown;
     return subscribeToRun(runId,
-      (event) => setEvents((current) => [...current, event]),
+      (event) => {
+        const changedExecution = event.execution_id && event.execution_id !== currentExecutionId;
+        if (event.execution_id) currentExecutionId = event.execution_id;
+        if (event.type === "job_started" || changedExecution) {
+          setArtifacts([]);
+          setDocumentOutput(undefined);
+          setError("");
+          setEvents([event]);
+        } else {
+          setEvents((current) => [...current, event]);
+        }
+      },
       (nextStatus, reason) => {
         setStatus(nextStatus);
         if (reason) setError(reason);
@@ -159,7 +174,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [runId, artifactRevision, status]);
+  }, [runId, artifactRevision, executionId, status]);
 
   useEffect(() => {
     if (!runId || !documentArtifactId) {
@@ -167,7 +182,7 @@ export function App() {
       return;
     }
     let active = true;
-    getArtifactJson(runId, documentArtifactId)
+    getArtifactJson(runId, documentArtifactId, documentExecutionId)
       .then((output) => {
         if (active) setDocumentOutput(output);
       })
@@ -180,7 +195,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [documentArtifactId, runId]);
+  }, [documentArtifactId, documentExecutionId, runId]);
 
   const selectableBackends = useMemo(() => capabilities.available, [capabilities]);
   const pageArtifacts = useMemo(

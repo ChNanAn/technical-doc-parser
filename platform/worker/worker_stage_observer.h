@@ -19,7 +19,9 @@ public:
                         std::filesystem::path run_directory,
                         std::size_t run_event_stream_maximum_length,
                         std::size_t platform_event_stream_maximum_length,
-                        int run_retention_seconds);
+                        int run_retention_seconds,
+                        std::string execution_id = {},
+                        std::int64_t initial_sequence = 0);
 
     void publishJobEvent(const std::string& type, const std::string& message = {});
     void onRunConfigured(const pipeline::RunProvenance& provenance) override;
@@ -44,7 +46,8 @@ private:
     std::string last_error_code_;
     std::string last_error_;
     bool last_error_retryable_ = false;
-    int sequence_ = 0;
+    std::string execution_id_;
+    std::int64_t sequence_ = 0;
 };
 
 } // namespace doc_parser::platform

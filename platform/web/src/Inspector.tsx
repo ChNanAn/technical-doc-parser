@@ -6,7 +6,7 @@ import {
   FileJson2,
   FileText,
 } from "lucide-react";
-import { Artifact } from "./api";
+import { Artifact, artifactUrl as artifactHref } from "./api";
 import { asArray, asRecord, OverlayItem, StageName } from "./visualization";
 
 type InspectorProps = {
@@ -28,10 +28,6 @@ const stageNames: Record<StageName, string> = {
   assembly: "文档组装",
   export: "结果导出",
 };
-
-function artifactHref(runId: string, artifact: Artifact): string {
-  return `/api/v1/runs/${runId}/artifacts/${artifact.artifact_id}`;
-}
 
 function kindLabel(kind: string): string {
   const labels: Record<string, string> = {

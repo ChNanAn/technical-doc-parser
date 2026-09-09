@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,7 +24,7 @@ STATE_EVENT_STATUSES = {
     "stage_progress": "running",
     "artifact_ready": "running",
     "stage_completed": "running",
-    "stage_failed": "failed",
+    "stage_failed": "running",
     "job_succeeded": "succeeded",
     "job_failed": "failed",
     "job_cancelled": "cancelled",
@@ -108,6 +109,7 @@ class RunProjection:
     status: str
     stage: str | None
     error: str | None
+    execution_id: str | None
 
 
 def _projected_run_state(event: dict[str, Any]) -> RunProjection | None:
@@ -130,6 +132,10 @@ def _projected_run_state(event: dict[str, Any]) -> RunProjection | None:
     if error_payload is not None and not isinstance(error_payload, dict):
         raise ValueError("error must be an object")
     error = error_payload.get("message") if isinstance(error_payload, dict) else None
+    execution_id = event.get("execution_id")
+    if execution_id is not None and (not isinstance(execution_id, str) or
+                                     not re.fullmatch(r"execution_[1-9][0-9]*", execution_id)):
+        raise ValueError("invalid execution_id")
     if event_type in INFORMATION_EVENT_TYPES:
         return None
     return RunProjection(
@@ -139,6 +145,7 @@ def _projected_run_state(event: dict[str, Any]) -> RunProjection | None:
         status=STATE_EVENT_STATUSES[event_type],
         stage=stage,
         error=error,
+        execution_id=execution_id,
     )
 
 
@@ -167,6 +174,7 @@ async def _project_entry(redis: Redis, database: Database, message_id: str, fiel
             projection.status,
             projection.stage,
             projection.error,
+            projection.execution_id,
         )
     await redis.xack(PLATFORM_EVENT_STREAM, PROJECTOR_CONSUMER_GROUP, message_id)
 

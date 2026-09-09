@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -293,10 +294,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             state = {}  # A stale cache cannot undo a durable terminal state.
         return RunResponse(
             run_id=record["id"], document_id=record["document_id"], attempt_id=record["attempt_id"],
-            status=state.get("status", record["status"]), stage=state.get("stage") or record["stage"],
+            execution_id=state.get("execution_id") or record.get("execution_id"),
+            status=state.get("status", record["status"]), stage=state.get("stage", record["stage"]) or None,
             options=_record_options(record), created_at=record["created_at"],
             updated_at=state.get("updated_at") or record["updated_at"].isoformat(),
-            error=state.get("error") or record["error"],
+            error=state.get("error", record["error"]) or None,
         )
 
     async def run_response(run_id: str, request: Request) -> RunResponse:
@@ -353,11 +355,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         return StreamingResponse(generate(), media_type="text/event-stream")
 
+    def execution_root(run_id: str, execution_id: str | None) -> Path:
+        root = resolved.runtime_root / "runs" / run_id
+        if execution_id is None:
+            return root  # Runs produced before execution isolation.
+        if not re.fullmatch(r"execution_[1-9][0-9]*", execution_id):
+            raise HTTPException(404, "invalid execution identity")
+        return _safe_child(root, root / "executions" / execution_id)
+
     @app.get("/api/v1/runs/{run_id}/artifacts")
     async def list_artifacts(run_id: str, request: Request) -> list[dict[str, Any]]:
-        if await request.app.state.database.get_run(run_id) is None:
-            raise HTTPException(404, "run not found")
-        manifests = resolved.runtime_root / "runs" / run_id / "artifacts"
+        run = await run_response(run_id, request)
+        manifests = execution_root(run_id, run.execution_id) / "artifacts"
         if not manifests.exists():
             return []
         return await asyncio.to_thread(
@@ -365,10 +374,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     @app.get("/api/v1/runs/{run_id}/artifacts/{artifact_id}")
-    async def download_artifact(run_id: str, artifact_id: str, request: Request) -> FileResponse:
-        if await request.app.state.database.get_run(run_id) is None:
-            raise HTTPException(404, "run not found")
-        run_root = resolved.runtime_root / "runs" / run_id
+    async def download_artifact(run_id: str, artifact_id: str, request: Request,
+                                execution_id: str | None = None) -> FileResponse:
+        run = await run_response(run_id, request)
+        if execution_id is not None and execution_id != run.execution_id:
+            raise HTTPException(409, "artifact execution has been superseded")
+        run_root = execution_root(run_id, run.execution_id)
         manifest_path = _safe_child(run_root, run_root / "artifacts" / f"{artifact_id}.json")
         if not manifest_path.is_file():
             raise HTTPException(404, "artifact not found")
@@ -385,9 +396,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def stage_output(run_id: str, stage: str, request: Request) -> Any:
         if stage not in {"render", "text", "layout", "table", "reading_order", "assembly", "export"}:
             raise HTTPException(404, "unknown stage")
-        if await request.app.state.database.get_run(run_id) is None:
-            raise HTTPException(404, "run not found")
-        output = resolved.runtime_root / "runs" / run_id / "output" / "document.json"
+        run = await run_response(run_id, request)
+        output = execution_root(run_id, run.execution_id) / "output" / "document.json"
         if not output.is_file():
             raise HTTPException(409, "stage output is not available yet")
         return await asyncio.to_thread(

@@ -34,7 +34,7 @@ class RecordingRedis:
 class RecordingDatabase:
     def __init__(self, error: Exception | None = None) -> None:
         self.error = error
-        self.updates: list[tuple[str, str, int, str, str | None, str | None]] = []
+        self.updates: list[tuple[str, str, int, str, str | None, str | None, str | None]] = []
 
     async def update_run(
         self,
@@ -44,10 +44,11 @@ class RecordingDatabase:
         status: str,
         stage: str | None,
         error: str | None,
+        execution_id: str | None = None,
     ) -> None:
         if self.error is not None:
             raise self.error
-        self.updates.append((run_id, attempt_id, sequence, status, stage, error))
+        self.updates.append((run_id, attempt_id, sequence, status, stage, error, execution_id))
 
 
 class RecordingPool:
@@ -177,7 +178,7 @@ def test_projector_passes_attempt_and_sequence_to_state_update() -> None:
     )
 
     assert database.updates == [
-        ("run_1", "attempt_2", 7, "running", "layout", None)
+        ("run_1", "attempt_2", 7, "running", "layout", None, None)
     ]
 
 
@@ -203,7 +204,7 @@ def test_database_run_projection_guards_attempt_sequence_and_terminal_state() ->
     assert "attempt_id=$2" in query
     assert "last_event_sequence < $3" in query
     assert "(status NOT IN ('succeeded', 'failed', 'cancelled') OR status=$4)" in query
-    assert arguments == ("run_1", "attempt_2", 7, "running", "layout", None)
+    assert arguments == ("run_1", "attempt_2", 7, "running", "layout", None, None)
 
 
 def test_projector_replays_its_pending_messages_before_reading_new_events() -> None:

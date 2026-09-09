@@ -11,6 +11,7 @@
     "job_id": {"type": "string", "minLength": 1},
     "run_id": {"type": "string", "minLength": 1},
     "attempt_id": {"type": "string", "minLength": 1},
+    "execution_id": {"type": "string", "pattern": "^execution_[1-9][0-9]*$"},
     "stage": {"enum": ["render", "text", "layout", "table", "reading_order", "assembly", "export"]},
     "kind": {
       "enum": ["page_image", "native_text_json", "ocr_json", "layout_json", "table_json", "reading_order_json", "document_json", "document_markdown", "document_html", "debug_log"]

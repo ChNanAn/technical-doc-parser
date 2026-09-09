@@ -13,6 +13,7 @@ export type Capabilities = {
 
 export type Artifact = {
   artifact_id: string;
+  execution_id?: string;
   stage: string;
   kind: string;
   media_type: string;
@@ -65,8 +66,14 @@ export async function getArtifacts(runId: string): Promise<Artifact[]> {
 export async function getArtifactJson(
   runId: string,
   artifactId: string,
+  executionId?: string,
 ): Promise<Record<string, unknown>> {
-  const response = await fetch(`/api/v1/runs/${runId}/artifacts/${artifactId}`);
+  const response = await fetch(artifactUrl(runId, { artifact_id: artifactId, execution_id: executionId }));
   if (!response.ok) throw new Error(await response.text());
   return response.json();
+}
+
+export function artifactUrl(runId: string, artifact: Pick<Artifact, "artifact_id" | "execution_id">): string {
+  const path = `/api/v1/runs/${runId}/artifacts/${artifact.artifact_id}`;
+  return artifact.execution_id ? `${path}?execution_id=${encodeURIComponent(artifact.execution_id)}` : path;
 }

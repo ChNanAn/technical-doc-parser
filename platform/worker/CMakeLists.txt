@@ -7,6 +7,7 @@ add_executable(document_intelligence_worker
     ${DOCUMENT_INTELLIGENCE_WORKER_ENGINE_SOURCES}
     main.cpp
     redis_client.cpp
+    worker_job_lease.cpp
     worker_stage_observer.cpp
 )
 

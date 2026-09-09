@@ -187,6 +187,40 @@ def test_run_listing_is_paginated_and_durable_terminal_state_wins(tmp_path):
     asyncio.run(check())
 
 
+def test_stage_failure_stays_recoverable_and_execution_switch_clears_old_error(tmp_path):
+    async def check():
+        async with services() as (database, redis, token):
+            app, record = await create_run(database, redis, token, tmp_path)
+            try:
+                async def project(sequence, event_type, execution, **fields):
+                    event = dict(type=event_type, run_id=record["id"], attempt_id=record["attempt_id"],
+                                 sequence=sequence, execution_id=execution, **fields)
+                    await _project_entry(redis, database, f"{sequence}-0", {"event": json.dumps(event)})
+                await project(10, "stage_failed", "execution_1", stage="layout", error={"message": "interrupted"})
+                failed_stage = await database.get_run(record["id"])
+                assert failed_stage["status"] == "running"
+                assert failed_stage["error"] == "interrupted"
+                await redis.hset(f"run:{record['id']}", mapping={
+                    "status": "running", "execution_id": "execution_2", "stage": "", "error": "",
+                })
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                    current = (await client.get(f"/api/v1/runs/{record['id']}")).json()
+                    print("execution switch before projection:", current["execution_id"], current["stage"], current["error"])
+                    assert current["stage"] is None and current["error"] is None
+                await project(11, "job_started", "execution_2")
+                replacement = await database.get_run(record["id"])
+                assert replacement["status"] == "running"
+                assert replacement["stage"] is None and replacement["error"] is None
+                await project(10, "stage_failed", "execution_1", error={"message": "stale"})
+                assert (await database.get_run(record["id"]))["execution_id"] == "execution_2"
+                await project(12, "job_succeeded", "execution_2")
+                await project(13, "job_started", "execution_3")
+                assert (await database.get_run(record["id"]))["status"] == "succeeded"
+            finally:
+                await cleanup_run(redis, record)
+    asyncio.run(check())
+
+
 def test_full_queue_preserves_pending_jobs_in_every_consumer_group():
     async def check():
         async with services() as (_, redis, token):
@@ -256,11 +290,12 @@ def test_worker_terminal_events_are_projected_and_jobs_acknowledged(tmp_path, ca
                     persisted = await database.get_run(record["id"])
                     if case == "valid_document":
                         assert persisted["status"] == "succeeded"
-                        document = json.loads((path.parent / "output/document.json").read_text())
+                        execution = path.parent / "executions" / persisted["execution_id"]
+                        document = json.loads((execution / "output/document.json").read_text())
                         assert len(document["pages"]) == 3
                         assert document["blocks"]
                         for kind in ["document_json", "document_markdown", "document_html"]:
-                            manifest = json.loads((path.parent / "artifacts" / f"artifact_export_{kind}.json").read_text())
+                            manifest = json.loads((execution / "artifacts" / f"artifact_export_{kind}.json").read_text())
                             assert manifest["size_bytes"] > 0
                             assert Path(manifest["uri"].removeprefix("file://")).is_file()
                     else:

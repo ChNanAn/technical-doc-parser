@@ -45,8 +45,8 @@ observation and is not a release threshold. The source and executables used for 
   removes the first decode (see below). Keep display artifacts and independently verify any further pixel changes.
 - Extend warm Engine, first-image latency, stage-duration, and disk-byte measurements to a larger corpus.
   Structured document output still waits for cross-page processing and assembly.
-- Add execution leases, abandoned Worker Job recovery, cancellation, and Attempt-isolated publication together.
-  Outbox recovery covers delivery; it does not restart an inference abandoned by a crashed Worker.
+- Extend the Worker execution recovery below with user cancellation and artifact retention automation.
+  Recovery reruns a crashed execution; it does not interrupt or checkpoint an in-flight model call.
 - Budget Engine cache admission by memory and measure model initialization peaks before changing eviction behavior.
 - Improve orientation and degraded-scan OCR against independently annotated fixtures. Existing preprocessing is
   still a debug artifact path, and no new OCR accuracy improvement is claimed by this change.
@@ -259,3 +259,58 @@ Document JSON. Single-sample elapsed times were 7.62/7.63 s (`pdfjs-basicapi`), 
 (`paddleocr_book_photo`), 2.21/2.26 s (`paddleocr_small_mixed_table`), and 22.68/22.09 s
 (`pdfjs-tracemonkey`). These include model initialization and support output equivalence;
 they do not establish a short-document performance improvement.
+
+## Worker execution recovery
+
+Starting from `4d225bb`, fault injection placed a real Job in a dead consumer's pending
+list. The Worker only called `XREADGROUP ... >`; after eight seconds the Job still had
+one pending entry and no terminal event. Code inspection also showed that restarting an
+execution reset event sequence to 1 and reused the same output directory, which would
+break projection and permit a paused original Worker to overwrite replacement results.
+
+The Worker now scans pending entries with a bounded, advancing cursor and claims only
+expired execution leases. A separate Redis connection renews ownership during model
+calls. Redis server time, a generation number and a unique process consumer identify
+the current execution; every event checks this ownership atomically. Sequence numbers
+continue from the last accepted event. Terminal publication updates both streams, Run
+state and XACK in one Redis script, removing the previous success/acknowledgment gap.
+Pending execution metadata has no TTL and disappears when terminal acknowledgment commits.
+
+The existing Run, Job and Attempt identities remain stable on crash redelivery. Each
+execution gets `execution_<n>` and its own output, manifest and event-log directory.
+API projection persists the active execution; artifact/stage reads resolve that directory,
+including when Redis state expires. The browser resets stage views on an execution change
+and pins artifact URLs to the listed execution. A resumed stale process can finish an
+in-flight call in its private directory but cannot publish accepted events or touch the
+winner's output. A stage error alone is no longer a terminal Run state; the subsequent
+Job terminal event finalizes it, keeping the crash gap recoverable. Explicitly cleared
+cache fields no longer inherit the previous execution's stage/error while projection lags.
+
+Defaults are a 30-second lease renewed every 10 seconds, and at most three processing
+executions. A further claim records `worker.recovery_exhausted` without running models.
+Healthy leases prevent another Worker from stealing a long-running Job. Recovery requires
+an available Worker and retained Redis queue/lease/event state; it does not checkpoint
+inference, forcibly cancel model calls, or recover total Redis data loss. Old Workers must
+be stopped/drained before upgrading API/Worker/Web together, since old binaries do not
+honor fencing. Superseded execution directories remain available for operational inspection
+and need the deployment's normal artifact retention policy.
+
+Validation used disposable Redis 7.4.2 and PostgreSQL 16.6 plus the real C++ Worker:
+
+| Injected condition | Verified result |
+| --- | --- |
+| Dead consumer before execution | Another Worker completes the Job and clears pending state |
+| SIGKILL after first page artifact | Replacement succeeds with a new execution and increasing sequence |
+| SIGSTOP, replacement completes, then SIGCONT | Old Worker exits; accepted events and winner file hashes stay unchanged |
+| Healthy processing exceeds the lease interval | Renewal holds ownership; competing Worker does not duplicate execution |
+| Two consecutive crashes with a limit of two | Next claim emits `worker.recovery_exhausted` and terminal ACK |
+| More than 32 earlier pending entries with live leases | Cursor advances to the abandoned entry without stealing healthy work |
+| Proxy drops the terminal Redis reply after commit | One success event, no pending Job, no rerun after restart |
+| Run cache removed after recovery | PostgreSQL selects the winning artifacts and stage output; old execution pin returns 409 |
+
+All 48 Python/API/protocol/integration tests, the 9-test C++ Worker suite, and 12 frontend
+tests passed; the frontend production build passed. After adding an assertion for the
+cache/projection lag, its reproduction failed with `execution_2 layout interrupted` and
+the corrected response passed with `execution_2 None None`. Logs are retained locally
+under `/tmp/tdp-worker-recovery.x5gE4L`. CI runs the crash tests alongside delivery tests.
+Core model and parsing code did not change in this increment.

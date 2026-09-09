@@ -1,5 +1,7 @@
 #include "redis_client.h"
 
+#include "redis_job_scripts.h"
+
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstring>
@@ -228,6 +230,76 @@ std::string RedisClient::addEvent(const std::string& stream, const std::string& 
     return command({"XADD", stream, "MAXLEN", "~", std::to_string(maximum_length), "*", "event", json}).string;
 }
 
+std::optional<RedisStreamMessage> RedisClient::reclaimExpired(const std::string& stream,
+                                                              const std::string& group,
+                                                              const std::string& consumer,
+                                                              int idle_ms,
+                                                              std::string& cursor) {
+    const Value response = command({"EVAL",
+                                    detail::reclaimJobScript,
+                                    "1",
+                                    stream,
+                                    group,
+                                    consumer,
+                                    std::to_string(idle_ms),
+                                    cursor,
+                                    "job-execution:" + stream + ':' + group + ':'});
+    cursor = response.array.at(0).string;
+    const auto& entries = response.array.at(1).array;
+    if (entries.empty()) {
+        return std::nullopt;
+    }
+    const auto& entry = entries.front().array;
+    RedisStreamMessage message;
+    message.id = entry.at(0).string;
+    const auto& fields = entry.at(1).array;
+    for (std::size_t i = 0; i + 1 < fields.size(); i += 2) {
+        message.fields[fields[i].string] = fields[i + 1].string;
+    }
+    return message;
+}
+
+std::optional<RedisJobLease> RedisClient::acquireJob(const std::string& stream,
+                                                     const std::string& group,
+                                                     const std::string& consumer,
+                                                     const RedisStreamMessage& message,
+                                                     int lease_ms) {
+    lease_.reset();
+    const auto field = [&](const std::string& name) {
+        const auto found = message.fields.find(name);
+        return found == message.fields.end() ? std::string{} : found->second;
+    };
+    const std::string key = "job-execution:" + stream + ':' + group + ':' + message.id;
+    const Value result = command({"EVAL",
+                                  detail::acquireJobScript,
+                                  "3",
+                                  stream,
+                                  key,
+                                  "run:" + field("run_id"),
+                                  group,
+                                  consumer,
+                                  message.id,
+                                  std::to_string(lease_ms),
+                                  field("attempt_id")});
+    if (result.array.empty()) {
+        return std::nullopt;
+    }
+    lease_ = RedisJobLease{
+        key, stream, group, message.id, consumer, result.array.at(0).integer, result.array.at(1).integer, lease_ms};
+    return lease_;
+}
+
+bool RedisClient::renewJob(const RedisJobLease& lease) {
+    return command({"EVAL",
+                    detail::renewJobScript,
+                    "1",
+                    lease.key,
+                    std::to_string(lease.generation),
+                    lease.consumer,
+                    std::to_string(lease.duration_ms)})
+               .integer == 1;
+}
+
 void RedisClient::acknowledge(const std::string& stream, const std::string& group, const std::string& message_id) {
     (void)command({"XACK", stream, group, message_id});
 }
@@ -259,25 +331,56 @@ void RedisClient::publishEvent(const std::string& run_id,
                 return redis.error_reply('WRONGTYPE event publication key ' .. KEYS[i])
             end
         end
+        local event = cjson.decode(ARGV[1])
+        if #KEYS == 5 then
+            local clock = redis.call('TIME')
+            local now = clock[1] * 1000 + math.floor(clock[2] / 1000)
+            if redis.call('HGET', KEYS[4], 'generation') ~= ARGV[5] or
+               redis.call('HGET', KEYS[4], 'consumer') ~= ARGV[6] or
+               tonumber(redis.call('HGET', KEYS[4], 'until_ms') or '0') <= now then
+                return redis.error_reply('JOB_LEASE_LOST')
+            end
+            local pending = redis.call('XPENDING', KEYS[5], ARGV[7], ARGV[8], ARGV[8], 1)
+            if #pending == 0 or pending[1][2] ~= ARGV[6] then return redis.error_reply('JOB_LEASE_LOST') end
+            if event.sequence <= tonumber(redis.call('HGET', KEYS[4], 'sequence') or '0') then
+                return redis.error_reply('JOB_SEQUENCE_REGRESSION')
+            end
+        end
         redis.call('XADD', KEYS[1], 'MAXLEN', '~', ARGV[2], '*', 'event', ARGV[1])
         redis.call('XADD', KEYS[2], 'MAXLEN', '~', ARGV[3], '*', 'event', ARGV[1])
-        for i = 5, #ARGV, 2 do redis.call('HSET', KEYS[3], ARGV[i], ARGV[i + 1]) end
+        local state_start = #KEYS == 5 and 9 or 5
+        for i = state_start, #ARGV, 2 do redis.call('HSET', KEYS[3], ARGV[i], ARGV[i + 1]) end
         redis.call('EXPIRE', KEYS[1], ARGV[4])
         redis.call('EXPIRE', KEYS[3], ARGV[4])
+        if #KEYS == 5 then
+            redis.call('HSET', KEYS[4], 'sequence', event.sequence)
+            if event.type == 'job_succeeded' or event.type == 'job_failed' or event.type == 'job_cancelled' then
+                redis.call('XACK', KEYS[5], ARGV[7], ARGV[8])
+                redis.call('DEL', KEYS[4])
+            end
+        end
         return 1
     )";
     std::vector<std::string> arguments{
         "EVAL",
         script,
-        "3",
+        lease_ ? "5" : "3",
         "run-events:" + run_id,
         "platform-events",
         "run:" + run_id,
-        event,
-        std::to_string(run_maximum_length),
-        std::to_string(platform_maximum_length),
-        std::to_string(retention_seconds),
     };
+    if (lease_) {
+        arguments.insert(arguments.end(), {lease_->key, lease_->stream});
+    }
+    arguments.insert(arguments.end(),
+                     {event,
+                      std::to_string(run_maximum_length),
+                      std::to_string(platform_maximum_length),
+                      std::to_string(retention_seconds)});
+    if (lease_) {
+        arguments.insert(arguments.end(),
+                         {std::to_string(lease_->generation), lease_->consumer, lease_->group, lease_->message_id});
+    }
     for (const auto& [key, value] : state) {
         arguments.push_back(key);
         arguments.push_back(value);

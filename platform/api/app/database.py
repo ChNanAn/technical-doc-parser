@@ -35,6 +35,7 @@ ALTER TABLE runs ADD COLUMN IF NOT EXISTS stage TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS error TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS last_event_sequence BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS execution_id TEXT;
 CREATE INDEX IF NOT EXISTS runs_document_id_idx ON runs(document_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS job_outbox (
@@ -146,10 +147,16 @@ class Database:
         status: str,
         stage: str | None,
         error: str | None,
+        execution_id: str | None = None,
     ) -> bool:
         result = await self.pool.execute(
             """UPDATE runs
-               SET status=$4, stage=COALESCE($5, stage), error=COALESCE($6, error),
+               SET status=$4,
+                   stage=CASE WHEN $7::text IS NOT NULL AND execution_id IS DISTINCT FROM $7 THEN $5
+                              ELSE COALESCE($5, stage) END,
+                   error=CASE WHEN $7::text IS NOT NULL AND execution_id IS DISTINCT FROM $7 THEN $6
+                              ELSE COALESCE($6, error) END,
+                   execution_id=COALESCE($7, execution_id),
                    last_event_sequence=$3, updated_at=NOW()
                WHERE id=$1 AND attempt_id=$2 AND last_event_sequence < $3
                  AND (status NOT IN ('succeeded', 'failed', 'cancelled') OR status=$4)""",
@@ -159,5 +166,6 @@ class Database:
             status,
             stage,
             error,
+            execution_id,
         )
         return result == "UPDATE 1"

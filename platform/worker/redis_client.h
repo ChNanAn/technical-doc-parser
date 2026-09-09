@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -11,6 +12,17 @@ namespace doc_parser::platform {
 struct RedisStreamMessage {
     std::string id;
     std::map<std::string, std::string> fields;
+};
+
+struct RedisJobLease {
+    std::string key;
+    std::string stream;
+    std::string group;
+    std::string message_id;
+    std::string consumer;
+    std::int64_t generation = 0;
+    std::int64_t sequence = 0;
+    int duration_ms = 0;
 };
 
 class IRedisEventWriter {
@@ -39,6 +51,18 @@ public:
     void ensureConsumerGroup(const std::string& stream, const std::string& group);
     std::optional<RedisStreamMessage>
     readGroup(const std::string& stream, const std::string& group, const std::string& consumer, int block_milliseconds);
+    std::optional<RedisStreamMessage> reclaimExpired(const std::string& stream,
+                                                     const std::string& group,
+                                                     const std::string& consumer,
+                                                     int idle_ms,
+                                                     std::string& cursor);
+    std::optional<RedisJobLease> acquireJob(const std::string& stream,
+                                            const std::string& group,
+                                            const std::string& consumer,
+                                            const RedisStreamMessage& message,
+                                            int lease_ms);
+    bool renewJob(const RedisJobLease& lease);
+    void clearJob() { lease_.reset(); }
     std::string addEvent(const std::string& stream, const std::string& json, std::size_t maximum_length) override;
     void acknowledge(const std::string& stream, const std::string& group, const std::string& message_id);
     void setHash(const std::string& key, const std::map<std::string, std::string>& values) override;
@@ -64,6 +88,7 @@ private:
     int port_ = 6379;
     int socket_ = -1;
     std::string input_buffer_;
+    std::optional<RedisJobLease> lease_;
 };
 
 } // namespace doc_parser::platform

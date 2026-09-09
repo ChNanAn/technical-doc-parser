@@ -8,6 +8,9 @@ versioned document contract.
 
 ### Fixed
 
+- Recover Jobs abandoned by crashed Workers using renewed execution leases and fenced publication. Keep each
+  execution's artifacts separate, resume event sequences, bound crash retries, and commit terminal events with
+  acknowledgment. API and Web resolve the current execution; deploy these components together after stopping old Workers.
 - Persist Run creation and queued delivery in a transactional PostgreSQL outbox, retry uncertain delivery without
   duplicate enqueue, and keep full-queue backlogs without trimming unconsumed Jobs.
 - Publish Worker validation failures to the event projector before acknowledgment, and update both event streams

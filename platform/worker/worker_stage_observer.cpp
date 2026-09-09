@@ -65,11 +65,14 @@ WorkerStageObserver::WorkerStageObserver(IRedisEventWriter& redis,
                                          std::filesystem::path run_directory,
                                          std::size_t run_event_stream_maximum_length,
                                          std::size_t platform_event_stream_maximum_length,
-                                         int run_retention_seconds)
+                                         int run_retention_seconds,
+                                         std::string execution_id,
+                                         std::int64_t initial_sequence)
     : redis_(redis), job_id_(std::move(job_id)), run_id_(std::move(run_id)), attempt_id_(std::move(attempt_id)),
       run_directory_(std::move(run_directory)), run_event_stream_maximum_length_(run_event_stream_maximum_length),
       platform_event_stream_maximum_length_(platform_event_stream_maximum_length),
-      run_retention_seconds_(run_retention_seconds) {
+      run_retention_seconds_(run_retention_seconds), execution_id_(std::move(execution_id)),
+      sequence_(initial_sequence) {
     if (run_retention_seconds_ <= 0) {
         throw std::invalid_argument("run retention must be positive");
     }
@@ -85,17 +88,27 @@ void WorkerStageObserver::publish(nlohmann::json event) {
     event["attempt_id"] = attempt_id_;
     event["sequence"] = sequence_;
     event["timestamp"] = timestamp();
+    if (!execution_id_.empty()) {
+        event["execution_id"] = execution_id_;
+    }
     const std::string encoded = event.dump();
     std::map<std::string, std::string> state{{"last_event", encoded}, {"updated_at", event["timestamp"]}};
     const std::string type = event.at("type");
     if (type == "job_succeeded") {
         state["status"] = "succeeded";
-    } else if (type == "job_failed" || type == "stage_failed") {
+    } else if (type == "job_failed") {
         state["status"] = "failed";
     } else if (type == "job_cancelled") {
         state["status"] = "cancelled";
     } else if (type == "job_started" || type == "stage_started") {
         state["status"] = "running";
+    }
+    if (!execution_id_.empty()) {
+        state["execution_id"] = execution_id_;
+    }
+    if (type == "job_started") {
+        state["stage"] = "";
+        state["error"] = "";
     }
     if (event.contains("stage")) {
         state["stage"] = event.at("stage");
@@ -208,6 +221,9 @@ void WorkerStageObserver::onArtifactReady(const pipeline::StageArtifactInfo& inf
         {"size_bytes", error ? 0 : size},
         {"created_at", timestamp()},
     };
+    if (!execution_id_.empty()) {
+        artifact["execution_id"] = execution_id_;
+    }
     if (info.page_number > 0) {
         artifact["page_number"] = info.page_number;
     }

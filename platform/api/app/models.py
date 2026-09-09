@@ -42,6 +42,7 @@ class RunResponse(BaseModel):
     run_id: str
     document_id: str
     attempt_id: str
+    execution_id: str | None = None
     status: str
     stage: str | None = None
     options: RunCreate

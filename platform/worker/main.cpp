@@ -2,6 +2,7 @@
 #include "pipeline/backend_registry.h"
 #include "redis_client.h"
 #include "worker_document_processor.h"
+#include "worker_job_lease.h"
 #include "worker_stage_observer.h"
 
 #include <atomic>
@@ -15,6 +16,8 @@
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -36,6 +39,13 @@ int environmentInt(const char* name, int fallback) {
     } catch (const std::exception&) {
         return fallback;
     }
+}
+
+std::string consumerIdentity(const std::string& worker_id) {
+    std::random_device random;
+    std::ostringstream id;
+    id << worker_id << '-' << std::hex << random() << random() << random() << random();
+    return id.str();
 }
 
 std::filesystem::path localFilePath(const std::string& uri) {
@@ -287,10 +297,13 @@ int main(int argc, char** argv) {
     const int run_event_stream_maximum_length = environmentInt("RUN_EVENT_STREAM_MAX_LENGTH", 2'000);
     const int platform_event_stream_maximum_length = environmentInt("PLATFORM_EVENT_STREAM_MAX_LENGTH", 100'000);
     const int run_retention_seconds = environmentInt("RUN_RETENTION_SECONDS", 7 * 24 * 60 * 60);
+    const int job_lease_ms = environmentInt("WORKER_JOB_LEASE_MS", 30'000);
+    const int maximum_executions = environmentInt("WORKER_JOB_MAX_EXECUTIONS", 3);
     if (engine_cache_size <= 0 || run_event_stream_maximum_length <= 0 || platform_event_stream_maximum_length <= 0 ||
-        run_retention_seconds <= 0) {
+        run_retention_seconds <= 0 || job_lease_ms < 1000 || job_lease_ms > 3'600'000 || maximum_executions < 1) {
         std::cerr << "WORKER_ENGINE_CACHE_SIZE, RUN_EVENT_STREAM_MAX_LENGTH, PLATFORM_EVENT_STREAM_MAX_LENGTH, and "
-                     "RUN_RETENTION_SECONDS must be positive\n";
+                     "RUN_RETENTION_SECONDS and WORKER_JOB_MAX_EXECUTIONS must be positive; "
+                     "WORKER_JOB_LEASE_MS must be between 1000 and 3600000\n";
         return 2;
     }
 
@@ -299,7 +312,8 @@ int main(int argc, char** argv) {
             doc_parser::pipeline::createDefaultBackendRegistry(engine_config);
         doc_parser::platform::RedisClient redis(redis_host, redis_port);
         redis.ensureConsumerGroup(job_stream, consumer_group);
-        const std::string worker_key = "worker:" + worker_id;
+        const std::string consumer = consumerIdentity(worker_id);
+        const std::string worker_key = "worker:" + consumer;
         const std::string capabilities = availableCapabilities(backend_registry);
         std::cout << "worker engine config: " << engineConfigJson(engine_config).dump() << '\n';
         std::cout << "worker run retention: seconds=" << run_retention_seconds << '\n';
@@ -307,9 +321,15 @@ int main(int argc, char** argv) {
         doc_parser::platform::WorkerDocumentProcessor processor(
             engine_config, backend_registry, static_cast<std::size_t>(engine_cache_size));
 
+        std::string claim_cursor = "-";
         while (running) {
             heartbeat.setIdle();
-            const auto message = redis.readGroup(job_stream, consumer_group, worker_id, 5000);
+            redis.clearJob();
+            auto message = redis.reclaimExpired(job_stream, consumer_group, consumer, job_lease_ms, claim_cursor);
+            const bool reclaimed = message.has_value();
+            if (!message) {
+                message = redis.readGroup(job_stream, consumer_group, consumer, 500);
+            }
             if (!message.has_value()) {
                 continue;
             }
@@ -320,6 +340,14 @@ int main(int argc, char** argv) {
                 continue;
             }
 
+            const auto lease = redis.acquireJob(job_stream, consumer_group, consumer, *message, job_lease_ms);
+            if (!lease) {
+                continue;
+            }
+            doc_parser::platform::WorkerJobLease renewal(redis_host, redis_port, *lease);
+            const std::string execution_id = "execution_" + std::to_string(lease->generation);
+            std::cerr << "job acquired: message=" << message->id << " execution=" << execution_id
+                      << " reclaimed=" << reclaimed << " resume_sequence=" << lease->sequence << '\n';
             std::unique_ptr<doc_parser::platform::WorkerStageObserver> observer;
             bool succeeded = false;
             std::string failure_message;
@@ -337,10 +365,12 @@ int main(int argc, char** argv) {
                         message->fields.at("job_id"),
                         message->fields.at("run_id"),
                         message->fields.at("attempt_id"),
-                        job_file.parent_path(),
+                        job_file.parent_path() / "executions" / execution_id,
                         static_cast<std::size_t>(run_event_stream_maximum_length),
                         static_cast<std::size_t>(platform_event_stream_maximum_length),
-                        run_retention_seconds);
+                        run_retention_seconds,
+                        execution_id,
+                        lease->sequence);
                 }
                 const nlohmann::json job = loadJob(job_path->second);
                 const std::string job_id = job.at("job_id").get<std::string>();
@@ -352,10 +382,12 @@ int main(int argc, char** argv) {
                         job_id,
                         run_id,
                         attempt_id,
-                        job_file.parent_path(),
+                        job_file.parent_path() / "executions" / execution_id,
                         static_cast<std::size_t>(run_event_stream_maximum_length),
                         static_cast<std::size_t>(platform_event_stream_maximum_length),
-                        run_retention_seconds);
+                        run_retention_seconds,
+                        execution_id,
+                        lease->sequence);
                 }
                 for (const char* key : {"job_id", "run_id", "attempt_id"}) {
                     const auto queued = message->fields.find(key);
@@ -371,10 +403,17 @@ int main(int argc, char** argv) {
                 }
                 heartbeat.setRunning(run_id);
                 observer->publishJobEvent("job_started");
-                const WorkerRunOptions options = optionsFromJob(job, engine_config.backends);
-                const doc_parser::common::Status status = processor.process(options.parse, options.backends, *observer);
-                succeeded = status.okStatus();
-                failure_message = status.message();
+                if (lease->generation > maximum_executions) {
+                    observer->onStageFailed(
+                        {"configure", "worker.recovery_exhausted", "Worker execution recovery limit exceeded", false});
+                } else {
+                    WorkerRunOptions options = optionsFromJob(job, engine_config.backends);
+                    options.parse.output_directory = job_file.parent_path() / "executions" / execution_id / "output";
+                    const doc_parser::common::Status status =
+                        processor.process(options.parse, options.backends, *observer);
+                    succeeded = status.okStatus();
+                    failure_message = status.message();
+                }
             } catch (const std::exception& error) {
                 std::cerr << "job " << message->id << " failed: " << error.what() << '\n';
                 if (!observer) {
@@ -384,10 +423,14 @@ int main(int argc, char** argv) {
                 }
                 failure_message = error.what();
             }
+            if (renewal.lost()) {
+                throw std::runtime_error("job lease was lost; results retained only in the superseded execution "
+                                         "directory");
+            }
             // A lost terminal-publication response must not turn a success into
             // a failure. Let transport failures escape without acknowledging.
             observer->publishJobEvent(succeeded ? "job_succeeded" : "job_failed", failure_message);
-            redis.acknowledge(job_stream, consumer_group, message->id);
+            // Terminal event, run cache, and XACK commit in the same fenced script.
         }
     } catch (const std::exception& error) {
         std::cerr << "worker fatal error: " << error.what() << '\n';

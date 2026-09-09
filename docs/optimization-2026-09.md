@@ -41,8 +41,8 @@ observation and is not a release threshold. The source and executables used for 
 
 ## Remaining performance and reliability work
 
-- Consider passing the renderer's pixels directly to image consumers to avoid the remaining PNG decode per page.
-  Keep exported PNG artifacts and exact BGR/channel semantics. Pages above the cache budget still reread the file.
+- Measure PNG artifact encoding and model preprocessing separately now that budgeted renderer pixel handoff
+  removes the first decode (see below). Keep display artifacts and independently verify any further pixel changes.
 - Extend warm Engine, first-image latency, stage-duration, and disk-byte measurements to a larger corpus.
   Structured document output still waits for cross-page processing and assembly.
 - Add execution leases, abandoned Worker Job recovery, cancellation, and Attempt-isolated publication together.
@@ -193,3 +193,69 @@ lifecycles/progress, cross-three-page table links, warning order, legacy backend
 page identity/count validation, empty documents, and deadline handling. The image-cache integration test also
 verifies one decode per page when only a single page fits the budget. Builds passed with ONNX enabled but
 PDFium/preprocessing disabled, and with all three optional dependencies disabled.
+
+## Lazy renderer pixel handoff
+
+The next baseline is `cee2806`, rebuilt after committing the previous work so both
+executables record the same producer revision. An actual `cv::imread` trace confirmed
+that the page-wise pipeline still decoded every page PNG once: PDFium's RGBA buffer
+was discarded after PNG writing, before the first image consumer could reuse it.
+
+`RenderRequest::on_page_rendered` now provides a backend-neutral, optional synchronous
+handoff after successful PNG writing. PDFium moves its tightly packed RGBA vector into
+the per-parse cache if its allocated capacity fits the remaining budget. On first image
+access, the cache converts RGBA to shared BGR and releases RGBA. Grayscale values and
+RGB channels are preserved; alpha is discarded exactly as with `cv::IMREAD_COLOR`.
+Pages that never reach an image consumer require no color conversion. No OpenCV types
+cross into the document-source interface, and file artifacts remain available to
+Tesseract, standalone consumers, and legacy renderers.
+
+Admission validates page identity, dimensions, channel count, buffer length and overflow.
+Invalid/oversized buffers do not enter the cache. RGBA requires four bytes per pixel
+(or more if its vector has spare capacity), while decoded BGR needs three: a budget that
+fits only BGR falls back to one PNG decode, then reuses that BGR. Zero budget disables
+retention. The existing per-page clear, weak artifact ownership, and exception cleanup
+also release unconverted RGBA. Conversion temporarily holds both RGBA and BGR; the byte
+budget covers retained buffers, not this transient output, PDFium rendering buffers,
+allocator overhead or model tensors. It is not a process RSS cap.
+
+Logs now distinguish `rendered_admissions`, `rendered_rejections`, `conversions` and
+`conversion_us` from PNG `decodes` / `decode_us`. A read served from admitted RGBA counts
+as a cache hit, including the first conversion. The pipeline supplies the callback only
+for incremental renderers, preserving legacy batch behavior.
+
+Validation: all 170 CTest cases passed, including model/pipeline quality, the C ABI,
+packaging and an installed SDK consumer. Six new regressions cover lazy RGBA conversion
+with gray/color/alpha pixels, unused-buffer release, actual allocation capacity and
+remaining budget, invalid buffers, concurrent conversion, and PNG-publication-before-handoff.
+The existing pipeline integration test now also compares real rendered pixels against PNG,
+checks exact JSON equivalence under RGBA/BGR-only budgets, and verifies disabled retention,
+text-only consumers, failed runs and Engine reuse. ONNX-only and fully minimal builds passed.
+
+For `pdfjs-tracemonkey.pdf` (14 pages, 200 DPI, Paddle OCR / DocLayNet / Table Transformer,
+debug enabled), an interposer and cache counters measured:
+
+| Measurement | Page-wise PNG cache | Renderer handoff |
+| --- | ---: | ---: |
+| PNG decodes | 14 | 0 |
+| RGBA-to-BGR conversions | 0 | 14 |
+| Instrumented PNG decode time, one run | 302.711 ms | 0 ms |
+| Measured RGBA-to-BGR time, one run | 0 ms | 10.181 ms |
+| Peak retained pixel buffers | 11,220,000 bytes | 14,960,000 bytes |
+| Retained pixels after table stage | 0 | 0 |
+| Process peak RSS | 1,125,744 KiB | 1,132,340 KiB |
+
+The complete output directories, including JSON, page PNGs and debug images, were
+byte-identical. This proves removal of the decode, with a bounded increase in retained
+pixels before conversion. Instrumented process elapsed time was 24.26/22.06 seconds,
+but single observations cannot attribute that entire difference to this change or
+establish an overall inference speedup. The before/after executables, logs, output
+directories, and CLI comparison report are under `/tmp/tdp-render-pixels.LvpOA3` in the
+development environment; the existing `benchmark_page_image_cache.py --baseline-engine`
+workflow reproduces uninstrumented comparisons.
+
+Four additional uninstrumented CLI before/after pairs all produced byte-identical
+Document JSON. Single-sample elapsed times were 7.62/7.63 s (`pdfjs-basicapi`), 4.10/4.04 s
+(`paddleocr_book_photo`), 2.21/2.26 s (`paddleocr_small_mixed_table`), and 22.68/22.09 s
+(`pdfjs-tracemonkey`). These include model initialization and support output equivalence;
+they do not establish a short-document performance improvement.

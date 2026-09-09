@@ -343,9 +343,19 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     page_layouts.reserve(static_cast<std::size_t>(page_count));
     page_tables.reserve(static_cast<std::size_t>(page_count));
 
-    const document_source::RenderRequest render_request{
-        context.render.dpi, context.output.root, context.output.pages_dir};
+    document_source::RenderRequest render_request{context.render.dpi, context.output.root, context.output.pages_dir};
     const bool page_rendering = document.renderer->supportsPageRendering();
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+    auto image_cache = std::make_shared<image::PageImageCache>(options.image_cache_bytes);
+    if (page_rendering) {
+        render_request.on_page_rendered = [weak_cache = std::weak_ptr<image::PageImageCache>(image_cache)](
+                                              const document::PageArtifact& page, document::PageBitmap&& bitmap) {
+            if (const auto cache = weak_cache.lock()) {
+                cache->admitRendered(page, std::move(bitmap));
+            }
+        };
+    }
+#endif
     auto* native = document.native_text_extractor;
     const bool page_native_text = native != nullptr && native->supportsPageTextExtraction();
     spdlog::info("page_pipeline: pages={} incremental_render={} incremental_native_text={}",
@@ -365,9 +375,6 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         }
     }
 
-#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
-    auto image_cache = std::make_shared<image::PageImageCache>(options.image_cache_bytes);
-#endif
     const TextExtractionStage text_extraction(native, *services->ocr);
     const LayoutAnalysisStage layout_analysis(*services->layout);
     const TableRecognitionStage table_recognition(*services->table);
@@ -516,7 +523,8 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
 #if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
     const auto image_stats = image_cache->stats();
     spdlog::info("page_image_cache: budget_bytes={} resident_bytes={} peak_resident_bytes={} hits={} decodes={} "
-                 "uncached_decodes={} failures={} decode_us={}",
+                 "uncached_decodes={} failures={} decode_us={} rendered_admissions={} rendered_rejections={} "
+                 "conversions={} conversion_us={}",
                  options.image_cache_bytes,
                  image_stats.resident_bytes,
                  image_stats.peak_resident_bytes,
@@ -524,7 +532,11 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
                  image_stats.decodes,
                  image_stats.uncached_decodes,
                  image_stats.failures,
-                 image_stats.decode_microseconds);
+                 image_stats.decode_microseconds,
+                 image_stats.rendered_admissions,
+                 image_stats.rendered_rejections,
+                 image_stats.conversions,
+                 image_stats.conversion_microseconds);
     image_cache.reset();
 #endif
 

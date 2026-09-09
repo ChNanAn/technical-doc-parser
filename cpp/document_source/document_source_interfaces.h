@@ -4,6 +4,7 @@
 #include "document/text_model.h"
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,11 @@ struct RenderRequest {
     int dpi = 200;
     std::filesystem::path output_root;
     std::filesystem::path pages_dir;
+    // Optional synchronous handoff after the PNG has been written successfully.
+    // The bitmap must describe the same pixels and dimensions as the artifact.
+    // Consumers may move pixels out; renderers must not retain/invoke the callback
+    // after rendering returns. Backends may ignore it and keep the file-only path.
+    std::function<void(const document::PageArtifact&, document::PageBitmap&&)> on_page_rendered{};
 };
 
 struct NativeTextRequest {

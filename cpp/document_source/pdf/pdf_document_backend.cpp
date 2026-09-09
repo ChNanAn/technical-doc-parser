@@ -18,13 +18,7 @@ int PdfDocumentBackend::pageCount() const { return source_.pageCount(); }
 
 bool PdfDocumentBackend::renderPages(const RenderRequest& request, std::vector<document::PageArtifact>& pages) const {
     const doc_parser::pdf::RenderService render;
-    return render.renderPages(source_,
-                              {
-                                  request.dpi,
-                                  request.output_root,
-                                  request.pages_dir,
-                              },
-                              pages);
+    return render.renderPages(source_, request, pages);
 }
 
 bool PdfDocumentBackend::extractNativeText(const NativeTextRequest& request,
@@ -35,7 +29,7 @@ bool PdfDocumentBackend::extractNativeText(const NativeTextRequest& request,
 
 bool PdfDocumentBackend::renderPage(const RenderRequest& request, int page_index, document::PageArtifact& page) const {
     const doc_parser::pdf::RenderService render;
-    return render.renderPage(source_, {request.dpi, request.output_root, request.pages_dir}, page_index, page);
+    return render.renderPage(source_, request, page_index, page);
 }
 
 bool PdfDocumentBackend::extractPageNativeText(const NativeTextRequest& request,

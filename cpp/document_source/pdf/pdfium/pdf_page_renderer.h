@@ -1,6 +1,7 @@
 #pragma once
 
 #include "document/page_artifact.h"
+#include "document_source/document_source_interfaces.h"
 
 #include <filesystem>
 #include <vector>
@@ -8,7 +9,7 @@
 namespace doc_parser::pdf {
 
 class PdfReader;
-struct RenderRequest;
+using RenderRequest = document_source::RenderRequest;
 
 // Internal — invoked by RenderService.
 class PdfPageRenderer {

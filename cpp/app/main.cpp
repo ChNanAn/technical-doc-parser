@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
     app.add_option("--dpi", options.dpi, "Render DPI")->check(CLI::PositiveNumber);
     app.add_option("--image-cache-bytes",
                    options.image_cache_bytes,
-                   "Maximum retained decoded page bytes (default 67108864; 0 disables retention)")
+                   "Maximum retained page pixel bytes (default 67108864; 0 disables retention)")
         ->check(CLI::NonNegativeNumber);
     app.add_flag("--debug", options.debug, "Write intermediate debug files");
     app.add_option("--document-backend", options.document_backend, "Document source: auto, pdf");

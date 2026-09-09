@@ -8,10 +8,15 @@ bindings and embedded applications may rely on from v0.1.
 - `DocumentEngine` requires an explicit `EngineConfig`.
 - One engine owns one initialized set of backend and model sessions.
 - Repeated sequential `parse()` calls reuse those sessions.
-- Decoded page images use a separate cache owned by each parse. Configure
+- Rendered/decoded page images use a separate cache owned by each parse. Configure
   `DocumentParseOptions::image_cache_bytes` (default 64 MiB; `0` disables retention).
   Pixels are released after each page's table recognition, including on early return or an
   exception. Returned artifacts carry only weak references to this runtime cache.
+- PDFium hands rendered RGBA pixels to the cache within its byte budget. The first
+  image consumer converts them to BGR and releases RGBA; unused pages need no conversion.
+  Admission counts the RGBA vector capacity. When RGBA does not fit, PNG decoding remains
+  available and the smaller BGR image may still fit. The budget excludes temporary
+  conversion output, renderer buffers, model tensors, and allocator overhead.
 - The engine is move-only. A moved-from instance remains destructible and
   reports `DocumentEngineState::MovedFrom`.
 - Destruction is not synchronized with active calls. The owner must keep the
@@ -65,6 +70,15 @@ Legacy document backend sources remain supported through the whole-document
 parse; early rendering and page-level text extraction require the optional
 `supportsPageRendering` / `supportsPageTextExtraction` capabilities and their
 single-page methods. Recompile C++ backend implementations with the updated headers.
+
+`RenderRequest::on_page_rendered` is an optional synchronous pixel handoff. A renderer
+may call it after successfully writing the page PNG, passing that page's tightly packed
+8-bit RGBA `PageBitmap` by move. The callback may consume its storage. Dimensions, page
+identity, channels and buffer length must match the artifact; the cache rejects invalid
+buffers and retains the PNG fallback. Renderers must not retain the callback beyond the
+render call. The pipeline enables it for incremental rendering only; legacy batches keep
+file-based caching. No OpenCV types are added to the document-source interface, and the
+C ABI is unchanged.
 
 Deadlines are checked before each page and between its expensive stages. An
 in-flight renderer/model call or a legacy whole-document call is not interrupted.

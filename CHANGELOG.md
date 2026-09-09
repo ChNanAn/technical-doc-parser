@@ -19,6 +19,10 @@ versioned document contract.
 
 ### Changed
 
+- Reuse PDFium's rendered RGBA pixels within the page cache budget and convert to BGR
+  only when an image backend first reads them. Preserve PNG artifacts, exact color/alpha
+  semantics, and file fallback for disabled/insufficient caches and legacy renderers.
+  Record render admission and conversion statistics alongside PNG decode counts.
 - Process PDF pages through rendering, text/OCR, layout, and tables one at a time. Publish page-image events
   immediately after rendering, release each page's cached pixels, and check deadlines between pages/stages.
   Preserve legacy document backends, cross-page table linking, and exported warning order. Stage progress

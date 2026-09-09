@@ -76,6 +76,9 @@ bool PdfPageRenderer::renderPage(const PdfReader& reader,
         return false;
     }
     page = {page_index, page_index + 1, relative_image, output_path, bitmap.width, bitmap.height, {}};
+    if (request.on_page_rendered) {
+        request.on_page_rendered(page, std::move(bitmap));
+    }
     return true;
 }
 

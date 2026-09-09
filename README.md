@@ -106,12 +106,14 @@ configuration:
   --backend-config config/backends.json
 ```
 
-Source builds reuse decoded page images across OCR, layout, and table backends,
+Source builds reuse rendered page pixels across OCR, layout, and table backends,
 processing one page through these stages before rendering the next. The page image
 is announced immediately after rendering and its cached pixels are released after
 table recognition, with a retained-pixel budget of 64 MiB. Use `--image-cache-bytes 0` to
-disable retention, or set a byte limit suited to the deployment. This limit excludes
-model tensors and the current uncached page. See [measurements and limits](docs/optimization-2026-09.md).
+disable retention, or set a byte limit suited to the deployment. PDFium RGBA is converted
+to BGR only on first image access, avoiding PNG decoding when the buffer fits. Files remain
+available for fallback and artifacts. This limit excludes temporary conversion output,
+renderer buffers, model tensors and the current uncached page. See [measurements and limits](docs/optimization-2026-09.md).
 
 ### C++ Embedding
 

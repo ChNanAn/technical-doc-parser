@@ -1,6 +1,7 @@
 #pragma once
 
 #include "document/page_artifact.h"
+#include "document_source/document_source_interfaces.h"
 #include "document_source/pdf/pdf_document.h"
 
 #include <filesystem>
@@ -8,11 +9,7 @@
 
 namespace doc_parser::pdf {
 
-struct RenderRequest {
-    int dpi = 200;
-    std::filesystem::path output_root;
-    std::filesystem::path pages_dir;
-};
+using RenderRequest = document_source::RenderRequest;
 
 // 渲染操作。无状态，操作通过 const PdfDocument& 接收 PDF 源。
 class RenderService {

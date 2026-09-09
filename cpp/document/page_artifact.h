@@ -16,6 +16,8 @@ struct PageBitmap {
     int page_number = 0;
     int width = 0;
     int height = 0;
+    // Rendered pixels are tightly packed, row-major, 8-bit RGBA. The image
+    // handoff only accepts channels == 4; alpha is discarded by BGR consumers.
     int channels = 4;
     std::vector<unsigned char> pixels;
 };

@@ -117,11 +117,13 @@ debug artifacts are written under the output directory; the owned
 }
 ```
 
-`image_cache_bytes` is optional and defaults to 64 MiB. It limits retained decoded
+`image_cache_bytes` is optional and defaults to 64 MiB. It limits retained rendered/decoded
 page pixels for this parse; `0` disables retention. It must be a non-negative integer
 that fits the platform's `size_t`. This is not a process-memory limit: the current
-uncached page, renderer, and model tensors require additional memory. Cached pixels
+uncached page, renderer, temporary RGBA-to-BGR conversion, and model tensors require additional memory. Cached pixels
 are released after each page's table recognition and are never retained by the returned document.
+RGBA admission counts its allocated buffer capacity. If RGBA does not fit, consumers
+decode the PNG; the smaller BGR result may still fit and be shared by later consumers.
 
 ## Errors
 

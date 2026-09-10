@@ -11,6 +11,7 @@ add_executable(domain_unit_tests
     layout_backend_test.cpp
     layout_postprocessing_test.cpp
     orientation_policy_test.cpp
+    page_rotation_test.cpp
     reading_order_backend_test.cpp
     structured_text_document_exporter_test.cpp
     table_backend_test.cpp
@@ -46,7 +47,7 @@ target_compile_definitions(domain_unit_tests
 doc_parser_set_common_warnings(domain_unit_tests)
 
 if(DOC_PARSER_ENABLE_OPENCV OR DOC_PARSER_ENABLE_ONNXRUNTIME)
-    target_sources(domain_unit_tests PRIVATE page_image_cache_test.cpp)
+    target_sources(domain_unit_tests PRIVATE page_image_cache_test.cpp oriented_page_view_test.cpp pipeline_orientation_test.cpp)
     target_link_libraries(domain_unit_tests PRIVATE doc_parser_image)
 endif()
 

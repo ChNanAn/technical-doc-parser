@@ -193,14 +193,22 @@ No extra model is downloaded. CLI/Worker accept `0`/`false` or `1`/`true` for th
 other values leave the configured setting unchanged. C ABI callers use the boolean
 `models.paddle_ocr.recover_upside_down` field.
 
-Recovery returns text boxes in source pixel coordinates and leaves shared images unchanged. This is OCR backend
-recovery, not pipeline-wide orientation normalization: layout/table models and final reading-order processing
-still use the source page pose. It does not handle 90/270-degree pages, skew, or mixed-orientation text; ambiguous
-and sparse evidence retains the original result. Recognition confidence is a heuristic, not an accuracy estimate.
+Standalone OCR returns boxes in source pixel coordinates. In the full pipeline, an accepted correction creates
+a private lossless processing image and transforms OCR/merged native text into that image's coordinate space.
+Layout, tables, cross-page table linking, reading order and assembly share this pose. Before returning results,
+all boxes (including table grids and source references) map back to the published source page image. Published
+images and cached source pixels stay unchanged. The private file supports both cached and direct file readers;
+it survives through reading order and is removed on normal return or exception. Confident unrotated pages create
+no extra image. Corrected pages incur PNG encoding and decoding, with retained pixels subject to the same cache budget.
+
+The built-in orientation evidence still handles only 180 degrees; it does not detect 90/270-degree pages, skew,
+or mixed-orientation text. Ambiguous and sparse evidence retains the original result. Recognition confidence
+is a heuristic, not an accuracy estimate. The shared geometry/view layer supports quarter turns for backends
+that explicitly report them; this is not a claim of built-in four-way orientation detection.
 
 Angle classification is deliberately not advertised by this backend. Earlier configuration accepted a classifier
-path but only loaded the session without executing it; that misleading option has been removed. Rotation support
-should return as a complete preprocessing stage with its own model profile and evaluation corpus.
+path but only loaded the session without executing it; that misleading option has been removed. A separate angle
+classifier would need its own model profile and evaluation corpus before extending the built-in orientation detector.
 
 ### Threading policy
 

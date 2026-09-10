@@ -1,6 +1,7 @@
 #include "common/warning_codes.h"
 
 #include "document/page_artifact.h"
+#include "document/page_rotation.h"
 #include "document/text_model.h"
 #include "document_source/document_source_interfaces.h"
 #include "ocr/ocr_backend.h"
@@ -53,6 +54,7 @@ public:
         result.page_text.has_text = true;
         result.page_text.preferred_source = doc_parser::document::TextSource::Ocr;
         result.page_text.lines.push_back(line);
+        result.clockwise_correction_degrees = correction;
         return true;
     }
 
@@ -60,6 +62,7 @@ public:
     mutable int last_page_number = 0;
     mutable int last_dpi = 0;
     bool succeed = true;
+    int correction = 0;
     std::string output_text = "ocr text";
     doc_parser::document::BBox output_bbox;
 };
@@ -186,6 +189,41 @@ TEST(TextExtractionStageTest, MergesOcrIntoSparseNativeText) {
     EXPECT_EQ(page_texts[0].lines[0].text, "native header");
     EXPECT_EQ(page_texts[0].lines[1].text, "scanned body");
     EXPECT_EQ(page_texts[0].preferred_source, doc_parser::document::TextSource::Mixed);
+}
+
+TEST(TextExtractionStageTest, PropagatesCorrectionAndTransformsMergedNativeAndOcrTogether) {
+    using namespace doc_parser::document;
+    RecordingOcrBackend backend;
+    backend.correction = 180;
+    backend.output_text = "scanned body";
+    backend.output_bbox = {10, 400, 300, 430};
+    auto page = makePageArtifact();
+    page.width = 800;
+    page.height = 1000;
+    const doc_parser::pipeline::TextExtractionStage stage(nullptr, backend);
+    PageText native;
+    native.has_text = true;
+    native.preferred_source = TextSource::PdfTextLayer;
+    TextLine header;
+    header.text = "native header";
+    header.bbox = {10, 10, 200, 30};
+    header.source = TextSource::PdfTextLayer;
+    native.lines.push_back(header);
+    auto result = stage.extractPage(makeContext(), page, native);
+    ASSERT_TRUE(result.ok());
+    ASSERT_EQ(result.clockwise_correction_degrees, 180);
+    ASSERT_EQ(result.value.lines.size(), 2U);
+    EXPECT_EQ(result.value.preferred_source, TextSource::Mixed);
+    EXPECT_DOUBLE_EQ(result.value.lines[0].bbox.y0, 10);
+    EXPECT_DOUBLE_EQ(result.value.lines[1].bbox.y0, 400);
+    PageRotation(800, 1000, result.clockwise_correction_degrees).textToWorking(result.value);
+    EXPECT_DOUBLE_EQ(result.value.lines[0].bbox.y0, 970);
+    EXPECT_DOUBLE_EQ(result.value.lines[1].bbox.y0, 570);
+    backend.succeed = false;
+    const auto fallback = stage.extractPage(makeContext(), page, native);
+    ASSERT_TRUE(fallback.ok());
+    EXPECT_EQ(fallback.clockwise_correction_degrees, 0);
+    EXPECT_EQ(fallback.value.preferred_source, TextSource::PdfTextLayer);
 }
 
 TEST(TextExtractionStageTest, KeepsUsableSparseNativeTextWhenOcrEnhancementFails) {

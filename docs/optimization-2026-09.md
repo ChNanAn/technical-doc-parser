@@ -488,3 +488,66 @@ are also not a controlled performance result. The defensible cost boundary is ze
 extra inference for confident pages, at most six probe crops otherwise, and at most
 one additional page pass after a successful probe. Repeat timings on an idle host
 before setting a latency budget.
+
+## Carrying orientation through the pipeline
+
+Starting from `e281fa2`, a real-model pipeline reproduction confirmed that OCR recovery
+alone did not preserve the final text order. Upright phototest produced one text block;
+its upside-down copy produced two, with the first two lines moved to the end. OCR
+logged an accepted 180-degree correction, but `TextExtractionStage` discarded that
+metadata. Layout refinement, table handling and reading order then consumed the
+source-pose image and boxes. The reproduction failed its final-text equality check
+before the implementation changed.
+
+Text extraction now returns the accepted correction alongside source-coordinate text,
+including merged native lines. A common `PageRotation` maps pixel-edge boxes between
+source and working coordinates. An `OrientedPageView` creates a private lossless PNG
+for a corrected page, preserving published pixels and cache entries. Both direct file
+readers and cache-aware backends receive that same working image and matching text
+coordinates. Normal pages do not create another image.
+
+The working pose remains in effect through layout, tables, cross-page table linking,
+reading order and document assembly. Only then does a shared traversal map text/spans,
+layout blocks, table bounds/columns/rows/cells/structure objects, document blocks and
+source references back to the published source image. Cross-page references use the
+referenced page's transform; logical reading order and table row/column indices remain
+unchanged. Original artifact paths and dimensions are restored before results are
+exposed. The Document v1 coordinate units, origin, page IDs and linked images retain
+their existing meaning; the contract documentation now makes the internal-view boundary
+explicit. Standalone OCR continues returning source-coordinate boxes.
+
+The private view stays alive through reading order even after the page cache is cleared,
+then releases its owned file/directory on return or exception. Artifact events still
+publish the original image immediately after rendering. There is one additional PNG
+per corrected page until parsing returns; these files and transient encoding/rotation
+buffers are outside the retained-pixel cache budget. On the two diagnostic pages,
+cache-enabled corrected parsing decoded two images instead of one, with retained peaks
+of 1.76 MiB for phototest and 4.69 MiB for eurotext, within the existing 64 MiB budget.
+This increment improves correctness and adds no new inference pass beyond OCR recovery;
+it does add image encoding/decoding for corrected pages.
+
+The real-model test now passes for runtime-rotated phototest and eurotext using PaddleOCR,
+DocLayNet and Table Transformer. Final text, block types/order and inverse-mapped block
+and reference boxes match the upright controls. Published pixels remain unchanged and
+no private path enters exported JSON. The test also interrupts a corrected parse after
+tables, verifies private-file cleanup, and reuses the engine with caching disabled.
+An independent two-page pipeline test mixes upright and upside-down pages, checks
+direct-file layout versus cache-based table consumers, and verifies that continuation
+linking happens before geometry returns to source space. It runs with cache budgets
+of zero and 64,000 bytes. Unit tests cover all quarter-turn transforms, fractional and
+full-page bounds, nested/cross-page references, mixed native/OCR text, invalid view
+preparation and exception cleanup.
+
+181 distinct selected CTest cases passed: 173 regression cases plus eight focused new
+cases. The three unchanged standalone layout/block-type model benchmarks were not rerun.
+The full ONNX build and a separate pipeline-library build with ONNX, OpenCV and PDFium
+disabled succeeded. The 15-page pipeline and five-page table reports are identical to
+the saved pre-change reports in both summaries and every sample: anchor completeness
+0.984211, reading-order score 0.960265, full-text CER 0.364193 (11 reference pages),
+table structure F1 1.0 and cell-text CER 0.057661. Logs and generated diagnostic fixtures
+are retained locally in `/tmp/tdp-pipeline-orientation.SW2kf5`.
+
+The built-in detector still proposes only 0/180 degrees when OCR evidence supports it.
+Quarter-turn geometry/view support does not constitute 90/270-degree detection; native
+text accepted without OCR, ambiguous/sparse orientation evidence, skew and mixed text
+directions remain outside this recovery path.

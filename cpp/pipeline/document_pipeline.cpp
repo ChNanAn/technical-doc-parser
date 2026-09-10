@@ -3,6 +3,7 @@
 #include "common/file_fingerprint.h"
 
 #include "assembly/document_assembler.h"
+#include "document/page_rotation.h"
 #include "document/parsed_document.h"
 #include "document/warning_aggregator.h"
 #include "export/document_exporter.h"
@@ -18,11 +19,13 @@
 #endif
 
 #if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+#include "image/oriented_page_view.h"
 #include "image/page_image_cache.h"
 #endif
 
 #include <chrono>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -338,10 +341,17 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     std::vector<document::PageText> page_texts;
     std::vector<document::PageLayout> page_layouts;
     std::vector<document::PageTables> page_tables;
+    std::vector<document::PageRotation> page_rotations;
+    std::vector<std::filesystem::path> source_image_paths;
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+    std::vector<std::unique_ptr<image::OrientedPageView>> orientation_views;
+#endif
     rendered_pages.reserve(static_cast<std::size_t>(page_count));
     page_texts.reserve(static_cast<std::size_t>(page_count));
     page_layouts.reserve(static_cast<std::size_t>(page_count));
     page_tables.reserve(static_cast<std::size_t>(page_count));
+    page_rotations.reserve(static_cast<std::size_t>(page_count));
+    source_image_paths.reserve(static_cast<std::size_t>(page_count));
 
     document_source::RenderRequest render_request{context.render.dpi, context.output.root, context.output.pages_dir};
     const bool page_rendering = document.renderer->supportsPageRendering();
@@ -415,7 +425,7 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
         if (const auto deadline = deadlineStatus(options, run_started, observer, "text"); !deadline.okStatus()) {
             return deadline;
         }
-        auto text_result = text_stage.measure([&]() -> StageResult<document::PageText> {
+        auto text_result = text_stage.measure([&]() -> PageTextExtractionResult {
             document::PageText native_text;
             native_text.page_index = index;
             native_text.page_number = index + 1;
@@ -429,7 +439,7 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
                         legacy_text_loaded = true;
                     }
                     if (extracted && legacy_texts.size() != static_cast<std::size_t>(page_count)) {
-                        StageResult<document::PageText> failed;
+                        PageTextExtractionResult failed;
                         failed.status = common::Status::error("text.page_count_mismatch",
                                                               "native text page count does not match page artifacts");
                         return failed;
@@ -439,7 +449,7 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
                     }
                 }
                 if (!extracted) {
-                    StageResult<document::PageText> failed;
+                    PageTextExtractionResult failed;
                     failed.status =
                         common::Status::error("text.native_extraction_failed",
                                               "native text extraction failed for page " + std::to_string(index + 1));
@@ -454,6 +464,38 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
                                text_result.status.code(),
                                text_result.status.message(),
                                text_result.status.retryable());
+        }
+        source_image_paths.push_back(page.output_path);
+        try {
+            page_rotations.emplace_back(page.width, page.height, text_result.clockwise_correction_degrees);
+        } catch (const std::invalid_argument& error) {
+            return stageFailed(observer, "text", "text.orientation_invalid", error.what());
+        }
+        const auto& rotation = page_rotations.back();
+        if (rotation.degrees() != 0) {
+#if DOC_PARSER_ENABLE_OPENCV || DOC_PARSER_ENABLE_ONNXRUNTIME
+            auto view = std::make_unique<image::OrientedPageView>();
+            if (!text_stage.measure([&] { return view->prepare(page, rotation, context.output.root); })) {
+                return stageFailed(
+                    observer,
+                    "text",
+                    "text.orientation_failed",
+                    "failed to prepare corrected page image for page " + std::to_string(page.page_number));
+            }
+            page = view->page();
+            rotation.textToWorking(text_result.value);
+            orientation_views.push_back(std::move(view));
+            spdlog::debug("page_orientation: page={} correction={} working={}x{} source={}x{}",
+                          page.page_number,
+                          rotation.degrees(),
+                          page.width,
+                          page.height,
+                          rotation.sourceWidth(),
+                          rotation.sourceHeight());
+#else
+            return stageFailed(
+                observer, "text", "text.orientation_unavailable", "corrected page images require OpenCV");
+#endif
         }
         text_stage.warnings(std::move(text_result.diagnostics));
         text_stage.progress(index + 1);
@@ -586,6 +628,10 @@ common::Status DocumentPipeline::parseInternal(const PipelineRunOptions& options
     if (!document_assembler.assemble(std::move(assemble_request), parsed_document, artifacts)) {
         spdlog::error("document_assembly: failed to assemble document");
         return stageFailed(observer, "assembly", "assembly_failed", "failed to assemble document");
+    }
+    document::restoreSourceCoordinates(parsed_document, artifacts, page_rotations);
+    for (std::size_t index = 0; index < artifacts.pages.size(); ++index) {
+        artifacts.pages[index].image.output_path = std::move(source_image_paths[index]);
     }
     applyRunMetadata(options, run_diagnostics, run_provenance, parsed_document);
     observer.onStageProgress({"assembly", 1, 1});

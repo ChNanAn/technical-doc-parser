@@ -102,6 +102,7 @@ nlohmann::json modelPolicy(const doc_parser::pipeline::EngineConfig& config) {
              {"box_threshold", config.paddle_ocr.box_threshold},
              {"recognition_threshold", config.paddle_ocr.recognition_threshold},
              {"recognition_batch_size", config.paddle_ocr.recognition_batch_size},
+             {"recover_upside_down", config.paddle_ocr.recover_upside_down},
          }},
         {"doclaynet",
          {

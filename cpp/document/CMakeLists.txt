@@ -1,4 +1,5 @@
 add_library(doc_parser_document
+    page_rotation.cpp
     text_normalizer.cpp
     warning_aggregator.cpp
 )

@@ -115,8 +115,11 @@ ctest --test-dir build-ort -R paddle_ocr_benchmark --output-on-failure
 
 `paddle_ocr_orientation_test` 会现场旋转两张源图，检查恢复文本及顺序、原图坐标、共享像素不被修改、
 关闭开关的对照结果，以及指定区域识别。`paddle_ocr_eval --disable-orientation-recovery` 可用于同模型
-A/B 对比；预测文件记录开关、各样本的修正角度及识别耗时（不含模型初始化）。当前恢复只作用于 OCR，
-后续 Layout/Table 模型及最终 Reading Order 仍使用原图姿态。开关和适用范围见[依赖配置](dependencies.md)。
+A/B 对比；预测文件记录开关、各样本的修正角度及识别耗时（不含模型初始化）。另有
+`pipeline_orientation_test`，使用真实 OCR/Layout/Table 模型验证两张运行时旋转的源图，检查最终文本、
+块类型和顺序、原图坐标及输出图片，并验证关闭缓存、Observer 中断后的清理及引擎复用。
+Pipeline 在 Layout 前应用 OCR 修正角度，组装后统一回映交付坐标。自动检测仍限于 180 度；
+开关、开销和适用范围见[依赖配置](dependencies.md)。
 
 ### FUNSD OCR
 

@@ -12,6 +12,7 @@ message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 
 add_library(doc_parser_image
     image_preprocessor.cpp
+    oriented_page_view.cpp
     page_image_cache.cpp
 )
 
@@ -19,6 +20,7 @@ doc_parser_set_public_includes(doc_parser_image)
 
 target_link_libraries(doc_parser_image
     PUBLIC
+        doc_parser_document
         opencv_core
         opencv_imgproc
         opencv_imgcodecs

@@ -80,8 +80,10 @@ Coordinates may be integers or decimals. A bbox must have positive area and rema
 0 <= y0 < y1 <= page.height
 ```
 
-Page numbers are one-based. References use page IDs rather than array offsets. Coordinates describe the emitted,
-orientation-normalized page image, not an implicit PDF coordinate system.
+Page numbers are one-based. References use page IDs rather than array offsets. Coordinates describe the emitted
+page image referenced by that page's image URI, not an implicit PDF coordinate system. If inference uses an
+internally rotated view, all delivered boxes and source references map back to the published image. Logical
+reading order and table row/column indices follow the corrected content order; the image itself need not be rotated.
 
 This is the strictest part of v1 because changing coordinate meaning would silently break viewers, citations, and
 training-data generation.

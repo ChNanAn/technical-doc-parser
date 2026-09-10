@@ -1,5 +1,6 @@
 #include "ocr/paddle_ocr_onnx_backend.h"
 
+#include "document/page_rotation.h"
 #include "document/text_model.h"
 #include "image/page_image_cache.h"
 #include "ocr/orientation_policy.h"
@@ -769,7 +770,7 @@ bool probeUpsideDown(const std::vector<cv::Mat>& crops,
 }
 
 document::BBox unrotate180(const document::BBox& box, const cv::Size& size) {
-    return {size.width - box.x1, size.height - box.y1, size.width - box.x0, size.height - box.y0};
+    return document::PageRotation(size.width, size.height, 180).toSource(box);
 }
 
 document::TextLine makeTextLine(const DetectionBox& box, const RecognitionResult& recognition) {

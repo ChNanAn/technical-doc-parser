@@ -332,6 +332,16 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         pipeline_quality_eval.cpp
     )
 
+    add_executable(pipeline_orientation_test pipeline_orientation_test.cpp)
+    target_link_libraries(pipeline_orientation_test PRIVATE document_intelligence_engine_sdk
+        doc_parser_pipeline doc_parser_image spdlog::spdlog)
+    doc_parser_set_common_warnings(pipeline_orientation_test)
+    add_test(NAME pipeline_orientation_test COMMAND pipeline_orientation_test
+        ${CMAKE_CURRENT_BINARY_DIR}/pipeline-orientation
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/images/phototest.tif
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/images/eurotext.tif
+    )
+
     add_executable(olmocr_bench_runner
         olmocr_bench_runner.cpp
     )
@@ -353,6 +363,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         paddle_ocr_orientation_test
         paddle_ocr_eval
         pipeline_quality_eval
+        pipeline_orientation_test
         olmocr_bench_runner
         funsd_ocr_eval
         doclaynet_layout_eval

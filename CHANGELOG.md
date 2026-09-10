@@ -10,7 +10,9 @@ versioned document contract.
 
 - Recover 180-degree upside-down PaddleOCR text with bounded crop probes and confidence checks, using existing
   models. Preserve source coordinates and cached pixels; expose a disable switch in C++/C configuration and
-  CLI/Worker environment overrides. OCR recovery does not normalize downstream layout/table/reading-order models.
+  CLI/Worker environment overrides. Propagate the accepted correction through layout, tables, cross-page table
+  linking, reading order and assembly with a private processing image; map all delivered coordinates back to
+  the published source page and clean up private images on success or exception.
 - Add opt-in retention for terminal Run artifacts with a read-only preview CLI. Coordinate cleanup with Workers
   and downloads using directory locks, persist expiry before deletion, and retry partial failures. Keep original
   PDFs, canonical Jobs and Run history; artifact APIs return 410 after expiry and the Web explains how to rerun.

@@ -59,10 +59,10 @@ TextExtractionStage::extract(const PipelineContext& context, const std::vector<d
     return extraction;
 }
 
-StageResult<document::PageText> TextExtractionStage::extractPage(const PipelineContext& context,
-                                                                 const document::PageArtifact& page,
-                                                                 document::PageText native_text) const {
-    StageResult<document::PageText> extraction;
+PageTextExtractionResult TextExtractionStage::extractPage(const PipelineContext& context,
+                                                          const document::PageArtifact& page,
+                                                          document::PageText native_text) const {
+    PageTextExtractionResult extraction;
     extraction.value = std::move(native_text);
     if (context.render.dpi <= 0) {
         extraction.status = common::Status::error("text.invalid_dpi", "render DPI must be positive");
@@ -120,6 +120,7 @@ StageResult<document::PageText> TextExtractionStage::extractPage(const PipelineC
         extraction.status = common::Status::error("text.ocr_failed", message);
         return extraction;
     }
+    extraction.clockwise_correction_degrees = result.clockwise_correction_degrees;
     if (result.clockwise_correction_degrees != 0) {
         spdlog::debug("ocr_orientation: page={} correction={} coordinates=source",
                       page.page_number,

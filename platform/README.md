@@ -137,8 +137,8 @@ run repeatedly with different OCR, Layout, and Table combinations.
   retain their approximate `MAXLEN` caps of 2,000 and 100,000; size these above the expected unconsumed event backlog.
   Worker event publication updates both streams and the Run cache in one Redis script.
   The Worker refreshes a seven-day TTL on `run:{id}` and `run-events:{id}` after every event; configure
-  `RUN_RETENTION_SECONDS` for the desired post-run inspection window. Postgres and the artifact store remain the
-  durable sources.
+  `RUN_RETENTION_SECONDS` for the desired post-run event/cache window. This setting does not delete disk files;
+  generated files have a separate opt-in retention policy below. Postgres keeps Run history after artifact expiry.
 - The first storage adapter uses a shared filesystem volume. MinIO/S3 can replace it later without changing
   Document, Run, Job, Event, or Artifact identities. API and Worker intentionally share numeric UID `10001` in this
   deployment so both can access the same Run directory.
@@ -187,6 +187,65 @@ this endpoint does not delete Run artifacts.
 Upgrade API, Worker and Web together after draining/stopping old Workers; older Workers
 do not check the cancellation marker. See [failure-injection evidence](../docs/optimization-2026-09.md).
 
+## Artifact retention
+
+Automatic disk cleanup is **disabled by default**. The API can expire generated files for
+Runs whose `succeeded`, `failed` or `cancelled` status has been persisted in PostgreSQL for
+the configured interval. It uses the durable Run `updated_at`, not filesystem timestamps,
+Redis TTLs or a cancellation request. Queued/running Runs are always excluded.
+
+| API environment setting | Default | Meaning |
+| --- | --- | --- |
+| `DIE_ARTIFACT_RETENTION_SECONDS` | `0` | Disabled; set a positive minimum age to enable automatic deletion |
+| `DIE_ARTIFACT_CLEANUP_INTERVAL_SECONDS` | `3600` | Delay between sweeps; each API process starts a sweep on startup |
+| `DIE_ARTIFACT_CLEANUP_BATCH_SIZE` | `50` | Candidates per batch, from 1 to 500; busy/failed Runs do not block later batches |
+
+Upgrade and stop/drain all old API/Worker processes before enabling retention. The new
+versions share POSIX `flock` locks on `.artifacts.lock` in each Run directory. The filesystem
+must support these locks across all API/Worker processes, using the same numeric UID; the
+Compose shared local volume does. Older binaries and external file tools do not honor this
+protocol. Never remove/replace the lock files or expiry markers manually while services run.
+
+Preview eligible directories with the API package installed, the same `DIE_DATABASE_URL`
+and `DIE_RUNTIME_ROOT` as the deployment, and the upgraded database schema:
+
+```bash
+# JSON output only; no database migrations, marker creation or deletion.
+PYTHONPATH=platform/api python -m app.retention --retention-seconds 604800
+
+# Permanently remove the generated files for eligible Runs; rechecks every candidate.
+PYTHONPATH=platform/api python -m app.retention --retention-seconds 604800 --apply
+```
+
+For automatic seven-day retention in Compose, set `DIE_ARTIFACT_RETENTION_SECONDS=604800`
+in the environment used to recreate the API container. A busy Run is retried on the next
+sweep. A preview is a point-in-time candidate list, not a reservation or an exact prediction
+of the later deletion set; the apply command rechecks age, terminal state, paths and locks.
+CLI errors produce a nonzero exit code, and automatic failures are logged and retried.
+
+Cleanup deletes only `output/`, `artifacts/`, `executions/` (including superseded executions),
+and `events.ndjson` beneath the validated canonical Run directory. It preserves `job.json`,
+the original uploaded PDF, Run/database history, lock/expiry markers and other operator files.
+Unknown directories, missing Run roots, mismatched Job paths and root symlinks are left for
+operator diagnosis. Symlinks inside generated output are removed without following targets.
+Deletion is permanent; retain backups if outputs must be recoverable. The retained PDF can
+be parsed again as a new Run.
+
+Workers hold a shared directory lock throughout execution, including terminal publication;
+downloads hold one until the response ends. Cleanup requires an exclusive lock, so a paused
+superseded Worker or slow download postpones deletion even after a replacement finishes.
+On expiry, `artifacts_expired_at` is committed before deletion. Artifact list, download and
+stage endpoints return `410` for expired content; temporary lock contention returns `503`
+with `Retry-After: 1`. Run queries retain their terminal status and expose the expiry time.
+The Web explains expiry and allows a new parse instead of waiting indefinitely for output.
+
+Partial deletion or a failed completion write remains eligible for retry, including after
+an API restart or a longer retention setting. `artifacts_cleaned_at` records completion;
+it is separate from the time content became unavailable. This policy does not delete input
+uploads, orphan directories, DB history, or Redis queue/event data, and it does not guarantee
+a cleanup deadline for files held by a running/paused process. Setting retention back to `0`
+stops future automatic work, including retries of incomplete cleanup.
+
 ## Local verification
 
 ```bash
@@ -202,11 +261,12 @@ cmake --build --preset platform-release --target document_intelligence_worker --
 Delivery integration tests use real, disposable PostgreSQL and Redis services. They create a temporary database
 schema and unique queue/Run keys; the optional Worker tests spawn the executable and exercise successful export,
 missing input, missing Job files, malformed JSON, SIGKILL, SIGSTOP/resume, lease renewal, retry exhaustion,
-claim-scan progress, lost replies, durable cancellation and cancel/success races. These checks also run in CI:
+claim-scan progress, lost replies, durable cancellation, cancel/success races, retention failures,
+download locks and paused-writer cleanup protection. These checks also run in CI:
 
 ```bash
 export DIE_TEST_DATABASE_URL=postgresql://document:document@127.0.0.1:5432/document
 export DIE_TEST_REDIS_URL=redis://127.0.0.1:6379/0
 export DIE_TEST_WORKER="$PWD/build/platform-release/platform/worker/document_intelligence_worker"
-PYTHONPATH=platform/api pytest -s platform/api/tests/test_delivery_integration.py platform/api/tests/test_worker_recovery_integration.py platform/api/tests/test_cancellation_integration.py
+PYTHONPATH=platform/api pytest -s platform/api/tests/test_delivery_integration.py platform/api/tests/test_worker_recovery_integration.py platform/api/tests/test_cancellation_integration.py platform/api/tests/test_retention_integration.py
 ```

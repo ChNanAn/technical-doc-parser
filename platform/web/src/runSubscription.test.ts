@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getRun } from "./api";
+import { ARTIFACTS_EXPIRED_MESSAGE, getRun } from "./api";
 import { subscribeToRun } from "./runSubscription";
 
-vi.mock("./api", () => ({ getRun: vi.fn() }));
+vi.mock("./api", async (importOriginal) => ({ ...await importOriginal<typeof import("./api")>(), getRun: vi.fn() }));
 
 class FakeEventSource {
   static current: FakeEventSource;
@@ -90,6 +90,16 @@ describe("run subscription recovery", () => {
     expect(FakeEventSource.current.close).not.toHaveBeenCalled();
     FakeEventSource.current.emit({ type: "job_cancelled", sequence: 12 });
     expect(status).toHaveBeenLastCalledWith("cancelled", undefined);
+    expect(FakeEventSource.current.close).toHaveBeenCalledOnce();
+  });
+
+  it.each([undefined, "invalid PDF"])("explains expiry while preserving a failure reason: %s", async (error) => {
+    vi.mocked(getRun).mockResolvedValue({ status: error ? "failed" : "succeeded", error,
+                                        artifacts_expired_at: "2026-09-10T00:00:00Z" });
+    const status = vi.fn();
+    stop = subscribeToRun("run_1", vi.fn(), status);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(status).toHaveBeenLastCalledWith(error ? "failed" : "succeeded", error ?? ARTIFACTS_EXPIRED_MESSAGE);
     expect(FakeEventSource.current.close).toHaveBeenCalledOnce();
   });
 });

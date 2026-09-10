@@ -8,6 +8,10 @@ versioned document contract.
 
 ### Added
 
+- Add opt-in retention for terminal Run artifacts with a read-only preview CLI. Coordinate cleanup with Workers
+  and downloads using directory locks, persist expiry before deletion, and retry partial failures. Keep original
+  PDFs, canonical Jobs and Run history; artifact APIs return 410 after expiry and the Web explains how to rerun.
+  Automatic deletion remains disabled until a positive retention period is configured.
 - Add idempotent Run cancellation through `POST /api/v1/runs/{run_id}/cancel` and the Web workbench.
   Persist requests before Redis delivery, retry outages, stop Workers at observer callbacks, and preserve
   cancellation across crash recovery. Terminal publication resolves completion races atomically; in-flight

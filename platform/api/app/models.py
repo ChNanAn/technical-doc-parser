@@ -44,6 +44,7 @@ class RunResponse(BaseModel):
     attempt_id: str
     execution_id: str | None = None
     cancel_requested: bool = False
+    artifacts_expired_at: datetime | None = None
     status: str
     stage: str | None = None
     options: RunCreate

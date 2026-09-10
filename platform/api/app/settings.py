@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     projector_restart_max_delay_seconds: float = Field(default=30.0, gt=0)
     projector_restart_reset_seconds: float = Field(default=60.0, gt=0)
     maximum_upload_bytes: int = 100 * 1024 * 1024
+    artifact_retention_seconds: int = Field(default=0, ge=0)
+    artifact_cleanup_interval_seconds: float = Field(default=3600, gt=0)
+    artifact_cleanup_batch_size: int = Field(default=50, ge=1, le=500)
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 
     @model_validator(mode="after")

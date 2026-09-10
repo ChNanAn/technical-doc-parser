@@ -1,6 +1,7 @@
 #include "document_intelligence_engine/engine_config.h"
 #include "pipeline/backend_registry.h"
 #include "redis_client.h"
+#include "run_artifact_lock.h"
 #include "worker_document_processor.h"
 #include "worker_job_lease.h"
 #include "worker_stage_observer.h"
@@ -348,6 +349,7 @@ int main(int argc, char** argv) {
             const std::string execution_id = "execution_" + std::to_string(lease->generation);
             std::cerr << "job acquired: message=" << message->id << " execution=" << execution_id
                       << " reclaimed=" << reclaimed << " resume_sequence=" << lease->sequence << '\n';
+            std::unique_ptr<doc_parser::platform::RunArtifactLock> artifact_lock;
             std::unique_ptr<doc_parser::platform::WorkerStageObserver> observer;
             bool succeeded = false;
             std::string failure_message;
@@ -356,6 +358,9 @@ int main(int argc, char** argv) {
                 if (!isInside(job_file, runtime_root)) {
                     throw std::runtime_error("Job path must remain inside WORKER_RUNTIME_ROOT");
                 }
+                // Hold through observer destruction and terminal publication, even
+                // while paused or after another execution has won the Redis lease.
+                artifact_lock = std::make_unique<doc_parser::platform::RunArtifactLock>(job_file.parent_path());
                 // Queue identities let us report even a missing or malformed
                 // canonical Job. Older queue messages are supported below.
                 if (message->fields.count("job_id") && message->fields.count("run_id") &&

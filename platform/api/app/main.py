@@ -17,6 +17,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from .database import Database
+from .artifact_storage import ArtifactFileResponse, ArtifactLock, ArtifactsExpired, finish_thread
 from .cancellation import dispatch_cancellations
 from .dispatcher import dispatch_jobs
 from .models import (
@@ -28,6 +29,7 @@ from .models import (
 )
 from .projector import ProjectorState, supervise_worker_event_projector
 from .settings import Settings
+from .retention import cleanup_artifacts
 
 
 PIPELINE_DEBUG_EXTENSION = "io.github.chnanan.technical-doc-parser.pipeline_debug"
@@ -164,13 +166,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             name="job-outbox-dispatcher",
         )
         app.state.dispatcher = dispatcher
+        retention = (
+            asyncio.create_task(cleanup_artifacts(database, resolved), name="artifact-retention")
+            if resolved.artifact_retention_seconds else None
+        )
         await asyncio.sleep(0)
         try:
             yield
         finally:
             projector.cancel()
             dispatcher.cancel()
-            await asyncio.gather(projector, dispatcher, return_exceptions=True)
+            if retention is not None:
+                retention.cancel()
+            await asyncio.gather(projector, dispatcher, *([retention] if retention else []), return_exceptions=True)
             await redis.aclose()
             await database.close()
 
@@ -298,6 +306,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             run_id=record["id"], document_id=record["document_id"], attempt_id=record["attempt_id"],
             execution_id=state.get("execution_id") or record.get("execution_id"),
             cancel_requested=record.get("cancel_requested_at") is not None,
+            artifacts_expired_at=record.get("artifacts_expired_at"),
             status=state.get("status", record["status"]), stage=state.get("stage", record["stage"]) or None,
             options=_record_options(record), created_at=record["created_at"],
             updated_at=state.get("updated_at") or record["updated_at"].isoformat(),
@@ -379,46 +388,68 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "invalid execution identity")
         return _safe_child(root, root / "executions" / execution_id)
 
+    @asynccontextmanager
+    async def artifact_access(run: RunResponse, request: Request):
+        if run.artifacts_expired_at is not None:
+            raise HTTPException(410, "Run artifacts have expired")
+        try:
+            with ArtifactLock(resolved.runtime_root, run.run_id):
+                record = await request.app.state.database.get_run(run.run_id)
+                if record is None or record["artifacts_expired_at"] is not None:
+                    raise HTTPException(410, "Run artifacts have expired")
+                yield
+        except ArtifactsExpired:
+            raise HTTPException(410, "Run artifacts have expired") from None
+        except BlockingIOError:
+            raise HTTPException(503, "Run artifacts are being cleaned", headers={"Retry-After": "1"}) from None
+        except FileNotFoundError:
+            raise HTTPException(404, "artifact files are missing") from None
+
     @app.get("/api/v1/runs/{run_id}/artifacts")
     async def list_artifacts(run_id: str, request: Request) -> list[dict[str, Any]]:
         run = await run_response(run_id, request)
-        manifests = execution_root(run_id, run.execution_id) / "artifacts"
-        if not manifests.exists():
-            return []
-        return await asyncio.to_thread(
-            lambda: [json.loads(path.read_text(encoding="utf-8")) for path in sorted(manifests.glob("*.json"))]
-        )
+        def read():
+            manifests = execution_root(run_id, run.execution_id) / "artifacts"
+            return [json.loads(path.read_text(encoding="utf-8")) for path in sorted(manifests.glob("*.json"))]
+        async with artifact_access(run, request):
+            return await finish_thread(read)
 
     @app.get("/api/v1/runs/{run_id}/artifacts/{artifact_id}")
     async def download_artifact(run_id: str, artifact_id: str, request: Request,
                                 execution_id: str | None = None) -> FileResponse:
         run = await run_response(run_id, request)
-        if execution_id is not None and execution_id != run.execution_id:
-            raise HTTPException(409, "artifact execution has been superseded")
-        run_root = execution_root(run_id, run.execution_id)
-        manifest_path = _safe_child(run_root, run_root / "artifacts" / f"{artifact_id}.json")
-        if not manifest_path.is_file():
-            raise HTTPException(404, "artifact not found")
-        artifact = json.loads(manifest_path.read_text(encoding="utf-8"))
-        uri = artifact["uri"]
-        if not uri.startswith("file://"):
-            raise HTTPException(501, "this API instance cannot proxy non-file artifacts")
-        artifact_path = _safe_child(run_root, Path(uri.removeprefix("file://")))
-        if not artifact_path.is_file():
-            raise HTTPException(404, "artifact file is missing")
-        return FileResponse(artifact_path, media_type=artifact["media_type"], filename=artifact_path.name)
+        def response():
+            if execution_id is not None and execution_id != run.execution_id:
+                raise HTTPException(409, "artifact execution has been superseded")
+            run_root = execution_root(run_id, run.execution_id)
+            manifest_path = _safe_child(run_root, run_root / "artifacts" / f"{artifact_id}.json")
+            if not manifest_path.is_file():
+                raise HTTPException(404, "artifact not found")
+            artifact = json.loads(manifest_path.read_text(encoding="utf-8"))
+            uri = artifact["uri"]
+            if not uri.startswith("file://"):
+                raise HTTPException(501, "this API instance cannot proxy non-file artifacts")
+            artifact_path = _safe_child(run_root, Path(uri.removeprefix("file://")))
+            if not artifact_path.is_file():
+                raise HTTPException(404, "artifact file is missing")
+            return ArtifactFileResponse(artifact_path, media_type=artifact["media_type"], filename=artifact_path.name,
+                                        runtime_root=resolved.runtime_root, run_id=run_id,
+                                        database=request.app.state.database)
+        async with artifact_access(run, request):
+            return await finish_thread(response)
 
     @app.get("/api/v1/runs/{run_id}/stages/{stage}")
     async def stage_output(run_id: str, stage: str, request: Request) -> Any:
         if stage not in {"render", "text", "layout", "table", "reading_order", "assembly", "export"}:
             raise HTTPException(404, "unknown stage")
         run = await run_response(run_id, request)
-        output = execution_root(run_id, run.execution_id) / "output" / "document.json"
-        if not output.is_file():
-            raise HTTPException(409, "stage output is not available yet")
-        return await asyncio.to_thread(
-            lambda: _document_stage_output(json.loads(output.read_text(encoding="utf-8")), stage)
-        )
+        def read():
+            output = execution_root(run_id, run.execution_id) / "output" / "document.json"
+            if not output.is_file():
+                raise HTTPException(409, "stage output is not available yet")
+            return _document_stage_output(json.loads(output.read_text(encoding="utf-8")), stage)
+        async with artifact_access(run, request):
+            return await finish_thread(read)
 
     return app
 

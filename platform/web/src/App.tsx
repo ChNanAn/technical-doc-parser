@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   Artifact,
+  ArtifactsExpiredError,
   BackendSelection,
   Capabilities,
   createRun,
@@ -177,9 +178,15 @@ export function App() {
     let active = true;
     getArtifacts(runId)
       .then((output) => {
-        if (active) setArtifacts(output);
+        if (active && currentRun.current === runId) setArtifacts(output);
       })
-      .catch(() => undefined);
+      .catch((reason) => {
+        if (active && currentRun.current === runId && reason instanceof ArtifactsExpiredError) {
+          setArtifacts([]);
+          setDocumentOutput(undefined);
+          setError((current) => current || reason.message);
+        }
+      });
     return () => {
       active = false;
     };
@@ -193,10 +200,10 @@ export function App() {
     let active = true;
     getArtifactJson(runId, documentArtifactId, documentExecutionId)
       .then((output) => {
-        if (active) setDocumentOutput(output);
+        if (active && currentRun.current === runId) setDocumentOutput(output);
       })
       .catch((reason) => {
-        if (active) {
+        if (active && currentRun.current === runId) {
           setDocumentOutput(undefined);
           setError(`读取解析结果失败：${String(reason)}`);
         }
@@ -272,6 +279,7 @@ export function App() {
     fileSelection.current += 1;
     setFile(event.target.files?.[0]);
     setUploadedDocument(undefined);
+    currentRun.current = "";
     setRunId("");
     setEvents([]);
     setArtifacts([]);
@@ -299,7 +307,10 @@ export function App() {
       setUploadedDocument({ file: selectedFile, documentId: document.document_id });
       const run = await createRun(document.document_id, backends, dpi);
       if (selection !== fileSelection.current) return;
+      // Invalidate old artifact/cancellation responses before React renders the new Run.
+      currentRun.current = run.run_id;
       setRunId(run.run_id);
+      setError("");
       setCancelPending(false);
       setCancelSending(false);
       setEvents([]);

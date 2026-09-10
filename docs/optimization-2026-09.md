@@ -45,7 +45,7 @@ observation and is not a release threshold. The source and executables used for 
   removes the first decode (see below). Keep display artifacts and independently verify any further pixel changes.
 - Extend warm Engine, first-image latency, stage-duration, and disk-byte measurements to a larger corpus.
   Structured document output still waits for cross-page processing and assembly.
-- Extend the Worker execution recovery and cancellation below with artifact retention automation.
+- Extend the opt-in generated-artifact retention below with input-upload and orphan-directory policies.
   Recovery reruns a crashed execution; it does not interrupt or checkpoint an in-flight model call.
 - Budget Engine cache admission by memory and measure model initialization peaks before changing eviction behavior.
 - Improve orientation and degraded-scan OCR against independently annotated fixtures. Existing preprocessing is
@@ -359,3 +359,52 @@ late 503 replaced it with a cancellation request error. Cancellation action erro
 separate state, preserving the terminal failure in both cases. The action group also spans
 the controls grid at narrow widths. The browser check script and output are retained with
 the other local validation logs. Core model and parsing code did not change in this increment.
+
+## Generated artifact retention
+
+Starting from `1d9bae5`, flow inspection found that `RUN_RETENTION_SECONDS` only expires
+Redis Run/event keys. A disposable reproduction logged `run_cache_exists=False`,
+`artifact_exists=True`, `artifact_bytes=13` after the cache expired; no component selected
+terminal Runs for disk cleanup. Recovery also allows a paused superseded Worker to keep
+writing its isolated directory after a replacement finishes, so age alone cannot make
+directory deletion safe.
+
+The API now provides opt-in cleanup and `python -m app.retention`, which defaults to a
+read-only preview. Selection uses durable terminal state and Run update age; the candidate
+cursor advances past busy/failed Runs. Per-Run database row locks and an exclusive filesystem
+lock serialize revalidation and deletion. Workers and artifact readers/downloads share that
+same stable lock inode. A paused superseded Worker retains its shared lock until exit, and
+a download retains it through the response body, not just route validation.
+
+The API commits `artifacts_expired_at` before removing generated entries, then records
+`artifacts_cleaned_at`. A separate filesystem marker prevents expired Runs from recreating
+output. Partial deletion and failed completion writes can be retried, even if the retention
+period later increases. Both route access and delayed file responses recheck durable expiry
+under the directory lock, including when a full disk prevented marker creation. Expired
+artifact/stage APIs return 410 while Run history retains its final status. The Web displays
+expiry without waiting indefinitely for missing output and preserves existing failure reasons.
+
+Deletion is restricted to generated output, manifests, execution directories and local event
+logs beneath the exact canonical Run path. Original PDFs, canonical Job files, DB history,
+lock/expiry markers and operator files remain. Directory opens and recursive removal use
+file descriptors without following root or output symlinks. Automatic deletion is disabled
+by default; enabling it requires all API/Worker processes to use the new lock protocol on a
+shared POSIX filesystem. Old binaries and external tools do not participate. This increment
+does not impose quotas, delete original uploads/orphan directories, or force a paused process
+to release its files. Deleted output requires a backup or a new parse to recover.
+
+Validation covers all three terminal outcomes, nonterminal/recent exclusions, preview with
+no writes, default-disabled and enabled API lifecycle, concurrent cleaners, a busy first
+batch, path/link protection, interrupted deletion, unavailable marker storage, failed DB
+completion, downloads before/after deletion, and a real SIGSTOP/reclaimed Worker. Logs and
+the cache-expiry reproduction are retained under `/tmp/tdp-retention.qOjG0Y`.
+
+The 81-test Python/API regression suite passed, followed by the affected retention tests
+after hardening repeated shutdown cancellation (82 distinct Python/API tests in total).
+The 9-test C++ Worker suite, 17 frontend tests, frontend production build and Compose config
+validation passed. Three Chromium scenarios with mocked API/SSE verified expiry discovered
+through polling or artifact requests, preservation of a failure reason, and creating a new
+Run without stale warnings. Browser logs reproduced an old Run's 410 arriving during new
+Run creation and leaving its expiry banner on the new Run; updating the active identity
+before rendering, rejecting old artifact responses and clearing prior errors on creation
+resolved it. Core parsing/model code did not change in this increment.

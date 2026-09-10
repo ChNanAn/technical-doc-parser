@@ -39,6 +39,10 @@ ALTER TABLE runs ADD COLUMN IF NOT EXISTS execution_id TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS cancel_requested_at TIMESTAMPTZ;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS cancel_delivered_at TIMESTAMPTZ;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS cancel_cleaned BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS artifacts_expired_at TIMESTAMPTZ;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS artifacts_cleaned_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS runs_artifact_retention_idx ON runs(id)
+    WHERE status IN ('succeeded', 'failed', 'cancelled') AND artifacts_cleaned_at IS NULL;
 CREATE INDEX IF NOT EXISTS runs_cancel_pending_idx ON runs(cancel_requested_at)
     WHERE cancel_requested_at IS NOT NULL AND cancel_delivered_at IS NULL;
 CREATE INDEX IF NOT EXISTS runs_cancel_cleanup_idx ON runs(updated_at)
@@ -67,10 +71,11 @@ class Database:
         self._url = url
         self._pool: asyncpg.Pool | None = None
 
-    async def connect(self) -> None:
+    async def connect(self, *, initialize_schema: bool = True) -> None:
         self._pool = await asyncpg.create_pool(self._url, min_size=1, max_size=10)
-        async with self._pool.acquire() as connection:
-            await connection.execute(SCHEMA)
+        if initialize_schema:
+            async with self._pool.acquire() as connection:
+                await connection.execute(SCHEMA)
 
     async def close(self) -> None:
         if self._pool is not None:

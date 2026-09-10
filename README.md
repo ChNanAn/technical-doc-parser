@@ -225,8 +225,9 @@ are cached outside the model-free Worker image for later runs. See the
 [platform guide](platform/README.md) for custom and offline model directories.
 
 The platform is also early-stage. Source builds support fenced pending-job recovery and durable cooperative
-cancellation through the API/Web. Strict interruption of backend calls, artifact retention automation, and
-cross-store disaster recovery remain roadmap work. See [platform semantics](platform/README.md).
+cancellation through the API/Web, plus opt-in artifact retention with a preview command. Strict interruption of
+backend calls, input-upload retention, and cross-store disaster recovery remain roadmap work.
+See [platform semantics](platform/README.md).
 
 ## Project Status
 

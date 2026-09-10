@@ -45,7 +45,18 @@ export async function getCapabilities(): Promise<Capabilities> {
   return response.json();
 }
 
-export type RunStatus = { status: string; error?: string | null; cancel_requested?: boolean };
+export const ARTIFACTS_EXPIRED_MESSAGE = "解析产物已过保留期限，请重新运行解析。";
+
+export class ArtifactsExpiredError extends Error {
+  constructor() { super(ARTIFACTS_EXPIRED_MESSAGE); }
+}
+
+export type RunStatus = {
+  status: string;
+  error?: string | null;
+  cancel_requested?: boolean;
+  artifacts_expired_at?: string | null;
+};
 
 export async function getRun(runId: string, signal?: AbortSignal): Promise<RunStatus> {
   const response = await fetch(`/api/v1/runs/${runId}`, { signal });
@@ -59,16 +70,19 @@ export async function cancelRun(runId: string): Promise<RunStatus> {
   return response.json();
 }
 
-export async function getStage(runId: string, stage: string): Promise<unknown> {
-  const response = await fetch(`/api/v1/runs/${runId}/stages/${stage}`);
+async function artifactJson<T>(path: string): Promise<T> {
+  const response = await fetch(path);
+  if (response.status === 410) throw new ArtifactsExpiredError();
   if (!response.ok) throw new Error(await response.text());
   return response.json();
 }
 
+export async function getStage(runId: string, stage: string): Promise<unknown> {
+  return artifactJson(`/api/v1/runs/${runId}/stages/${stage}`);
+}
+
 export async function getArtifacts(runId: string): Promise<Artifact[]> {
-  const response = await fetch(`/api/v1/runs/${runId}/artifacts`);
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
+  return artifactJson(`/api/v1/runs/${runId}/artifacts`);
 }
 
 export async function getArtifactJson(
@@ -76,9 +90,7 @@ export async function getArtifactJson(
   artifactId: string,
   executionId?: string,
 ): Promise<Record<string, unknown>> {
-  const response = await fetch(artifactUrl(runId, { artifact_id: artifactId, execution_id: executionId }));
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
+  return artifactJson(artifactUrl(runId, { artifact_id: artifactId, execution_id: executionId }));
 }
 
 export function artifactUrl(runId: string, artifact: Pick<Artifact, "artifact_id" | "execution_id">): string {

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { artifactUrl, cancelRun, getArtifactJson } from "./api";
+import { ArtifactsExpiredError, artifactUrl, cancelRun, getArtifactJson, getArtifacts, getStage } from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -21,4 +21,12 @@ it("keeps cancellation pending until the server confirms a terminal status", asy
   expect(fetch).toHaveBeenCalledWith("/api/v1/runs/run_1/cancel", { method: "POST" });
   fetch.mockResolvedValue({ ok: false, text: async () => "temporarily unavailable" });
   await expect(cancelRun("run_1")).rejects.toThrow("temporarily unavailable");
+});
+
+it("reports artifact expiry consistently for manifests, stages and files", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 410 }));
+  for (const request of [() => getArtifacts("run_1"), () => getStage("run_1", "layout"),
+                         () => getArtifactJson("run_1", "doc")]) {
+    await expect(request()).rejects.toBeInstanceOf(ArtifactsExpiredError);
+  }
 });

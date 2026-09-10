@@ -1,4 +1,4 @@
-import { getRun } from "./api";
+import { ARTIFACTS_EXPIRED_MESSAGE, getRun } from "./api";
 
 export function isTerminalStatus(status: string): boolean {
   return ["succeeded", "failed", "cancelled"].includes(status);
@@ -35,7 +35,7 @@ export function subscribeToRun(
       // An older HTTP response must not undo newer SSE progress.
       if (isTerminalStatus(run.status) || startedSequence === sequence) {
         if (run.cancel_requested) onCancelRequested?.();
-        onStatus(run.status, run.error ?? undefined);
+        onStatus(run.status, run.error || (run.artifacts_expired_at ? ARTIFACTS_EXPIRED_MESSAGE : undefined));
         if (isTerminalStatus(run.status)) stop();
       }
     } catch {

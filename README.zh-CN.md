@@ -213,7 +213,7 @@ docker compose -f platform/deploy/docker-compose.yml up --build
 ```
 
 平台同样处于早期阶段。当前源码版已支持租约保护的 Pending Job 恢复，以及 API/前端发起的持久化协作取消。
-模型调用的强制中断、产物自动清理和跨存储灾难恢复仍待完善，详见[平台语义](platform/README.md)。
+产物保留与自动清理已提供预览命令，默认关闭删除。模型调用的强制中断、原始上传文件的保留策略和跨存储灾难恢复仍待完善，详见[平台语义](platform/README.md)。
 
 ## 当前状态
 

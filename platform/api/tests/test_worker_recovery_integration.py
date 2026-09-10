@@ -61,7 +61,7 @@ async def events_for(redis, record):
 
 async def terminal_event(redis, record):
     events = await events_for(redis, record)
-    return events[-1] if events and events[-1]["type"] in {"job_succeeded", "job_failed"} else None
+    return events[-1] if events and events[-1]["type"] in {"job_succeeded", "job_failed", "job_cancelled"} else None
 
 
 def input_fixture(root, name="pdfjs-basicapi.pdf"):

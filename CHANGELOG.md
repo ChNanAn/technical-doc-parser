@@ -6,6 +6,13 @@ versioned document contract.
 
 ## [Unreleased]
 
+### Added
+
+- Add idempotent Run cancellation through `POST /api/v1/runs/{run_id}/cancel` and the Web workbench.
+  Persist requests before Redis delivery, retry outages, stop Workers at observer callbacks, and preserve
+  cancellation across crash recovery. Terminal publication resolves completion races atomically; in-flight
+  backend calls are not forcibly interrupted. Upgrade API/Worker/Web together.
+
 ### Fixed
 
 - Recover Jobs abandoned by crashed Workers using renewed execution leases and fenced publication. Keep each

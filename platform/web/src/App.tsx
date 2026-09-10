@@ -20,6 +20,7 @@ import {
   BackendSelection,
   Capabilities,
   createRun,
+  cancelRun,
   getArtifactJson,
   getArtifacts,
   getCapabilities,
@@ -104,6 +105,12 @@ export function App() {
   const [uploadedDocument, setUploadedDocument] = useState<{ file: File; documentId: string }>();
   const [runId, setRunId] = useState("");
   const [status, setStatus] = useState("idle");
+  const [cancelPending, setCancelPending] = useState(false);
+  const [cancelSending, setCancelSending] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+  const runActive = status === "queued" || status === "running";
+  const currentRun = useRef("");
+  currentRun.current = runId;
   const [activeStage, setActiveStage] = useState<StageName>("layout");
   const [events, setEvents] = useState<Array<Record<string, unknown>>>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
@@ -114,6 +121,7 @@ export function App() {
   const executionId = events.find((event) => event.execution_id)?.execution_id;
   const [documentOutput, setDocumentOutput] = useState<Record<string, unknown>>();
   const [error, setError] = useState("");
+  const displayedError = error || (runActive ? cancelError : "");
   const stageOutput = useMemo(() => documentOutput && stageOutputFromDocument(documentOutput, activeStage),
     [documentOutput, activeStage]);
   const layoutOutput = useMemo(() => documentOutput && stageOutputFromDocument(documentOutput, "layout"),
@@ -160,6 +168,7 @@ export function App() {
         setStatus(nextStatus);
         if (reason) setError(reason);
       },
+      () => setCancelPending(true),
     );
   }, [runId]);
 
@@ -269,6 +278,7 @@ export function App() {
     setDocumentOutput(undefined);
     setStatus("idle");
     setError("");
+    setCancelError("");
     setPageNumber(1);
     setSelectedOverlay(undefined);
   }
@@ -279,6 +289,7 @@ export function App() {
     const selectedFile = file;
     const selection = fileSelection.current;
     setError("");
+    setCancelError("");
     setStatus("uploading");
     try {
       const document = uploadedDocument?.file === selectedFile
@@ -289,6 +300,8 @@ export function App() {
       const run = await createRun(document.document_id, backends, dpi);
       if (selection !== fileSelection.current) return;
       setRunId(run.run_id);
+      setCancelPending(false);
+      setCancelSending(false);
       setEvents([]);
       setArtifacts([]);
       setDocumentOutput(undefined);
@@ -299,6 +312,22 @@ export function App() {
         setError(String(reason));
         setStatus("failed");
       }
+    }
+  }
+
+  async function requestCancel() {
+    const target = runId;
+    setCancelSending(true);
+    setCancelError("");
+    try {
+      const response = await cancelRun(target);
+      if (currentRun.current !== target) return;
+      // SSE/polling owns terminal state and errors; a late POST reply must not undo them.
+      setCancelPending(Boolean(response.cancel_requested));
+    } catch (reason) {
+      if (currentRun.current === target) setCancelError(`取消请求失败：${String(reason)}`);
+    } finally {
+      if (currentRun.current === target) setCancelSending(false);
     }
   }
 
@@ -316,7 +345,7 @@ export function App() {
           {status === "running" || status === "uploading"
             ? <LoaderCircle className="spin" size={16} />
             : status === "succeeded" ? <Check size={16} /> : <Circle size={15} />}
-          <span>{statusLabel(status)}</span>
+          <span>{cancelPending && runActive ? "正在取消" : statusLabel(status)}</span>
         </div>
       </header>
 
@@ -347,13 +376,21 @@ export function App() {
             onChange={(event) => setDpi(Number(event.target.value))}
           />
         </label>
-        <button className="primary-button" type="submit" disabled={!file || status === "uploading"}>
-          <Play size={17} fill="currentColor" />
-          <span>开始解析</span>
-        </button>
+        <div className="run-actions">
+          <button className="primary-button" type="submit" disabled={!file || status === "uploading"}>
+            <Play size={17} fill="currentColor" />
+            <span>开始解析</span>
+          </button>
+          {runId && runActive && (
+            <button className="cancel-button" type="button" onClick={() => void requestCancel()}
+              disabled={cancelPending || cancelSending}>
+              {cancelPending ? "等待任务停止" : cancelSending ? "正在请求取消" : "取消任务"}
+            </button>
+          )}
+        </div>
       </form>
 
-      {error && <div className="error-banner"><XCircle size={17} /><span>{error}</span></div>}
+      {displayedError && <div className="error-banner"><XCircle size={17} /><span>{displayedError}</span></div>}
 
       <div className="run-meta">
         <div>

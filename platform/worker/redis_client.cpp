@@ -332,7 +332,7 @@ void RedisClient::publishEvent(const std::string& run_id,
             end
         end
         local event = cjson.decode(ARGV[1])
-        if #KEYS == 5 then
+        if #KEYS == 6 then
             local clock = redis.call('TIME')
             local now = clock[1] * 1000 + math.floor(clock[2] / 1000)
             if redis.call('HGET', KEYS[4], 'generation') ~= ARGV[5] or
@@ -345,14 +345,17 @@ void RedisClient::publishEvent(const std::string& run_id,
             if event.sequence <= tonumber(redis.call('HGET', KEYS[4], 'sequence') or '0') then
                 return redis.error_reply('JOB_SEQUENCE_REGRESSION')
             end
+            if event.type ~= 'job_cancelled' and redis.call('GET', KEYS[6]) == event.attempt_id then
+                return 0
+            end
         end
         redis.call('XADD', KEYS[1], 'MAXLEN', '~', ARGV[2], '*', 'event', ARGV[1])
         redis.call('XADD', KEYS[2], 'MAXLEN', '~', ARGV[3], '*', 'event', ARGV[1])
-        local state_start = #KEYS == 5 and 9 or 5
+        local state_start = #KEYS == 6 and 9 or 5
         for i = state_start, #ARGV, 2 do redis.call('HSET', KEYS[3], ARGV[i], ARGV[i + 1]) end
         redis.call('EXPIRE', KEYS[1], ARGV[4])
         redis.call('EXPIRE', KEYS[3], ARGV[4])
-        if #KEYS == 5 then
+        if #KEYS == 6 then
             redis.call('HSET', KEYS[4], 'sequence', event.sequence)
             if event.type == 'job_succeeded' or event.type == 'job_failed' or event.type == 'job_cancelled' then
                 redis.call('XACK', KEYS[5], ARGV[7], ARGV[8])
@@ -364,13 +367,13 @@ void RedisClient::publishEvent(const std::string& run_id,
     std::vector<std::string> arguments{
         "EVAL",
         script,
-        lease_ ? "5" : "3",
+        lease_ ? "6" : "3",
         "run-events:" + run_id,
         "platform-events",
         "run:" + run_id,
     };
     if (lease_) {
-        arguments.insert(arguments.end(), {lease_->key, lease_->stream});
+        arguments.insert(arguments.end(), {lease_->key, lease_->stream, "run-cancel:" + run_id});
     }
     arguments.insert(arguments.end(),
                      {event,
@@ -385,7 +388,9 @@ void RedisClient::publishEvent(const std::string& run_id,
         arguments.push_back(key);
         arguments.push_back(value);
     }
-    (void)command(arguments);
+    if (command(arguments).integer == 0) {
+        throw JobCancellationRequested();
+    }
 }
 
 } // namespace doc_parser::platform

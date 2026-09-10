@@ -4,10 +4,16 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace doc_parser::platform {
+
+class JobCancellationRequested final : public std::runtime_error {
+public:
+    JobCancellationRequested() : std::runtime_error("Job cancellation requested") {}
+};
 
 struct RedisStreamMessage {
     std::string id;

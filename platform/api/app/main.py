@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import re
 import uuid
 from contextlib import asynccontextmanager
@@ -16,6 +17,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from .database import Database
+from .cancellation import dispatch_cancellations
 from .dispatcher import dispatch_jobs
 from .models import (
     CapabilitiesResponse,
@@ -295,6 +297,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return RunResponse(
             run_id=record["id"], document_id=record["document_id"], attempt_id=record["attempt_id"],
             execution_id=state.get("execution_id") or record.get("execution_id"),
+            cancel_requested=record.get("cancel_requested_at") is not None,
             status=state.get("status", record["status"]), stage=state.get("stage", record["stage"]) or None,
             options=_record_options(record), created_at=record["created_at"],
             updated_at=state.get("updated_at") or record["updated_at"].isoformat(),
@@ -313,6 +316,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/v1/runs/{run_id}", response_model=RunResponse)
     async def get_run(run_id: str, request: Request) -> RunResponse:
+        return await run_response(run_id, request)
+
+    @app.post("/api/v1/runs/{run_id}/cancel", response_model=RunResponse, status_code=202)
+    async def cancel_run(run_id: str, request: Request) -> RunResponse:
+        database: Database = request.app.state.database
+        record = await database.request_cancellation(run_id)
+        if record is None:
+            raise HTTPException(404, "run not found")
+        try:
+            await dispatch_cancellations(request.app.state.redis, database, run_id)
+        except Exception:
+            # Already durable; the dispatcher resumes delivery after a failure.
+            logging.getLogger(__name__).exception("cancel delivery deferred run_id=%s", run_id)
         return await run_response(run_id, request)
 
     @app.get("/api/v1/documents/{document_id}/runs", response_model=list[RunResponse])

@@ -45,7 +45,7 @@ observation and is not a release threshold. The source and executables used for 
   removes the first decode (see below). Keep display artifacts and independently verify any further pixel changes.
 - Extend warm Engine, first-image latency, stage-duration, and disk-byte measurements to a larger corpus.
   Structured document output still waits for cross-page processing and assembly.
-- Extend the Worker execution recovery below with user cancellation and artifact retention automation.
+- Extend the Worker execution recovery and cancellation below with artifact retention automation.
   Recovery reruns a crashed execution; it does not interrupt or checkpoint an in-flight model call.
 - Budget Engine cache admission by memory and measure model initialization peaks before changing eviction behavior.
 - Improve orientation and degraded-scan OCR against independently annotated fixtures. Existing preprocessing is
@@ -314,3 +314,48 @@ cache/projection lag, its reproduction failed with `execution_2 layout interrupt
 the corrected response passed with `execution_2 None None`. Logs are retained locally
 under `/tmp/tdp-worker-recovery.x5gE4L`. CI runs the crash tests alongside delivery tests.
 Core model and parsing code did not change in this increment.
+
+## Durable cooperative Run cancellation
+
+Starting from `de5d419`, a real API request confirmed that the cancellation route returned
+404, and tracing Worker publication showed no cancellation check. The new idempotent
+`POST /api/v1/runs/{run_id}/cancel` records a request in PostgreSQL and returns 202 with
+`cancel_requested`. A dispatcher retries delivery to a Run/Attempt-specific Redis marker,
+including an accepted write whose response was lost. Delivery and cleanup share a row lock;
+cleanup follows durable terminal projection and never expires an outstanding request by time.
+
+The existing fenced event script now checks this marker before accepting a non-cancellation
+event. The Worker converts the signal into `job_cancelled` and commits both event streams,
+Run cache state and XACK together. This uses existing observer callbacks across page, stage
+and export boundaries; it adds no SDK/C ABI cancellation interface or backend interrupt.
+An active call may finish first. Queued Jobs skip parsing when cancellation arrives before
+their first callback; crash redelivery retains the marker and cancels without starting
+replacement inference. Lease loss still prevents a superseded Worker from publishing.
+Core Engine exception cleanup permits the same Worker to process subsequent Runs.
+
+If success/failure commits in Redis before cancellation delivery, that terminal outcome
+wins. A durable cancellation request alone does not assert the final status. The Web keeps
+polling/listening while showing cancellation pending, handles request errors, and waits for
+a terminal event or authoritative Run response. Existing produced artifacts are retained.
+Dispatch/Worker availability and Redis state retention are still required; total Redis loss,
+forced backend termination and automatic artifact deletion are outside this change.
+
+Tests used disposable PostgreSQL 16.6, Redis 7.4.2 and the actual C++ Worker. Queued,
+outbox and abandoned Jobs emitted one cancellation event with no processing output and
+zero pending messages. Pausing a running Worker, delivering cancellation and resuming it
+produced no further accepted progress/artifact events; the same Worker then completed a
+new Run. Killing it instead verified cancellation through the next execution. A RESP proxy
+held success publication on either side of the Redis commit: cancel-first emitted only
+`job_cancelled`, success-first only `job_succeeded`, and repeated cancel calls preserved
+the terminal result. Fault injection also covered unavailable Redis, uncertain cancellation
+delivery, durable projection and marker cleanup. Logs are under `/tmp/tdp-cancel.rL3Pcf`.
+
+All 57 Python/API/protocol/integration tests, the 9-test C++ Worker suite, and 14 frontend
+tests passed; the frontend production build passed. Six additional Chromium checks with
+mocked API/SSE responses covered responsive actions at 1180/760/390px, pending cancellation,
+retry after request failure, stale responses after switching Runs, and late cancel responses
+after a terminal failure. Before correction, a late 202 erased the failure banner and a
+late 503 replaced it with a cancellation request error. Cancellation action errors now have
+separate state, preserving the terminal failure in both cases. The action group also spans
+the controls grid at narrow widths. The browser check script and output are retained with
+the other local validation logs. Core model and parsing code did not change in this increment.

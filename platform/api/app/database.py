@@ -36,6 +36,14 @@ ALTER TABLE runs ADD COLUMN IF NOT EXISTS error TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS last_event_sequence BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS execution_id TEXT;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS cancel_requested_at TIMESTAMPTZ;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS cancel_delivered_at TIMESTAMPTZ;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS cancel_cleaned BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS runs_cancel_pending_idx ON runs(cancel_requested_at)
+    WHERE cancel_requested_at IS NOT NULL AND cancel_delivered_at IS NULL;
+CREATE INDEX IF NOT EXISTS runs_cancel_cleanup_idx ON runs(updated_at)
+    WHERE cancel_requested_at IS NOT NULL AND NOT cancel_cleaned
+      AND status IN ('succeeded', 'failed', 'cancelled');
 CREATE INDEX IF NOT EXISTS runs_document_id_idx ON runs(document_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS job_outbox (
@@ -133,6 +141,50 @@ class Database:
     async def get_run(self, run_id: str) -> asyncpg.Record | None:
         return await self.pool.fetchrow("SELECT * FROM runs WHERE id=$1", run_id)
 
+    async def request_cancellation(self, run_id: str) -> asyncpg.Record | None:
+        # One idempotent durable request; it does not assert that execution stopped.
+        await self.pool.execute(
+            """UPDATE runs SET cancel_requested_at=NOW(), updated_at=NOW()
+               WHERE id=$1 AND cancel_requested_at IS NULL
+                 AND status NOT IN ('succeeded', 'failed', 'cancelled')""", run_id,
+        )
+        return await self.get_run(run_id)
+
+    async def dispatch_next_cancellation(
+        self, publish: Callable[[str, str], Awaitable[None]], run_id: str | None = None,
+    ) -> bool:
+        async with self.pool.acquire() as connection, connection.transaction():
+            row = await connection.fetchrow(
+                """SELECT id, attempt_id, status FROM runs
+                   WHERE cancel_requested_at IS NOT NULL AND cancel_delivered_at IS NULL
+                     AND ($1::text IS NULL OR id=$1)
+                   ORDER BY cancel_requested_at LIMIT 1 FOR UPDATE SKIP LOCKED""", run_id,
+            )
+            if row is None:
+                return False
+            if row["status"] not in {"succeeded", "failed", "cancelled"}:
+                await publish(row["id"], row["attempt_id"])
+            await connection.execute("UPDATE runs SET cancel_delivered_at=NOW() WHERE id=$1", row["id"])
+        return True
+
+    async def cleanup_next_cancellation(self, remove: Callable[[str], Awaitable[None]]) -> bool:
+        # Share the row lock with dispatch/projection so uncertain delivery cannot
+        # recreate a marker after durable terminal cleanup.
+        async with self.pool.acquire() as connection, connection.transaction():
+            row = await connection.fetchrow(
+                """SELECT id FROM runs WHERE cancel_requested_at IS NOT NULL AND NOT cancel_cleaned
+                     AND status IN ('succeeded', 'failed', 'cancelled')
+                   ORDER BY updated_at LIMIT 1 FOR UPDATE SKIP LOCKED""",
+            )
+            if row is None:
+                return False
+            await remove(row["id"])
+            await connection.execute(
+                "UPDATE runs SET cancel_cleaned=TRUE, cancel_delivered_at=COALESCE(cancel_delivered_at, NOW()) WHERE id=$1",
+                row["id"],
+            )
+        return True
+
     async def list_runs(self, document_id: str, limit: int = 100, offset: int = 0) -> list[asyncpg.Record]:
         return await self.pool.fetch(
             "SELECT * FROM runs WHERE document_id=$1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3",
@@ -154,7 +206,8 @@ class Database:
                SET status=$4,
                    stage=CASE WHEN $7::text IS NOT NULL AND execution_id IS DISTINCT FROM $7 THEN $5
                               ELSE COALESCE($5, stage) END,
-                   error=CASE WHEN $7::text IS NOT NULL AND execution_id IS DISTINCT FROM $7 THEN $6
+                   error=CASE WHEN $4='cancelled' THEN NULL
+                              WHEN $7::text IS NOT NULL AND execution_id IS DISTINCT FROM $7 THEN $6
                               ELSE COALESCE($6, error) END,
                    execution_id=COALESCE($7, execution_id),
                    last_event_sequence=$3, updated_at=NOW()

@@ -100,6 +100,7 @@ void WorkerStageObserver::publish(nlohmann::json event) {
         state["status"] = "failed";
     } else if (type == "job_cancelled") {
         state["status"] = "cancelled";
+        state["error"] = "";
     } else if (type == "job_started" || type == "stage_started") {
         state["status"] = "running";
     }

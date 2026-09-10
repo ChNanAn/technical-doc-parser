@@ -414,6 +414,8 @@ int main(int argc, char** argv) {
                     succeeded = status.okStatus();
                     failure_message = status.message();
                 }
+            } catch (const doc_parser::platform::JobCancellationRequested&) {
+                std::cerr << "job cancellation observed: message=" << message->id << '\n';
             } catch (const std::exception& error) {
                 std::cerr << "job " << message->id << " failed: " << error.what() << '\n';
                 if (!observer) {
@@ -429,7 +431,12 @@ int main(int argc, char** argv) {
             }
             // A lost terminal-publication response must not turn a success into
             // a failure. Let transport failures escape without acknowledging.
-            observer->publishJobEvent(succeeded ? "job_succeeded" : "job_failed", failure_message);
+            try {
+                observer->publishJobEvent(succeeded ? "job_succeeded" : "job_failed", failure_message);
+            } catch (const doc_parser::platform::JobCancellationRequested&) {
+                std::cerr << "job cancelled: message=" << message->id << " execution=" << execution_id << '\n';
+                observer->publishJobEvent("job_cancelled");
+            }
             // Terminal event, run cache, and XACK commit in the same fenced script.
         }
     } catch (const std::exception& error) {

@@ -125,7 +125,7 @@ run repeatedly with different OCR, Layout, and Table combinations.
   original directories. The browser resets stage/artifact views on execution changes. Upgrade API, Worker and Web
   together, draining/stopping old Workers first: old binaries do not enforce the new fencing. Superseded directories
   are retained for inspection and follow the deployment's artifact retention policy.
-- User-requested cancellation is still deferred. The API event projector replays its own pending
+- The API event projector replays its own pending
   events, reclaims events abandoned by a previous projector, and restarts after transient Redis or database failures.
   Restart delay uses bounded exponential backoff with jitter; configure the initial delay, maximum delay, and stable
   reset interval with `DIE_PROJECTOR_RESTART_DELAY_SECONDS`, `DIE_PROJECTOR_RESTART_MAX_DELAY_SECONDS`, and
@@ -153,6 +153,40 @@ run repeatedly with different OCR, Layout, and Table combinations.
   maximum 500) and `offset`, and fetches Redis state in one pipeline. Durable terminal states take precedence
   over cached state; Run queries fall back to PostgreSQL during Redis outages.
 
+## Cancelling a Run
+
+The Web workbench exposes **取消任务** for queued/running Runs. API clients can send:
+
+```http
+POST /api/v1/runs/{run_id}/cancel
+```
+
+The idempotent endpoint returns `202` with a Run response containing `cancel_requested`.
+This flag records a durable request, not a terminal outcome. The UI displays **正在取消**
+and continues SSE/status polling until `job_cancelled`, `job_succeeded`, or `job_failed`.
+An unknown Run returns `404`; repeating the request on a completed Run preserves its result.
+
+Cancellation is persisted in PostgreSQL before delivery to Redis. API startup adds
+`cancel_requested_at`, `cancel_delivered_at`, `cancel_cleaned` and their partial indexes.
+The dispatcher retries missing/uncertain delivery after a Redis outage. Cancellation
+markers include the Attempt identity and have no TTL until terminal state reaches
+PostgreSQL; cleanup is serialized with delivery and retries safely after failures.
+The cancellation marker follows a Run across crash-recovery executions.
+
+The Worker checks cancellation atomically with every fenced event publication. Queued
+Jobs skip parsing when the request has reached Redis before their first callback.
+Running Jobs stop on their next observer callback (page/stage boundaries); an in-flight
+model, renderer or export call may finish first. Lease ownership remains required, and
+`job_cancelled`, Run cache state and queue acknowledgment commit in one Redis operation.
+If success/failure commits before cancellation delivery, that existing terminal result wins.
+There is no force-kill, page checkpoint, SDK/C ABI cancellation entry point, or guaranteed
+stop latency during a backend call. Queued requests still require dispatch capacity and
+an available Worker to reach terminal state. Files already produced remain inspectable;
+this endpoint does not delete Run artifacts.
+
+Upgrade API, Worker and Web together after draining/stopping old Workers; older Workers
+do not check the cancellation marker. See [failure-injection evidence](../docs/optimization-2026-09.md).
+
 ## Local verification
 
 ```bash
@@ -168,11 +202,11 @@ cmake --build --preset platform-release --target document_intelligence_worker --
 Delivery integration tests use real, disposable PostgreSQL and Redis services. They create a temporary database
 schema and unique queue/Run keys; the optional Worker tests spawn the executable and exercise successful export,
 missing input, missing Job files, malformed JSON, SIGKILL, SIGSTOP/resume, lease renewal, retry exhaustion,
-claim-scan progress and a lost terminal Redis reply. These checks also run in CI:
+claim-scan progress, lost replies, durable cancellation and cancel/success races. These checks also run in CI:
 
 ```bash
 export DIE_TEST_DATABASE_URL=postgresql://document:document@127.0.0.1:5432/document
 export DIE_TEST_REDIS_URL=redis://127.0.0.1:6379/0
 export DIE_TEST_WORKER="$PWD/build/platform-release/platform/worker/document_intelligence_worker"
-PYTHONPATH=platform/api pytest -s platform/api/tests/test_delivery_integration.py platform/api/tests/test_worker_recovery_integration.py
+PYTHONPATH=platform/api pytest -s platform/api/tests/test_delivery_integration.py platform/api/tests/test_worker_recovery_integration.py platform/api/tests/test_cancellation_integration.py
 ```

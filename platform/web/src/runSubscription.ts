@@ -8,6 +8,7 @@ export function subscribeToRun(
   runId: string,
   onEvent: (event: Record<string, unknown>) => void,
   onStatus: (status: string, error?: string) => void,
+  onCancelRequested?: () => void,
 ): () => void {
   const source = new EventSource(`/api/v1/runs/${runId}/events`);
   const abort = new AbortController();
@@ -33,6 +34,7 @@ export function subscribeToRun(
       if (stopped) return;
       // An older HTTP response must not undo newer SSE progress.
       if (isTerminalStatus(run.status) || startedSequence === sequence) {
+        if (run.cancel_requested) onCancelRequested?.();
         onStatus(run.status, run.error ?? undefined);
         if (isTerminalStatus(run.status)) stop();
       }

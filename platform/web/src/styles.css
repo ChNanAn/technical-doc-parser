@@ -214,6 +214,22 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cancel-button {
+  min-height: 36px;
+  border: 1px solid #9aa8b1;
+  border-radius: 6px;
+  padding: 7px 12px;
+  color: #3e4a53;
+  background: #fff;
+  cursor: pointer;
+}
+
 .error-banner {
   display: flex;
   align-items: center;
@@ -898,7 +914,7 @@ progress::-moz-progress-bar {
     grid-template-columns: minmax(180px, 1.5fr) repeat(4, minmax(100px, 1fr)) 72px;
   }
 
-  .primary-button {
+  .run-actions {
     grid-column: 1 / -1;
   }
 
@@ -939,7 +955,7 @@ progress::-moz-progress-bar {
   }
 
   .file-picker,
-  .primary-button {
+  .run-actions {
     grid-column: 1 / -1;
   }
 

@@ -78,4 +78,18 @@ describe("run subscription recovery", () => {
     expect(status).toHaveBeenLastCalledWith("succeeded", undefined);
     expect(FakeEventSource.current.close).toHaveBeenCalledTimes(1);
   });
+
+  it("restores pending cancellation from polling and keeps listening until cancelled", async () => {
+    vi.mocked(getRun).mockResolvedValue({ status: "running", cancel_requested: true });
+    const pending = vi.fn();
+    const status = vi.fn();
+    stop = subscribeToRun("run_1", vi.fn(), status, pending);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(pending).toHaveBeenCalledOnce();
+    expect(status).toHaveBeenLastCalledWith("running", undefined);
+    expect(FakeEventSource.current.close).not.toHaveBeenCalled();
+    FakeEventSource.current.emit({ type: "job_cancelled", sequence: 12 });
+    expect(status).toHaveBeenLastCalledWith("cancelled", undefined);
+    expect(FakeEventSource.current.close).toHaveBeenCalledOnce();
+  });
 });

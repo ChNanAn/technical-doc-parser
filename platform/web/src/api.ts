@@ -45,8 +45,16 @@ export async function getCapabilities(): Promise<Capabilities> {
   return response.json();
 }
 
-export async function getRun(runId: string, signal?: AbortSignal): Promise<{ status: string; error?: string | null }> {
+export type RunStatus = { status: string; error?: string | null; cancel_requested?: boolean };
+
+export async function getRun(runId: string, signal?: AbortSignal): Promise<RunStatus> {
   const response = await fetch(`/api/v1/runs/${runId}`, { signal });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function cancelRun(runId: string): Promise<RunStatus> {
+  const response = await fetch(`/api/v1/runs/${runId}/cancel`, { method: "POST" });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
 }

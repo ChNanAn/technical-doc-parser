@@ -87,7 +87,7 @@ async def create_run(database, redis, token, root):
 
 
 async def cleanup_run(redis, record):
-    await redis.delete(f"run:{record['id']}", f"run-events:{record['id']}")
+    await redis.delete(f"run:{record['id']}", f"run-events:{record['id']}", f"run-cancel:{record['id']}")
     events = await redis.xrange("platform-events")
     owned = [event_id for event_id, fields in events if record["id"] in fields.get("event", "")]
     if owned:

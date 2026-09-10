@@ -224,7 +224,9 @@ the pinned baseline model pack before the Worker is allowed to start. Models
 are cached outside the model-free Worker image for later runs. See the
 [platform guide](platform/README.md) for custom and offline model directories.
 
-The platform is also early-stage. Pending-job recovery, strict timeout enforcement, cancellation, and atomic retry publication remain roadmap work.
+The platform is also early-stage. Source builds support fenced pending-job recovery and durable cooperative
+cancellation through the API/Web. Strict interruption of backend calls, artifact retention automation, and
+cross-store disaster recovery remain roadmap work. See [platform semantics](platform/README.md).
 
 ## Project Status
 

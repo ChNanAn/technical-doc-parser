@@ -43,6 +43,7 @@ class RunResponse(BaseModel):
     document_id: str
     attempt_id: str
     execution_id: str | None = None
+    cancel_requested: bool = False
     status: str
     stage: str | None = None
     options: RunCreate

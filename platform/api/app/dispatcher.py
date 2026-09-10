@@ -6,6 +6,7 @@ import logging
 from redis.asyncio import Redis
 
 from .database import Database
+from .cancellation import cleanup_cancellations, dispatch_cancellations
 
 
 LOGGER = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ async def enqueue_job(redis: Redis, stream: str, fields: dict[str, str], maximum
 
 
 async def dispatch_once(redis: Redis, database: Database, stream: str, maximum_length: int) -> bool:
+    cancelled = await dispatch_cancellations(redis, database)
     published = await database.dispatch_next_job(
         lambda fields: enqueue_job(redis, stream, fields, maximum_length),
     )
@@ -79,7 +81,8 @@ async def dispatch_once(redis: Redis, database: Database, stream: str, maximum_l
     for row in await database.published_outbox_jobs():
         await asyncio.wait_for(redis.delete(marker_key(row["job_id"])), timeout=5)
         await database.mark_outbox_marker_cleaned(row["job_id"])
-    return published
+    cleaned = await cleanup_cancellations(redis, database)
+    return published or cancelled or cleaned
 
 
 async def dispatch_jobs(redis: Redis, database: Database, stream: str, maximum_length: int) -> None:

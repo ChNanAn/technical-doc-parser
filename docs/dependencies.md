@@ -155,6 +155,7 @@ export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_PROFILE=ppocrv5_mobile
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_BATCH_SIZE=8
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MAX_WIDTH=2048
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_LIMIT_SIDE=960
+export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_RECOVER_UPSIDE_DOWN=true
 
 # Optional end-to-end baseline image:
 export DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_TEST_IMAGE=/path/to/text-image.png
@@ -170,6 +171,7 @@ config.paddle_ocr.detection_model = "/path/to/det.onnx";
 config.paddle_ocr.recognition_model = "/path/to/rec.onnx";
 config.paddle_ocr.character_dict = "/path/to/ppocrv5_dict.txt";
 config.paddle_ocr.recognition_batch_size = 8;
+config.paddle_ocr.recover_upside_down = true; // Default; false disables the optional recovery pass.
 doc_parser::pipeline::DocumentEngine engine(std::move(config));
 ```
 
@@ -183,6 +185,18 @@ mobile exports share the same BGR channel order and normalization values, while 
 fields model-scoped for future or custom exports. DB post-processing uses the official area/perimeter unclip
 distance, recognition batches crops with similar aspect ratios, and dynamic-width ONNX models can grow from 320 to
 the configured maximum width.
+
+Low-confidence pages can recover 180-degree upside-down text using the existing recognizer. At most six large
+text crops are probed; consistent multi-line improvement is required before a full rotated detection/recognition
+pass. Confident pages skip the probe. Supplied-region recognition uses the same policy and preserves caller order.
+No extra model is downloaded. CLI/Worker accept `0`/`false` or `1`/`true` for the recovery environment override;
+other values leave the configured setting unchanged. C ABI callers use the boolean
+`models.paddle_ocr.recover_upside_down` field.
+
+Recovery returns text boxes in source pixel coordinates and leaves shared images unchanged. This is OCR backend
+recovery, not pipeline-wide orientation normalization: layout/table models and final reading-order processing
+still use the source page pose. It does not handle 90/270-degree pages, skew, or mixed-orientation text; ambiguous
+and sparse evidence retains the original result. Recognition confidence is a heuristic, not an accuracy estimate.
 
 Angle classification is deliberately not advertised by this backend. Earlier configuration accepted a classifier
 path but only loaded the session without executing it; that misleading option has been removed. Rotation support

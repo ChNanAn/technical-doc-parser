@@ -408,3 +408,83 @@ Run without stale warnings. Browser logs reproduced an old Run's 410 arriving du
 Run creation and leaving its expiry banner on the new Run; updating the active identity
 before rendering, rejecting old artifact responses and clearing prior errors on creation
 resolved it. Core parsing/model code did not change in this increment.
+
+## Conservative upside-down OCR recovery
+
+Starting from `5e5a298`, logged PaddleOCR detection/crop/recognition calls reproduced the
+orientation failure on the pinned Tesseract corpus. The upright phototest image produced
+8 lines and 284 characters, with recognition confidences around 0.95–0.99. Its 180-degree
+copy produced 9 detected boxes but only 7 nonempty decodes, with confidences around
+0.34–0.60. Detection found the text, but crop rectification preserved upside-down glyphs.
+This established the recovery point in the OCR backend without changing model weights.
+
+The backend now uses an inference-independent evidence policy for both whole-page and
+supplied-region recognition. Pages with fewer than two crops or mean evidence at least
+0.8 skip probing. Each crop contributes recognition confidence only when it decodes at
+least four non-whitespace codepoints; blank/short/nonfinite evidence contributes zero.
+At most six largest crops are rotated 180 degrees and recognized using the existing
+model. At least two probes, representing at least two-thirds of the sample, must reach
+0.85 confidence with at least 0.15 improvement, and the mean must improve by at least 0.15.
+
+A positive probe permits one rotated full-page detection/recognition pass, accepted
+only with mean evidence at least 0.8 and improvement at least 0.15. Regions, lines and
+spans are mapped back to source pixel coordinates; the original image/cache is never
+rotated in place. Supplied-region recovery rotates crops, preserves request slots and
+coordinates, and requires consistent improvement across the full crop set. Failed
+optional inference retains the first result. The C++/C configuration and CLI/Worker
+environment adapter expose `recover_upside_down`, enabled by default. No new model or
+Document Contract field is required.
+
+With identical pinned models and normalization, the five-page corpus changes as follows:
+
+| Measurement | Recovery disabled | Recovery enabled |
+| --- | ---: | ---: |
+| Upside-down phototest CER | 0.834507 | 0.000000 |
+| Whole corpus CER | 0.682662 | 0.656152 |
+| Whole corpus WER | 0.848718 | 0.810256 |
+| Character-count ratio | 0.971365 | 0.995302 |
+
+All four upright predictions remain byte-for-byte identical. CI now requires corpus
+CER at most 0.67. A separate real-model regression rotates phototest and eurotext at
+runtime and compares recovered text/order and inverse-mapped boxes to their upright
+results. It also checks the disabled control, page identity, unchanged shared pixels,
+supplied regions in reverse caller order, and empty region slots. Unit tests cover
+confident/sparse, weak, mixed, blank/short, mismatched and nonfinite evidence.
+
+This is deliberately limited to OCR recovery. The returned text order follows the
+corrected image, while downstream layout/table inference and final reading order still
+operate in the source page pose. Pipeline-wide transforms, 90/270-degree orientation,
+deskew and mixed-orientation text remain separate work. The small corpus establishes
+regression behavior, not general production accuracy; confidence is only a heuristic.
+
+Validation: 172 distinct selected CTest cases passed, including the new real-model
+orientation test, policy tests, C ABI/configuration/consumer checks, Worker tests, OCR,
+table and 15-page pipeline quality gates. The first 171-case run exposed an existing
+Worker test's obsolete expectation of a standalone retention-limit error: the Worker
+now reports positive limits together. The test was corrected to check the configured
+field, positive-limit diagnostic and exit code, and passed on its focused rerun.
+The three unchanged standalone layout/block-type model benchmarks were not rerun.
+Both the ONNX build and the OCR library build with ONNX disabled succeeded.
+
+Saved pre-change and new pipeline/table reports have identical summaries and every
+per-sample report. Pipeline anchor completeness remains 0.984211, reading-order score
+0.960265 and full-text CER 0.364193 (11 reference pages out of 15). Table structure F1
+remains 1.0 and cell-text CER 0.057661 over 384 cells. Raw diagnosis, A/B predictions,
+timings and validation logs are retained locally in `/tmp/tdp-ocr-orientation.5BCfka`.
+
+Three sequential A/B pairs used the same Release executable, pinned PP-OCRv5 models,
+batch size 8, detector limit 960 and ONNX Runtime 1.18.1 with one intra-op thread on an
+Intel Core Ultra 7 265 under WSL. Debug logging was disabled and order alternated
+between pairs. All six runs reproduced their expected text exactly; only the
+upside-down sample reported a 180-degree correction in the enabled runs.
+
+These timing runs were contaminated by unrelated conversion processes consuming many
+CPU cores. Median summed recognition wall time was 25.11 s disabled versus 42.66 s
+enabled; even upright phototest, which skipped probing, varied from a median 0.91 s
+disabled to 2.79 s enabled. These measurements cannot isolate recovery overhead or
+establish a throughput regression/speedup. The initial single diagnostic corpus runs
+were 22.29 s before and 23.88 s after, including model loading and debug output, and
+are also not a controlled performance result. The defensible cost boundary is zero
+extra inference for confident pages, at most six probe crops otherwise, and at most
+one additional page pass after a successful probe. Repeat timings on an idle host
+before setting a latency budget.

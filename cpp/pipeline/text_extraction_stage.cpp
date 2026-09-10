@@ -120,6 +120,11 @@ StageResult<document::PageText> TextExtractionStage::extractPage(const PipelineC
         extraction.status = common::Status::error("text.ocr_failed", message);
         return extraction;
     }
+    if (result.clockwise_correction_degrees != 0) {
+        spdlog::debug("ocr_orientation: page={} correction={} coordinates=source",
+                      page.page_number,
+                      result.clockwise_correction_degrees);
+    }
     if (quality.action == NativeTextAction::MergeOcr) {
         TextMergeResult merged = quality_policy.merge(extraction.value, result.page_text);
         spdlog::debug("text_quality: page={} merged_ocr_lines={}", page.page_number, merged.added_ocr_lines);

@@ -1,6 +1,7 @@
 #include "ocr/paddle_ocr_onnx_backend.h"
 #include "pipeline/engine_config.h"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -9,7 +10,11 @@
 
 namespace {
 
-bool parseArgs(int argc, char** argv, std::filesystem::path& ground_truth, std::filesystem::path& output) {
+bool parseArgs(int argc,
+               char** argv,
+               std::filesystem::path& ground_truth,
+               std::filesystem::path& output,
+               bool& recover_upside_down) {
     for (int index = 1; index < argc; ++index) {
         const std::string argument = argv[index];
         if ((argument == "--ground-truth" || argument == "--output") && index + 1 < argc) {
@@ -19,6 +24,8 @@ bool parseArgs(int argc, char** argv, std::filesystem::path& ground_truth, std::
             } else {
                 output = value;
             }
+        } else if (argument == "--disable-orientation-recovery") {
+            recover_upside_down = false;
         } else {
             return false;
         }
@@ -42,12 +49,15 @@ std::string pageText(const doc_parser::document::PageText& page) {
 int main(int argc, char** argv) {
     std::filesystem::path ground_truth_path;
     std::filesystem::path output_path;
-    if (!parseArgs(argc, argv, ground_truth_path, output_path)) {
-        std::cerr << "Usage: " << argv[0] << " --ground-truth ground_truth.json --output predictions.json\n";
+    bool recover_upside_down = true;
+    if (!parseArgs(argc, argv, ground_truth_path, output_path, recover_upside_down)) {
+        std::cerr << "Usage: " << argv[0] << " --ground-truth ground_truth.json --output predictions.json"
+                  << " [--disable-orientation-recovery]\n";
         return 2;
     }
 
-    const doc_parser::pipeline::EngineConfig engine_config = doc_parser::pipeline::defaultEngineConfig();
+    auto engine_config = doc_parser::pipeline::defaultEngineConfig();
+    engine_config.paddle_ocr.recover_upside_down = recover_upside_down;
     const doc_parser::ocr::PaddleOcrOnnxBackend backend(engine_config.paddle_ocr);
     if (!backend.isAvailable()) {
         std::cerr << "PaddleOCR ONNX models are unavailable: " << backend.unavailableReason() << '\n';
@@ -82,6 +92,7 @@ int main(int argc, char** argv) {
              {"detection_threshold", config.detection_threshold},
              {"box_threshold", config.box_threshold},
              {"recognition_threshold", config.recognition_threshold},
+             {"recover_upside_down", config.recover_upside_down},
          }},
     };
     predictions["samples"] = nlohmann::json::array();
@@ -95,16 +106,21 @@ int main(int argc, char** argv) {
         page.output_path = corpus_root / sample.value("image", "");
 
         doc_parser::ocr::OcrResult result;
+        const auto started = std::chrono::steady_clock::now();
         if (!backend.recognize({page, 200}, result)) {
             std::cerr << "PaddleOCR inference failed for " << page.output_path << '\n';
             return 1;
         }
+        const double elapsed_ms =
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
 
         const std::string text = pageText(result.page_text);
         predictions["samples"].push_back({
             {"id", sample.at("id")},
             {"image", sample.value("image", "")},
             {"text", text},
+            {"clockwise_correction_degrees", result.clockwise_correction_degrees},
+            {"elapsed_ms", elapsed_ms},
         });
         std::cout << sample.at("id") << " lines=" << result.page_text.lines.size() << " chars=" << text.size() << '\n';
     }

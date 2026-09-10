@@ -117,11 +117,19 @@ NFKC normalization, whitespace collapse, case folding, and corpus-level CER/WER:
 ctest --test-dir build-ort -R paddle_ocr_benchmark --output-on-failure
 ```
 
-The pinned `ppocrv5_mobile` baseline has corpus CER `0.6827`, character-count ratio `0.9714`, and WER `0.8487`.
-CI enforces `CER <= 0.70` and publishes `paddle_ocr_report.json` as an artifact. The high page-level CER is visible
-evidence of two known limitations: text from multi-column magazine pages is emitted in row-wise order, and the
-baseline has no 180-degree orientation handling. On the two simple upright pages, CER is `0.0170` and `0.0000`.
-This five-page set is a deterministic regression gate, not a broad OCR accuracy claim.
+With conservative 180-degree recovery, the pinned `ppocrv5_mobile` baseline has corpus CER `0.6562`,
+character-count ratio `0.9953`, and WER `0.8103`. CI enforces `CER <= 0.67` and publishes `paddle_ocr_report.json`.
+The upside-down sample improves from CER `0.8345` to `0.0000`; all four upright samples retain identical text.
+The two simple upright pages remain at CER `0.0170` and `0.0000`. Multi-column magazine pages still emit text
+in row-wise order, which accounts for most remaining error. This five-page set is a deterministic regression
+gate, not a broad OCR accuracy claim or an end-to-end orientation guarantee.
+
+`paddle_ocr_orientation_test` also rotates two source images at runtime and checks recovered text/order,
+source-coordinate boxes, unchanged shared pixels, the disabled control, and supplied-region recognition.
+`paddle_ocr_eval --disable-orientation-recovery` allows A/B runs with the same models. Predictions record the
+recovery setting, each sample's correction angle, and recognition wall time (excluding model initialization).
+Recovery currently applies within OCR; downstream layout/table models and final reading order still use the
+source page pose. See [dependency configuration](dependencies.md) for scope and the disable switch.
 
 ## FUNSD OCR Baseline
 

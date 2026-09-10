@@ -320,6 +320,14 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
         paddle_ocr_eval.cpp
     )
 
+    add_executable(paddle_ocr_orientation_test paddle_ocr_orientation_test.cpp)
+    target_link_libraries(paddle_ocr_orientation_test PRIVATE doc_parser_ocr doc_parser_image)
+    doc_parser_set_common_warnings(paddle_ocr_orientation_test)
+    add_test(NAME paddle_ocr_orientation_test COMMAND paddle_ocr_orientation_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/images/phototest.tif
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/corpus/ocr_tesseract/images/eurotext.tif
+    )
+
     add_executable(pipeline_quality_eval
         pipeline_quality_eval.cpp
     )
@@ -342,6 +350,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
 
     set(DOC_PARSER_BENCHMARK_MODEL_TARGETS
         paddle_ocr_onnx_baseline
+        paddle_ocr_orientation_test
         paddle_ocr_eval
         pipeline_quality_eval
         olmocr_bench_runner
@@ -432,7 +441,7 @@ if(DOC_PARSER_ENABLE_ONNXRUNTIME)
             ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/evaluate_ocr.py
             ${PADDLE_OCR_REPORT}
-            0.70
+            0.67
     )
     set_tests_properties(paddle_ocr_benchmark PROPERTIES LABELS benchmark)
 

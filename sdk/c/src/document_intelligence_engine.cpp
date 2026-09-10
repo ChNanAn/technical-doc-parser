@@ -360,7 +360,8 @@ doc_parser::pipeline::EngineConfig engineConfig(const char* config_json) {
                                              "detection_threshold",
                                              "box_threshold",
                                              "recognition_threshold",
-                                             "unclip_ratio"},
+                                             "unclip_ratio",
+                                             "recover_upside_down"},
                                             code,
                                             stage)) {
         applyPath(*paddle, "detection_model", config.paddle_ocr.detection_model, code, stage);
@@ -378,6 +379,12 @@ doc_parser::pipeline::EngineConfig engineConfig(const char* config_json) {
         applyProbability(*paddle, "detection_threshold", config.paddle_ocr.detection_threshold, code, stage);
         applyProbability(*paddle, "box_threshold", config.paddle_ocr.box_threshold, code, stage);
         applyProbability(*paddle, "recognition_threshold", config.paddle_ocr.recognition_threshold, code, stage);
+        if (paddle->contains("recover_upside_down")) {
+            if (!(*paddle)["recover_upside_down"].is_boolean()) {
+                throw InputError(code, stage, "recover_upside_down must be a boolean");
+            }
+            config.paddle_ocr.recover_upside_down = (*paddle)["recover_upside_down"].get<bool>();
+        }
         if (paddle->contains("unclip_ratio")) {
             config.paddle_ocr.unclip_ratio =
                 numberValue(*paddle, "unclip_ratio", code, stage, 0.0, std::numeric_limits<double>::max(), false);

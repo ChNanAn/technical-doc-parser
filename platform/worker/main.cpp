@@ -182,6 +182,7 @@ nlohmann::json engineConfigJson(const doc_parser::pipeline::EngineConfig& config
              {"recognition_batch_size", config.paddle_ocr.recognition_batch_size},
              {"recognition_max_width", config.paddle_ocr.recognition_max_width},
              {"detection_limit_side", config.paddle_ocr.detection_limit_side},
+             {"recover_upside_down", config.paddle_ocr.recover_upside_down},
          }},
         {"doclaynet",
          {

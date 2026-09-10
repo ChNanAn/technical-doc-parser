@@ -57,7 +57,8 @@ are rejected.
       "detection_model": "/models/paddleocr/baseline/det.onnx",
       "recognition_model": "/models/paddleocr/baseline/rec.onnx",
       "character_dict": "/models/paddleocr/baseline/ppocrv5_dict.txt",
-      "profile": "ppocrv5_mobile"
+      "profile": "ppocrv5_mobile",
+      "recover_upside_down": true
     },
     "doclaynet": {
       "model_path": "/models/layout/doclaynet/model.onnx",

@@ -1,5 +1,6 @@
 add_library(doc_parser_ocr
     noop_ocr_backend.cpp
+    orientation_policy.cpp
     tesseract_cli_ocr_backend.cpp
 )
 

@@ -23,6 +23,8 @@ struct OcrRegion {
 struct OcrResult {
     document::PageText page_text;
     std::vector<OcrRegion> regions;
+    // Text order follows the corrected image; all boxes stay in source coordinates.
+    int clockwise_correction_degrees = 0;
 };
 
 struct OcrDetectionResult {

@@ -107,10 +107,16 @@ Corpus CER/WER：
 ctest --test-dir build-ort -R paddle_ocr_benchmark --output-on-failure
 ```
 
-固定 `ppocrv5_mobile` baseline 的 Corpus CER 为 `0.6827`，字符数量比为 `0.9714`，WER 为 `0.8487`；CI
-要求 `CER <= 0.70` 并上传 `paddle_ocr_report.json`。高 CER 真实暴露了两个已知限制：多栏杂志页的文本按
-横向行交错输出，且 baseline 尚不支持 180 度方向处理。两个简单正向页面的 CER 分别为 `0.0170` 和
-`0.0000`。这 5 页是确定性的回归门槛，不代表广泛场景准确率。
+启用保守的 180 度恢复后，固定 `ppocrv5_mobile` baseline 的 Corpus CER 为 `0.6562`，字符数量比为
+`0.9953`，WER 为 `0.8103`；CI 要求 `CER <= 0.67` 并上传 `paddle_ocr_report.json`。倒置样本 CER 从
+`0.8345` 降到 `0.0000`，其余四个正向样本文本完全一致；两个简单正向页面的 CER 仍为 `0.0170` 和
+`0.0000`。多栏杂志页仍按横向行交错输出，是剩余错误的主要来源。这 5 页是确定性的回归门槛，
+不代表广泛场景准确率，也不能证明整条 Pipeline 的方向处理已完成。
+
+`paddle_ocr_orientation_test` 会现场旋转两张源图，检查恢复文本及顺序、原图坐标、共享像素不被修改、
+关闭开关的对照结果，以及指定区域识别。`paddle_ocr_eval --disable-orientation-recovery` 可用于同模型
+A/B 对比；预测文件记录开关、各样本的修正角度及识别耗时（不含模型初始化）。当前恢复只作用于 OCR，
+后续 Layout/Table 模型及最终 Reading Order 仍使用原图姿态。开关和适用范围见[依赖配置](dependencies.md)。
 
 ### FUNSD OCR
 

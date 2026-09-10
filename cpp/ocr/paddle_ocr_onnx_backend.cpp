@@ -2,9 +2,11 @@
 
 #include "document/text_model.h"
 #include "image/page_image_cache.h"
+#include "ocr/orientation_policy.h"
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -95,6 +97,21 @@ struct RecognitionStats {
     std::size_t empty_decodes = 0;
     std::vector<int64_t> first_output_shape;
 };
+
+std::vector<RecognitionEvidence> recognitionEvidence(const std::vector<RecognitionResult>& recognitions) {
+    std::vector<RecognitionEvidence> result;
+    result.reserve(recognitions.size());
+    for (const auto& recognition : recognitions) {
+        std::size_t characters = 0;
+        for (const unsigned char value : recognition.text) {
+            if ((value & 0xC0U) != 0x80U && !std::isspace(value)) {
+                ++characters;
+            }
+        }
+        result.push_back({recognition.confidence, characters});
+    }
+    return result;
+}
 
 bool envFlag(const char* name) {
     const char* value = std::getenv(name);
@@ -714,6 +731,47 @@ bool recognizeCrops(Ort::Session& session,
     return true;
 }
 
+template <typename Recognize>
+bool probeUpsideDown(const std::vector<cv::Mat>& crops,
+                     const std::vector<RecognitionResult>& recognitions,
+                     Recognize&& recognize,
+                     bool debug) {
+    const auto evidence = recognitionEvidence(recognitions);
+    if (!shouldProbeUpsideDown(evidence)) {
+        return false;
+    }
+    std::vector<std::size_t> indices(crops.size());
+    std::iota(indices.begin(), indices.end(), 0U);
+    std::stable_sort(indices.begin(), indices.end(), [&](std::size_t left, std::size_t right) {
+        return crops[left].total() > crops[right].total();
+    });
+    indices.resize(std::min<std::size_t>(6, indices.size()));
+    std::vector<cv::Mat> rotated;
+    std::vector<RecognitionEvidence> original;
+    for (const auto index : indices) {
+        cv::Mat crop;
+        cv::rotate(crops[index], crop, cv::ROTATE_180);
+        rotated.push_back(std::move(crop));
+        original.push_back(evidence[index]);
+    }
+    std::vector<RecognitionResult> candidates;
+    if (!recognize(rotated, candidates)) {
+        return false;
+    }
+    const auto alternative = recognitionEvidence(candidates);
+    const bool accepted = supportsUpsideDown(original, alternative);
+    if (debug) {
+        std::cerr << "[paddleocr] orientation_probe crops=" << rotated.size()
+                  << " original_score=" << recognitionEvidenceScore(original)
+                  << " rotated_score=" << recognitionEvidenceScore(alternative) << " accepted=" << accepted << '\n';
+    }
+    return accepted;
+}
+
+document::BBox unrotate180(const document::BBox& box, const cv::Size& size) {
+    return {size.width - box.x1, size.height - box.y1, size.width - box.x0, size.height - box.y0};
+}
+
 document::TextLine makeTextLine(const DetectionBox& box, const RecognitionResult& recognition) {
     document::TextSpan span;
     span.text = recognition.text;
@@ -855,76 +913,142 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
     }
 
     try {
-        DetectionStats detection_stats;
-        std::vector<DetectionBox> boxes;
-        if (!detectBoxes(*model_->detection_session,
-                         model_->detection_input_names,
-                         model_->detection_output_names,
-                         image,
-                         config_,
-                         boxes,
-                         &detection_stats,
-                         debug)) {
+        struct PageRecognition {
+            OcrResult output;
+            std::vector<cv::Mat> crops;
+            std::vector<RecognitionResult> recognitions;
+        };
+        const auto recognize_image = [&](const cv::Mat& input, PageRecognition& pass) {
+            DetectionStats detection_stats;
+            std::vector<DetectionBox> boxes;
+            if (!detectBoxes(*model_->detection_session,
+                             model_->detection_input_names,
+                             model_->detection_output_names,
+                             input,
+                             config_,
+                             boxes,
+                             &detection_stats,
+                             debug)) {
+                return false;
+            }
+            if (debug) {
+                std::cerr << "[paddleocr] det_output_shape=" << shapeToString(detection_stats.output_shape)
+                          << " prob_min=" << detection_stats.probability_min
+                          << " prob_max=" << detection_stats.probability_max << " contours=" << detection_stats.contours
+                          << " skipped_small_contours=" << detection_stats.skipped_small_contours
+                          << " skipped_low_score=" << detection_stats.skipped_low_score
+                          << " skipped_small_boxes=" << detection_stats.skipped_small_boxes << " boxes=" << boxes.size()
+                          << '\n';
+            }
+
+            pass.output.regions.reserve(boxes.size());
+            auto& crops = pass.crops;
+            std::vector<std::size_t> crop_box_indices;
+            RecognitionStats recognition_stats;
+            for (std::size_t box_index = 0; box_index < boxes.size(); ++box_index) {
+                const DetectionBox& box = boxes[box_index];
+                pass.output.regions.push_back({box.bbox, box.score, {}, 0.0});
+                const cv::Mat crop = cropTextImage(input, box);
+                if (crop.empty()) {
+                    ++recognition_stats.empty_crops;
+                    continue;
+                }
+                crops.push_back(crop);
+                crop_box_indices.push_back(box_index);
+                ++recognition_stats.crops;
+            }
+
+            auto& recognitions = pass.recognitions;
+            if (!recognizeCrops(*model_->recognition_session,
+                                model_->recognition_input_names,
+                                model_->recognition_output_names,
+                                model_->recognition_input_shape,
+                                model_->dictionary,
+                                config_,
+                                crops,
+                                recognitions,
+                                &recognition_stats,
+                                debug)) {
+                return false;
+            }
+            for (std::size_t crop_index = 0; crop_index < crops.size(); ++crop_index) {
+                const std::size_t box_index = crop_box_indices[crop_index];
+                const RecognitionResult& recognition = recognitions[crop_index];
+                pass.output.regions[box_index].text = recognition.text;
+                pass.output.regions[box_index].recognition_confidence = recognition.confidence;
+                if (!recognition.text.empty()) {
+                    pass.output.page_text.lines.push_back(makeTextLine(boxes[box_index], recognition));
+                }
+            }
+
+            if (debug) {
+                std::cerr << "[paddleocr] rec_input_shape=" << shapeToString(model_->recognition_input_shape)
+                          << " rec_output_shape=" << shapeToString(recognition_stats.first_output_shape)
+                          << " crops=" << recognition_stats.crops << " empty_crops=" << recognition_stats.empty_crops
+                          << " recognition_batches=" << recognition_stats.inference_runs
+                          << " decoded_texts=" << recognition_stats.decoded_texts
+                          << " empty_decodes=" << recognition_stats.empty_decodes << '\n';
+            }
+            return true;
+        };
+        PageRecognition original;
+        if (!recognize_image(image, original)) {
             return false;
         }
-        if (debug) {
-            std::cerr << "[paddleocr] det_output_shape=" << shapeToString(detection_stats.output_shape)
-                      << " prob_min=" << detection_stats.probability_min
-                      << " prob_max=" << detection_stats.probability_max << " contours=" << detection_stats.contours
-                      << " skipped_small_contours=" << detection_stats.skipped_small_contours
-                      << " skipped_low_score=" << detection_stats.skipped_low_score
-                      << " skipped_small_boxes=" << detection_stats.skipped_small_boxes << " boxes=" << boxes.size()
-                      << '\n';
-        }
-
-        result.regions.reserve(boxes.size());
-        std::vector<cv::Mat> crops;
-        std::vector<std::size_t> crop_box_indices;
-        RecognitionStats recognition_stats;
-        for (std::size_t box_index = 0; box_index < boxes.size(); ++box_index) {
-            const DetectionBox& box = boxes[box_index];
-            result.regions.push_back({box.bbox, box.score, {}, 0.0});
-            const cv::Mat crop = cropTextImage(image, box);
-            if (crop.empty()) {
-                ++recognition_stats.empty_crops;
-                continue;
+        // Recovery is optional. A failed probe/retry retains the first result.
+        try {
+            const auto recognize_probe = [&](const std::vector<cv::Mat>& crops,
+                                             std::vector<RecognitionResult>& recognitions) {
+                RecognitionStats stats;
+                return recognizeCrops(*model_->recognition_session,
+                                      model_->recognition_input_names,
+                                      model_->recognition_output_names,
+                                      model_->recognition_input_shape,
+                                      model_->dictionary,
+                                      config_,
+                                      crops,
+                                      recognitions,
+                                      &stats,
+                                      debug);
+            };
+            if (config_.recover_upside_down &&
+                probeUpsideDown(original.crops, original.recognitions, recognize_probe, debug)) {
+                const double original_score = recognitionEvidenceScore(recognitionEvidence(original.recognitions));
+                original.crops.clear();
+                cv::Mat rotated;
+                cv::rotate(image, rotated, cv::ROTATE_180);
+                PageRecognition alternative;
+                if (recognize_image(rotated, alternative)) {
+                    const double rotated_score =
+                        recognitionEvidenceScore(recognitionEvidence(alternative.recognitions));
+                    const bool accepted = rotated_score >= 0.8 && rotated_score >= original_score + 0.15;
+                    if (debug) {
+                        std::cerr << "[paddleocr] orientation_retry degrees=180 original_score=" << original_score
+                                  << " rotated_score=" << rotated_score << " accepted=" << accepted << '\n';
+                    }
+                    if (accepted) {
+                        for (auto& region : alternative.output.regions) {
+                            region.bbox = unrotate180(region.bbox, image.size());
+                        }
+                        for (auto& line : alternative.output.page_text.lines) {
+                            line.bbox = unrotate180(line.bbox, image.size());
+                            for (auto& span : line.spans) {
+                                span.bbox = unrotate180(span.bbox, image.size());
+                            }
+                        }
+                        original = std::move(alternative);
+                        original.output.clockwise_correction_degrees = 180;
+                    }
+                }
             }
-            crops.push_back(crop);
-            crop_box_indices.push_back(box_index);
-            ++recognition_stats.crops;
+        } catch (const Ort::Exception& error) {
+            if (debug)
+                std::cerr << "[paddleocr] orientation recovery skipped: " << error.what() << '\n';
+        } catch (const cv::Exception& error) {
+            if (debug)
+                std::cerr << "[paddleocr] orientation recovery skipped: " << error.what() << '\n';
         }
-
-        std::vector<RecognitionResult> recognitions;
-        if (!recognizeCrops(*model_->recognition_session,
-                            model_->recognition_input_names,
-                            model_->recognition_output_names,
-                            model_->recognition_input_shape,
-                            model_->dictionary,
-                            config_,
-                            crops,
-                            recognitions,
-                            &recognition_stats,
-                            debug)) {
-            return false;
-        }
-        for (std::size_t crop_index = 0; crop_index < crops.size(); ++crop_index) {
-            const std::size_t box_index = crop_box_indices[crop_index];
-            const RecognitionResult& recognition = recognitions[crop_index];
-            result.regions[box_index].text = recognition.text;
-            result.regions[box_index].recognition_confidence = recognition.confidence;
-            if (!recognition.text.empty()) {
-                result.page_text.lines.push_back(makeTextLine(boxes[box_index], recognition));
-            }
-        }
-
-        if (debug) {
-            std::cerr << "[paddleocr] rec_input_shape=" << shapeToString(model_->recognition_input_shape)
-                      << " rec_output_shape=" << shapeToString(recognition_stats.first_output_shape)
-                      << " crops=" << recognition_stats.crops << " empty_crops=" << recognition_stats.empty_crops
-                      << " recognition_batches=" << recognition_stats.inference_runs
-                      << " decoded_texts=" << recognition_stats.decoded_texts
-                      << " empty_decodes=" << recognition_stats.empty_decodes << '\n';
-        }
+        result = std::move(original.output);
     } catch (const Ort::Exception& error) {
         if (debug) {
             std::cerr << "[paddleocr] ONNX Runtime exception during recognition: " << error.what() << '\n';
@@ -937,6 +1061,8 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
         return false;
     }
 
+    result.page_text.page_index = request.page.page_index;
+    result.page_text.page_number = request.page.page_number;
     result.page_text.has_text = !result.page_text.lines.empty();
     result.page_text.preferred_source = result.page_text.has_text ? document::TextSource::Ocr
                                                                   : document::TextSource::Unknown;
@@ -1026,6 +1152,41 @@ bool PaddleOcrOnnxBackend::recognizeRegions(const OcrRegionRequest& request, Ocr
                             &stats,
                             debug)) {
             return false;
+        }
+        try {
+            const auto recognize_probe = [&](const std::vector<cv::Mat>& images,
+                                             std::vector<RecognitionResult>& output) {
+                return recognizeCrops(*model_->recognition_session,
+                                      model_->recognition_input_names,
+                                      model_->recognition_output_names,
+                                      model_->recognition_input_shape,
+                                      model_->dictionary,
+                                      config_,
+                                      images,
+                                      output,
+                                      &stats,
+                                      debug);
+            };
+            if (config_.recover_upside_down && probeUpsideDown(crops, recognitions, recognize_probe, debug)) {
+                std::vector<cv::Mat> rotated;
+                rotated.reserve(crops.size());
+                for (const auto& crop : crops) {
+                    cv::Mat corrected;
+                    cv::rotate(crop, corrected, cv::ROTATE_180);
+                    rotated.push_back(std::move(corrected));
+                }
+                std::vector<RecognitionResult> alternative;
+                if (recognize_probe(rotated, alternative) &&
+                    supportsUpsideDown(recognitionEvidence(recognitions), recognitionEvidence(alternative))) {
+                    recognitions = std::move(alternative);
+                }
+            }
+        } catch (const Ort::Exception& error) {
+            if (debug)
+                std::cerr << "[paddleocr] region orientation recovery skipped: " << error.what() << '\n';
+        } catch (const cv::Exception& error) {
+            if (debug)
+                std::cerr << "[paddleocr] region orientation recovery skipped: " << error.what() << '\n';
         }
         for (std::size_t crop_index = 0; crop_index < crops.size(); ++crop_index) {
             OcrRegion& region = result.regions[crop_region_indices[crop_index]];

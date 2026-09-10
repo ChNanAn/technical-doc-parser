@@ -34,6 +34,7 @@ def main() -> int:
             "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_BATCH_SIZE": "17",
             "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MAX_WIDTH": "1536",
             "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_LIMIT_SIDE": "1280",
+            "DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_RECOVER_UPSIDE_DOWN": "false",
             "DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_MODEL": "/worker/models/doclaynet.onnx",
             "DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE": "0.71",
             "DOCUMENT_INTELLIGENCE_ENGINE_PADDLE_LAYOUT_MODEL": "/worker/models/paddle-layout.onnx",
@@ -72,6 +73,7 @@ def main() -> int:
     assert_equal(config["paddle_ocr"]["recognition_batch_size"], 17, "paddle_ocr.batch_size")
     assert_equal(config["paddle_ocr"]["recognition_max_width"], 1536, "paddle_ocr.max_width")
     assert_equal(config["paddle_ocr"]["detection_limit_side"], 1280, "paddle_ocr.limit_side")
+    assert_equal(config["paddle_ocr"]["recover_upside_down"], False, "paddle_ocr.recover_upside_down")
     assert_equal(config["doclaynet"]["model"], "/worker/models/doclaynet.onnx", "doclaynet.model")
     assert_equal(config["doclaynet"]["confidence_threshold"], 0.71, "doclaynet.confidence")
     assert_equal(config["paddle_layout"]["model"], "/worker/models/paddle-layout.onnx", "paddle_layout.model")
@@ -99,7 +101,7 @@ def main() -> int:
         text=True,
     )
     assert_equal(invalid_runtime.returncode, 2, "invalid runtime limit exit code")
-    if "RUN_RETENTION_SECONDS must be positive" not in invalid_runtime.stderr:
+    if "RUN_RETENTION_SECONDS" not in invalid_runtime.stderr or "must be positive" not in invalid_runtime.stderr:
         raise AssertionError(f"missing runtime limit diagnostic: {invalid_runtime.stderr!r}")
     return 0
 

@@ -112,6 +112,12 @@ EngineConfig engineConfigFromEnvironment(EngineConfig config) {
                       config.paddle_ocr.recognition_batch_size);
     applyPositiveInt("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_REC_MAX_WIDTH", config.paddle_ocr.recognition_max_width);
     applyPositiveInt("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_DET_LIMIT_SIDE", config.paddle_ocr.detection_limit_side);
+    const std::string orientation = environment("DOCUMENT_INTELLIGENCE_ENGINE_PADDLEOCR_RECOVER_UPSIDE_DOWN");
+    if (orientation == "0" || orientation == "false") {
+        config.paddle_ocr.recover_upside_down = false;
+    } else if (orientation == "1" || orientation == "true") {
+        config.paddle_ocr.recover_upside_down = true;
+    }
 
     applyPath("DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_MODEL", config.doclaynet.model_path);
     applyProbability("DOCUMENT_INTELLIGENCE_ENGINE_DOCLAYNET_CONFIDENCE", config.doclaynet.confidence_threshold);

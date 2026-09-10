@@ -57,6 +57,8 @@ struct PaddleOcrOnnxConfig {
     double box_threshold = 0.5;
     double recognition_threshold = 0.1;
     double unclip_ratio = 1.5;
+    // Probe low-confidence OCR for 180-degree recovery; preserve source image/boxes.
+    bool recover_upside_down = true;
 };
 
 } // namespace doc_parser::ocr

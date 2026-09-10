@@ -42,7 +42,8 @@ static int expect_error(const char* operation,
 
 int main(int argc, char** argv) {
     static const char* valid_config = "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\",\"ocr\":\"noop\","
-                                      "\"layout\":\"text\",\"table\":\"text\"}}";
+                                      "\"layout\":\"text\",\"table\":\"text\"},"
+                                      "\"models\":{\"paddle_ocr\":{\"recover_upside_down\":false}}}";
     static const char* unavailable_config = "{\"schema_version\":1,\"backends\":{\"document\":\"not-registered\","
                                             "\"ocr\":\"noop\",\"layout\":\"text\",\"table\":\"text\"}}";
     static const char* missing_model_config = "{\"schema_version\":1,\"backends\":{\"document\":\"pdf\","
@@ -88,6 +89,18 @@ int main(int argc, char** argv) {
     result =
         die_engine_create("{\"schema_version\":1,\"backends\":{\"document\":\"pdf\\u0000ignored\"}}", &engine, &error);
     if (engine != NULL || expect_error("NUL in engine configuration",
+                                       result,
+                                       DIE_RESULT_INVALID_ARGUMENT,
+                                       "c_api.invalid_config",
+                                       "configure",
+                                       error)) {
+        return 1;
+    }
+    error = NULL;
+
+    result = die_engine_create(
+        "{\"schema_version\":1,\"models\":{\"paddle_ocr\":{\"recover_upside_down\":\"false\"}}}", &engine, &error);
+    if (engine != NULL || expect_error("non-boolean orientation recovery",
                                        result,
                                        DIE_RESULT_INVALID_ARGUMENT,
                                        "c_api.invalid_config",

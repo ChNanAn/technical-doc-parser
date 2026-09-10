@@ -113,12 +113,14 @@ ctest --test-dir build-ort -R paddle_ocr_benchmark --output-on-failure
 `0.0000`。多栏杂志页仍按横向行交错输出，是剩余错误的主要来源。这 5 页是确定性的回归门槛，
 不代表广泛场景准确率，也不能证明整条 Pipeline 的方向处理已完成。
 
-`paddle_ocr_orientation_test` 会现场旋转两张源图，检查恢复文本及顺序、原图坐标、共享像素不被修改、
-关闭开关的对照结果，以及指定区域识别。`paddle_ocr_eval --disable-orientation-recovery` 可用于同模型
+`paddle_ocr_orientation_test` 会将两张源图现场旋转 90/180/270 度，检查恢复文本及顺序、原图坐标、
+共享像素不被修改和关闭开关的对照结果；指定区域识别另保留 180 度覆盖。
+`paddle_ocr_eval --disable-orientation-recovery` 可用于同模型
 A/B 对比；预测文件记录开关、各样本的修正角度及识别耗时（不含模型初始化）。另有
 `pipeline_orientation_test`，使用真实 OCR/Layout/Table 模型验证两张运行时旋转的源图，检查最终文本、
 块类型和顺序、原图坐标及输出图片，并验证关闭缓存、Observer 中断后的清理及引擎复用。
-Pipeline 在 Layout 前应用 OCR 修正角度，组装后统一回映交付坐标。自动检测仍限于 180 度；
+Pipeline 在 Layout 前应用 OCR 修正角度，组装后统一回映交付坐标。90/270 度自动恢复要求多数文字框
+方向一致，且多行识别证据支持同一修正角度；这些样本不覆盖混合方向、稀疏页面和真正竖排文字。
 开关、开销和适用范围见[依赖配置](dependencies.md)。
 
 ### FUNSD OCR

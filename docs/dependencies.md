@@ -186,12 +186,20 @@ fields model-scoped for future or custom exports. DB post-processing uses the of
 distance, recognition batches crops with similar aspect ratios, and dynamic-width ONNX models can grow from 320 to
 the configured maximum width.
 
-Low-confidence pages can recover 180-degree upside-down text using the existing recognizer. At most six large
-text crops are probed; consistent multi-line improvement is required before a full rotated detection/recognition
-pass. Confident pages skip the probe. Supplied-region recognition uses the same policy and preserves caller order.
-No extra model is downloaded. CLI/Worker accept `0`/`false` or `1`/`true` for the recovery environment override;
-other values leave the configured setting unchanged. C ABI callers use the boolean
-`models.paddle_ocr.recover_upside_down` field.
+Pages can recover 90/180/270-degree orientation using the existing recognizer. A two-thirds majority of at least
+two crops must share the horizontal or vertical axis. Low-confidence horizontal pages probe at most six large
+crops for 180-degree recovery. Predominantly vertical crops retain their automatic 90-degree crop adjustment;
+up to six are compared in the source pose and the opposite direction (at most twelve extra crop recognitions).
+The winning direction must consistently beat both alternatives. One full rotated detection/recognition pass
+then verifies confidence, horizontal crop geometry and crop-count retention before accepting a quarter turn.
+Confident horizontal pages skip probes; confident vertical crops still need direction checks because crop-level
+readability does not establish page orientation. No extra model is downloaded.
+
+The historical `recover_upside_down` setting now controls all full-page recovery directions; `false` disables
+all of them. CLI/Worker accept `0`/`false` or `1`/`true` for the recovery environment override; other values leave
+the configured setting unchanged. C ABI callers use the boolean `models.paddle_ocr.recover_upside_down` field.
+Supplied-region recognition retains its 180-degree-only policy and preserves caller order and coordinates;
+arbitrary supplied regions do not establish a page's text axis.
 
 Standalone OCR returns boxes in source pixel coordinates. In the full pipeline, an accepted correction creates
 a private lossless processing image and transforms OCR/merged native text into that image's coordinate space.
@@ -201,14 +209,15 @@ images and cached source pixels stay unchanged. The private file supports both c
 it survives through reading order and is removed on normal return or exception. Confident unrotated pages create
 no extra image. Corrected pages incur PNG encoding and decoding, with retained pixels subject to the same cache budget.
 
-The built-in orientation evidence still handles only 180 degrees; it does not detect 90/270-degree pages, skew,
-or mixed-orientation text. Ambiguous and sparse evidence retains the original result. Recognition confidence
-is a heuristic, not an accuracy estimate. The shared geometry/view layer supports quarter turns for backends
-that explicitly report them; this is not a claim of built-in four-way orientation detection.
+Recovery targets pages with a dominant direction; it does not resolve skew or independently orient mixed text.
+Ambiguous and sparse evidence retains the original result. Source-pose recognition acts as a veto against
+rotating already-readable vertical writing, but genuine vertical scripts still need a dedicated evaluation corpus.
+Recognition confidence is a heuristic, not an accuracy estimate. Native text accepted without OCR does not
+enter this detection path.
 
-Angle classification is deliberately not advertised by this backend. Earlier configuration accepted a classifier
-path but only loaded the session without executing it; that misleading option has been removed. A separate angle
-classifier would need its own model profile and evaluation corpus before extending the built-in orientation detector.
+No separate angle-classification model is loaded. Earlier configuration accepted a classifier path but only
+loaded the session without executing it; that misleading option has been removed. Adding a classifier would
+require its own model profile and evaluation corpus.
 
 ### Threading policy
 

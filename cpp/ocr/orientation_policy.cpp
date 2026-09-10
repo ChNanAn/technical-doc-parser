@@ -42,4 +42,29 @@ bool supportsUpsideDown(const std::vector<RecognitionEvidence>& original,
            recognitionEvidenceScore(rotated) - recognitionEvidenceScore(original) >= 0.15;
 }
 
+bool hasDominantCropRotation(const std::vector<int>& clockwise_degrees, int degrees) {
+    const auto votes =
+        static_cast<std::size_t>(std::count(clockwise_degrees.begin(), clockwise_degrees.end(), degrees));
+    return votes >= 2 && votes * 3 >= clockwise_degrees.size() * 2;
+}
+
+int supportedQuarterTurn(const std::vector<RecognitionEvidence>& source,
+                         const std::vector<RecognitionEvidence>& clockwise_90,
+                         const std::vector<RecognitionEvidence>& clockwise_270) {
+    if (source.size() != clockwise_90.size() || source.size() != clockwise_270.size())
+        return 0;
+    const auto supports = [&](const auto& candidate, const auto& opposite) {
+        std::vector<RecognitionEvidence> competitors;
+        competitors.reserve(source.size());
+        for (std::size_t index = 0; index < source.size(); ++index)
+            competitors.push_back(score(source[index]) >= score(opposite[index]) ? source[index] : opposite[index]);
+        return supportsUpsideDown(competitors, candidate);
+    };
+    if (supports(clockwise_90, clockwise_270))
+        return 90;
+    if (supports(clockwise_270, clockwise_90))
+        return 270;
+    return 0;
+}
+
 } // namespace doc_parser::ocr

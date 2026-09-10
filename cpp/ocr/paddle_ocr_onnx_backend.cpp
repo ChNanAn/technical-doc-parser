@@ -451,7 +451,8 @@ std::vector<DetectionBox> extractBoxes(const Ort::Value& detection_output,
     return boxes;
 }
 
-cv::Mat cropTextImage(const cv::Mat& image, const DetectionBox& box) {
+cv::Mat cropTextImage(const cv::Mat& image, const DetectionBox& box, int& clockwise_degrees) {
+    clockwise_degrees = 0;
     const std::array<cv::Point2f, 4> points = orderedPoints(box.points);
     const int crop_width =
         static_cast<int>(std::round(std::max(distance(points[0], points[1]), distance(points[2], points[3]))));
@@ -474,6 +475,7 @@ cv::Mat cropTextImage(const cv::Mat& image, const DetectionBox& box) {
 
     if (crop.rows > 0 && crop.cols > 0 && static_cast<double>(crop.rows) / static_cast<double>(crop.cols) >= 1.5) {
         cv::rotate(crop, crop, cv::ROTATE_90_CLOCKWISE);
+        clockwise_degrees = 90;
     }
 
     return crop;
@@ -769,8 +771,63 @@ bool probeUpsideDown(const std::vector<cv::Mat>& crops,
     return accepted;
 }
 
-document::BBox unrotate180(const document::BBox& box, const cv::Size& size) {
-    return document::PageRotation(size.width, size.height, 180).toSource(box);
+struct OrientationProposal {
+    int degrees = 0;
+    double score = 0.0;
+};
+
+template <typename Recognize>
+OrientationProposal probeQuarterTurn(const std::vector<cv::Mat>& crops,
+                                     const std::vector<int>& crop_rotations,
+                                     const std::vector<RecognitionResult>& recognitions,
+                                     Recognize&& recognize,
+                                     bool debug) {
+    if (!hasDominantCropRotation(crop_rotations, 90))
+        return {};
+    std::vector<std::size_t> indices;
+    for (std::size_t index = 0; index < crops.size(); ++index)
+        if (crop_rotations[index] == 90)
+            indices.push_back(index);
+    std::partial_sort(indices.begin(),
+                      indices.begin() + std::min<std::size_t>(6, indices.size()),
+                      indices.end(),
+                      [&](std::size_t left, std::size_t right) {
+                          if (crops[left].total() != crops[right].total())
+                              return crops[left].total() > crops[right].total();
+                          return left < right;
+                      });
+    indices.resize(std::min<std::size_t>(6, indices.size()));
+    const auto evidence = recognitionEvidence(recognitions);
+    std::vector<RecognitionEvidence> clockwise_90;
+    std::vector<cv::Mat> probes;
+    probes.reserve(indices.size() * 2);
+    for (const auto index : indices) {
+        clockwise_90.push_back(evidence[index]);
+        // The normal crop pass already turned this crop clockwise by 90 degrees.
+        cv::Mat source, opposite;
+        cv::rotate(crops[index], source, cv::ROTATE_90_COUNTERCLOCKWISE);
+        cv::rotate(crops[index], opposite, cv::ROTATE_180);
+        probes.push_back(std::move(source));
+        probes.push_back(std::move(opposite));
+    }
+    std::vector<RecognitionResult> candidates;
+    if (!recognize(probes, candidates) || candidates.size() != probes.size())
+        return {};
+    const auto candidate_evidence = recognitionEvidence(candidates);
+    std::vector<RecognitionEvidence> source, clockwise_270;
+    for (std::size_t index = 0; index < indices.size(); ++index) {
+        source.push_back(candidate_evidence[index * 2]);
+        clockwise_270.push_back(candidate_evidence[index * 2 + 1]);
+    }
+    const int degrees = supportedQuarterTurn(source, clockwise_90, clockwise_270);
+    if (debug) {
+        std::cerr << "[paddleocr] quarter_turn_probe crops=" << indices.size()
+                  << " source_score=" << recognitionEvidenceScore(source)
+                  << " clockwise_90_score=" << recognitionEvidenceScore(clockwise_90)
+                  << " clockwise_270_score=" << recognitionEvidenceScore(clockwise_270) << " degrees=" << degrees
+                  << '\n';
+    }
+    return {degrees, recognitionEvidenceScore(degrees == 90 ? clockwise_90 : clockwise_270)};
 }
 
 document::TextLine makeTextLine(const DetectionBox& box, const RecognitionResult& recognition) {
@@ -917,6 +974,7 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
         struct PageRecognition {
             OcrResult output;
             std::vector<cv::Mat> crops;
+            std::vector<int> crop_rotations;
             std::vector<RecognitionResult> recognitions;
         };
         const auto recognize_image = [&](const cv::Mat& input, PageRecognition& pass) {
@@ -949,12 +1007,14 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
             for (std::size_t box_index = 0; box_index < boxes.size(); ++box_index) {
                 const DetectionBox& box = boxes[box_index];
                 pass.output.regions.push_back({box.bbox, box.score, {}, 0.0});
-                const cv::Mat crop = cropTextImage(input, box);
+                int crop_rotation = 0;
+                const cv::Mat crop = cropTextImage(input, box, crop_rotation);
                 if (crop.empty()) {
                     ++recognition_stats.empty_crops;
                     continue;
                 }
                 crops.push_back(crop);
+                pass.crop_rotations.push_back(crop_rotation);
                 crop_box_indices.push_back(box_index);
                 ++recognition_stats.crops;
             }
@@ -989,6 +1049,9 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
                           << " recognition_batches=" << recognition_stats.inference_runs
                           << " decoded_texts=" << recognition_stats.decoded_texts
                           << " empty_decodes=" << recognition_stats.empty_decodes << '\n';
+                std::cerr << "[paddleocr] crop_orientation total=" << crops.size()
+                          << " clockwise_90=" << std::count(pass.crop_rotations.begin(), pass.crop_rotations.end(), 90)
+                          << " evidence_score=" << recognitionEvidenceScore(recognitionEvidence(recognitions)) << '\n';
             }
             return true;
         };
@@ -1012,33 +1075,53 @@ bool PaddleOcrOnnxBackend::recognize(const OcrRequest& request, OcrResult& resul
                                       &stats,
                                       debug);
             };
-            if (config_.recover_upside_down &&
-                probeUpsideDown(original.crops, original.recognitions, recognize_probe, debug)) {
+            OrientationProposal proposal;
+            if (config_.recover_upside_down) {
+                if (hasDominantCropRotation(original.crop_rotations, 90)) {
+                    proposal = probeQuarterTurn(
+                        original.crops, original.crop_rotations, original.recognitions, recognize_probe, debug);
+                } else if (hasDominantCropRotation(original.crop_rotations, 0) &&
+                           probeUpsideDown(original.crops, original.recognitions, recognize_probe, debug)) {
+                    proposal.degrees = 180;
+                }
+            }
+            if (proposal.degrees != 0) {
                 const double original_score = recognitionEvidenceScore(recognitionEvidence(original.recognitions));
                 original.crops.clear();
                 cv::Mat rotated;
-                cv::rotate(image, rotated, cv::ROTATE_180);
+                cv::rotate(image,
+                           rotated,
+                           proposal.degrees == 90    ? cv::ROTATE_90_CLOCKWISE
+                           : proposal.degrees == 180 ? cv::ROTATE_180
+                                                     : cv::ROTATE_90_COUNTERCLOCKWISE);
                 PageRecognition alternative;
                 if (recognize_image(rotated, alternative)) {
                     const double rotated_score =
                         recognitionEvidenceScore(recognitionEvidence(alternative.recognitions));
-                    const bool accepted = rotated_score >= 0.8 && rotated_score >= original_score + 0.15;
+                    const bool accepted = rotated_score >= 0.8 &&
+                                          (proposal.degrees == 180
+                                               ? rotated_score >= original_score + 0.15
+                                               : hasDominantCropRotation(alternative.crop_rotations, 0) &&
+                                                     alternative.crops.size() * 3 >= original.recognitions.size() * 2 &&
+                                                     rotated_score >= proposal.score - 0.1);
                     if (debug) {
-                        std::cerr << "[paddleocr] orientation_retry degrees=180 original_score=" << original_score
-                                  << " rotated_score=" << rotated_score << " accepted=" << accepted << '\n';
+                        std::cerr << "[paddleocr] orientation_retry degrees=" << proposal.degrees
+                                  << " original_score=" << original_score << " rotated_score=" << rotated_score
+                                  << " accepted=" << accepted << '\n';
                     }
                     if (accepted) {
+                        const document::PageRotation rotation(image.cols, image.rows, proposal.degrees);
                         for (auto& region : alternative.output.regions) {
-                            region.bbox = unrotate180(region.bbox, image.size());
+                            region.bbox = rotation.toSource(region.bbox);
                         }
                         for (auto& line : alternative.output.page_text.lines) {
-                            line.bbox = unrotate180(line.bbox, image.size());
+                            line.bbox = rotation.toSource(line.bbox);
                             for (auto& span : line.spans) {
-                                span.bbox = unrotate180(span.bbox, image.size());
+                                span.bbox = rotation.toSource(span.bbox);
                             }
                         }
                         original = std::move(alternative);
-                        original.output.clockwise_correction_degrees = 180;
+                        original.output.clockwise_correction_degrees = proposal.degrees;
                     }
                 }
             }

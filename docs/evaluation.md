@@ -124,15 +124,17 @@ The two simple upright pages remain at CER `0.0170` and `0.0000`. Multi-column m
 in row-wise order, which accounts for most remaining error. This five-page set is a deterministic regression
 gate, not a broad OCR accuracy claim or an end-to-end orientation guarantee.
 
-`paddle_ocr_orientation_test` also rotates two source images at runtime and checks recovered text/order,
-source-coordinate boxes, unchanged shared pixels, the disabled control, and supplied-region recognition.
+`paddle_ocr_orientation_test` also rotates two source images by 90/180/270 degrees at runtime and checks recovered
+text/order, source-coordinate boxes, unchanged shared pixels and the disabled control. Supplied-region recognition
+is checked separately at 180 degrees.
 `paddle_ocr_eval --disable-orientation-recovery` allows A/B runs with the same models. Predictions record the
 recovery setting, each sample's correction angle, and recognition wall time (excluding model initialization).
 `pipeline_orientation_test` additionally uses real OCR/layout/table models on two runtime-rotated source images,
 checking final text, block types/order, source coordinates and published pixels. It also checks cache-disabled
 operation, cleanup after observer interruption, and engine reuse. The pipeline consumes the OCR correction
 before layout and maps delivered geometry back after assembly. See [dependency configuration](dependencies.md)
-for scope, cost and the disable switch; automatic 90/270-degree detection remains unsupported.
+for scope, cost and the disable switch. Quarter-turn detection requires a dominant text axis and consistent
+multi-line evidence; mixed directions, sparse pages and genuine vertical scripts are not covered by these fixtures.
 
 ## FUNSD OCR Baseline
 

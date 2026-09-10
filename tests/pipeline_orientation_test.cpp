@@ -111,64 +111,81 @@ private:
     std::filesystem::path root_;
 };
 
-void compareBox(const document::BBox& actual, const document::BBox& upright, const cv::Size& size) {
-    require(std::abs(actual.x0 - (size.width - upright.x1)) < 1e-4 &&
-                std::abs(actual.y0 - (size.height - upright.y1)) < 1e-4 &&
-                std::abs(actual.x1 - (size.width - upright.x0)) < 1e-4 &&
-                std::abs(actual.y1 - (size.height - upright.y0)) < 1e-4,
+void compareBox(const document::BBox& actual, const document::BBox& upright, const cv::Size& size, int degrees) {
+    const document::BBox expected =
+        degrees == 90    ? document::BBox{size.height - upright.y1, upright.x0, size.height - upright.y0, upright.x1}
+        : degrees == 180 ? document::BBox{size.width - upright.x1,
+                                          size.height - upright.y1,
+                                          size.width - upright.x0,
+                                          size.height - upright.y0}
+                         : document::BBox{upright.y0, size.width - upright.x1, upright.y1, size.width - upright.x0};
+    require(std::abs(actual.x0 - expected.x0) < 1e-4 && std::abs(actual.y0 - expected.y0) < 1e-4 &&
+                std::abs(actual.x1 - expected.x1) < 1e-4 && std::abs(actual.y1 - expected.y1) < 1e-4,
             "exported bbox does not match source image");
 }
 
 void check(pipeline::DocumentEngine& engine, const std::filesystem::path& input, const std::filesystem::path& root) {
     const auto pixels = cv::imread(input.string());
     require(!pixels.empty(), "missing fixture");
-    cv::Mat rotated;
-    cv::rotate(pixels, rotated, cv::ROTATE_180);
-    const auto rotated_path = root / (input.stem().string() + "-180.png");
-    require(cv::imwrite(rotated_path.string(), rotated), "cannot write fixture");
     pipeline::DocumentParseOptions options;
     options.input_path = input;
     options.output_directory = root / (input.stem().string() + "-upright");
     options.debug = true;
     const auto upright = engine.parse(options);
     require(upright.ok(), upright.status.message());
-    options.input_path = rotated_path;
-    options.output_directory = root / (input.stem().string() + "-rotated");
-    const auto restored = engine.parse(options);
-    require(restored.ok(), restored.status.message());
-    std::cout << input.filename() << " upright_blocks=" << upright.document.blocks.size()
-              << " rotated_blocks=" << restored.document.blocks.size()
-              << " final_text_equal=" << (text(upright) == text(restored)) << '\n';
-    if (text(upright) != text(restored))
-        std::cout << "UPRIGHT:\n" << text(upright) << "ROTATED:\n" << text(restored) << std::flush;
-    require(text(upright) == text(restored), "final pipeline text/order differs after rotation");
-    require(upright.document.blocks.size() == restored.document.blocks.size(), "block count changed");
-    for (std::size_t i = 0; i < upright.document.blocks.size(); ++i) {
-        const auto& a = restored.document.blocks[i];
-        const auto& b = upright.document.blocks[i];
-        require(a.type == b.type && a.text == b.text, "block type/text changed");
-        compareBox(a.bbox, b.bbox, pixels.size());
-        require(a.source_refs.size() == b.source_refs.size(), "source reference count changed");
-        for (std::size_t j = 0; j < a.source_refs.size(); ++j)
-            compareBox(a.source_refs[j].bbox, b.source_refs[j].bbox, pixels.size());
-    }
-    const auto& image = restored.artifacts.pages.at(0).image;
-    require(cv::norm(cv::imread(image.output_path.string()), rotated, cv::NORM_INF) == 0,
-            "published page pixels changed");
-    const doc_parser::exporter::JsonDocumentExporter exporter;
-    const auto json = exporter.serialize({true, &restored.document, &restored.artifacts});
-    require(json.ok(), "invalid Document Contract output");
-    require(json.json.find(".die-orientation-") == std::string::npos, "private path leaked into exported document");
-    require(!hasPrivateView(options.output_directory), "private images survived a successful parse");
+    for (const int degrees : {90, 180, 270}) {
+        cv::Mat rotated;
+        cv::rotate(pixels,
+                   rotated,
+                   degrees == 90    ? cv::ROTATE_90_CLOCKWISE
+                   : degrees == 180 ? cv::ROTATE_180
+                                    : cv::ROTATE_90_COUNTERCLOCKWISE);
+        const auto rotated_path = root / (input.stem().string() + "-" + std::to_string(degrees) + ".png");
+        require(cv::imwrite(rotated_path.string(), rotated), "cannot write fixture");
+        options.input_path = rotated_path;
+        options.output_directory = root / (input.stem().string() + "-" + std::to_string(degrees));
+        options.image_cache_bytes = degrees == 270 ? 0 : pipeline::DocumentParseOptions{}.image_cache_bytes;
+        const auto restored = engine.parse(options);
+        require(restored.ok(), restored.status.message());
+        std::cout << input.filename() << " degrees=" << degrees << " upright_blocks=" << upright.document.blocks.size()
+                  << " rotated_blocks=" << restored.document.blocks.size()
+                  << " final_text_equal=" << (text(upright) == text(restored)) << '\n';
+        if (text(upright) != text(restored))
+            std::cout << "UPRIGHT:\n" << text(upright) << "ROTATED:\n" << text(restored) << std::flush;
+        require(text(upright) == text(restored), "final pipeline text/order differs after rotation");
+        require(upright.document.blocks.size() == restored.document.blocks.size(), "block count changed");
+        for (std::size_t i = 0; i < upright.document.blocks.size(); ++i) {
+            const auto& a = restored.document.blocks[i];
+            const auto& b = upright.document.blocks[i];
+            require(a.type == b.type && a.text == b.text, "block type/text changed");
+            compareBox(a.bbox, b.bbox, pixels.size(), degrees);
+            require(a.source_refs.size() == b.source_refs.size(), "source reference count changed");
+            for (std::size_t j = 0; j < a.source_refs.size(); ++j)
+                compareBox(a.source_refs[j].bbox, b.source_refs[j].bbox, pixels.size(), degrees);
+        }
+        const auto& image = restored.artifacts.pages.at(0).image;
+        require(image.width == rotated.cols && image.height == rotated.rows, "published page dimensions changed");
+        require(cv::norm(cv::imread(image.output_path.string()), rotated, cv::NORM_INF) == 0,
+                "published page pixels changed");
+        const doc_parser::exporter::JsonDocumentExporter exporter;
+        const auto json = exporter.serialize({true, &restored.document, &restored.artifacts});
+        require(json.ok(), "invalid Document Contract output");
+        require(json.json.find(".die-orientation-") == std::string::npos, "private path leaked into exported document");
+        require(!hasPrivateView(options.output_directory), "private images survived a successful parse");
 
-    AbortAfterTables observer(options.output_directory);
-    const auto interrupted = engine.parse(options, observer);
-    require(!interrupted.ok() && observer.saw_view, "did not interrupt a corrected parse after the table stage");
-    require(!hasPrivateView(options.output_directory), "private images survived observer interruption");
-    options.image_cache_bytes = 0;
-    const auto uncached = engine.parse(options);
-    require(uncached.ok() && text(uncached) == text(upright), "uncached parse/engine reuse changed recovered text");
-    require(!hasPrivateView(options.output_directory), "uncached parse leaked private images");
+        if (degrees == 180) {
+            AbortAfterTables observer(options.output_directory);
+            const auto interrupted = engine.parse(options, observer);
+            require(!interrupted.ok() && observer.saw_view,
+                    "did not interrupt a corrected parse after the table stage");
+            require(!hasPrivateView(options.output_directory), "private images survived observer interruption");
+            options.image_cache_bytes = 0;
+            const auto uncached = engine.parse(options);
+            require(uncached.ok() && text(uncached) == text(upright),
+                    "uncached parse/engine reuse changed recovered text");
+            require(!hasPrivateView(options.output_directory), "uncached parse leaked private images");
+        }
+    }
 }
 } // namespace
 

@@ -57,7 +57,9 @@ struct PaddleOcrOnnxConfig {
     double box_threshold = 0.5;
     double recognition_threshold = 0.1;
     double unclip_ratio = 1.5;
-    // Probe low-confidence OCR for 180-degree recovery; preserve source image/boxes.
+    // Enable conservative page orientation recovery (90/180/270 degrees).
+    // Historical name retained for compatibility; false disables all recovery.
+    // Supplied-region requests retain their separate 180-degree-only policy.
     bool recover_upside_down = true;
 };
 

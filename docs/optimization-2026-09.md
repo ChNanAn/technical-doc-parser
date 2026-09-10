@@ -551,3 +551,71 @@ The built-in detector still proposes only 0/180 degrees when OCR evidence suppor
 Quarter-turn geometry/view support does not constitute 90/270-degree detection; native
 text accepted without OCR, ambiguous/sparse orientation evidence, skew and mixed text
 directions remain outside this recovery path.
+
+## Recovering quarter-turn pages
+
+Starting from `14c2568`, runtime rotations of phototest and eurotext exposed two
+different failures. Debug logs showed that every sideways text crop was automatically
+rotated clockwise by 90 degrees before recognition, but this adjustment was discarded.
+For clockwise-90 phototest, the initial evidence score was 0.170102; the old 180-degree
+retry reached 0.975228 and was accepted even though all eight crops were still vertical
+in page coordinates. For clockwise-270 input, the same high crop score skipped recovery
+entirely. Both paths returned text in the wrong page order. Eurotext additionally split
+lines differently while sideways (16 output regions versus 14 upright).
+
+The crop pass now retains its rotation metadata. At least two crops and a two-thirds
+majority must agree on the text axis. Predominantly horizontal pages retain the bounded
+180-degree probe; predominantly vertical crops take the quarter-turn path even when
+their first recognition is confident. Up to six largest vertical crops are selected
+with partial sorting. Their existing clockwise-90 recognition is compared against the
+source pose and clockwise-270 pose, requiring at most twelve additional crop
+recognitions. A candidate must beat both alternatives on the same lines: at least two
+votes, a two-thirds majority, confidence at least 0.85, improvement at least 0.15 and
+mean improvement at least 0.15. Short/empty/non-finite evidence cannot win.
+
+A boundary regression exposed why two independent pairwise majorities are insufficient:
+they can overlap on only one line. The policy now compares each candidate line against
+its strongest competing pose before applying the existing voting rule. The regression
+first returned 90 instead of the expected 0, and is retained in the unit suite.
+
+Only one full-page retry is allowed. A quarter-turn retry must produce predominantly
+horizontal crops, retain at least two-thirds of the original crop count, reach mean
+evidence of 0.8 and remain within 0.1 of the selected probe's score. Source-coordinate
+mapping uses the existing shared `PageRotation`; the pipeline already carries that
+correction through layout, tables and assembly. Optional failures preserve the first
+successful OCR result. The historical `recover_upside_down` configuration name remains
+compatible and disables every full-page recovery direction when false. Region-only
+recognition retains its separate 180-degree policy because arbitrary supplied regions
+do not establish a page's text axis.
+
+The separate eight-pose diagnostic (two source documents, each at 0/90/180/270 degrees)
+improves corpus CER from 0.244253 to 0.010057. Phototest's 90/270-degree variants improve
+from 0.408451 to 0; eurotext's variants improve from 0.526699 to 0.016990. All corrected
+text and correction angles match the upright controls. These derived cases do not
+change the committed five-page OCR denominator or its annotations. They measure this
+orientation regression, not broad OCR accuracy.
+
+Real-model OCR and pipeline tests now exercise all three rotations of both source
+images. They compare text/order, OCR regions/lines/spans, final block types and source
+references, swapped source dimensions and unchanged published/cached pixels. The
+disabled control covers all directions; cache-disabled quarter-turn parsing joins the
+existing interruption-cleanup, engine-reuse and 180-degree region tests. Policy tests
+cover sparse and conflicting axes, already-readable source evidence, tied candidates,
+invalid scores and the requirement for consistent votes on the same lines.
+
+Confident horizontal pages perform no additional model inference. Sideways pages add
+the bounded crop probes and one full detection/recognition retry, plus the pipeline's
+existing private PNG processing view. No extra model is loaded. Timing is not used to
+claim a speedup on this shared host. Mixed directions, skew, native-text-only pages and
+genuine vertical scripts remain outside the validated corpus; source-pose evidence is
+a conservative veto, not a guarantee for every vertical writing system. Local diagnostic
+fixtures, logs and before/after reports are retained in `/tmp/tdp-quarter-turn.wUGHyC`.
+
+Validation passed 184 selected CTest cases plus the additional overlapping-votes
+regression (185 distinct cases). The three unchanged standalone layout/block-type
+benchmarks were excluded. Both the full ONNX build and the pipeline-library build
+with ONNX, OpenCV and PDFium disabled succeeded. The committed OCR predictions are
+unchanged at CER 0.656152 and WER 0.810256. The 15-page pipeline and five-page table
+reports match the saved pre-change summaries and every sample: anchor completeness
+0.984211, reading-order score 0.960265, full-text CER 0.364193 (11 reference pages),
+table structure F1 1.0 and cell-text CER 0.057661 across 384 cells.

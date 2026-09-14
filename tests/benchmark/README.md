@@ -179,8 +179,25 @@ contains visually reviewed text spans and an explicit order for those spans. The
 text layers where available and visual transcription for image-only samples; they are not copied from engine output.
 
 `text_completeness` is therefore a sampled reference-span metric, not a claim that every character on each page has
-been transcribed. `reading_order_score` compares all pairs among anchors matched at or above the configured threshold,
-and `reading_order_anchor_recall` prevents a high order score from hiding missing content.
+been transcribed. Alignment first searches for an exact normalized phrase across every output block. Otherwise,
+semi-global Levenshtein alignment finds the minimum-edit contiguous span within one block. Prefix/suffix text is
+free; insertions, deletions and substitutions inside the span each cost one. Sampled completeness counts unchanged
+reference characters in that alignment. An anchor participates in order scoring only when
+`max(0, 1 - edit_distance / reference_characters)` reaches the configured threshold (default `0.8`). Thus scattered
+characters separated by unrelated text cannot imply a strong match. `reading_order_anchor_recall` accompanies the
+pairwise order score so rejected anchors remain visible.
+
+Reports identify this rule as `config.anchor_alignment = semi_global_levenshtein_v1`. Each anchor records similarity,
+edit distance, zero-based block index and half-open `[start, end)` offsets in normalized Unicode code points;
+`alignment` is null when no characters match. Each sample's `order_errors` lists matched anchor pairs that violate
+the annotated order. Equal-cost candidates prefer more unchanged characters and then the earliest block/span,
+without consulting the expected order. Identical repeated phrases can therefore remain ambiguous, and anchors
+split across blocks still require better extraction or annotations. These offsets are diagnostic text offsets,
+not source-image coordinates.
+
+Earlier reports used scattered `SequenceMatcher` matches and their largest fragment's position; their anchor
+metrics are not directly comparable. Re-evaluate the same saved predictions with the new algorithm when comparing
+parser changes. Full-text CER and duplication retain their previous definitions and denominators.
 
 Eleven native-PDF pages additionally have pinned, SHA256-verified full-text references. `text_duplication_rate`
 compares normalized character multiplicities, so reading-order changes do not create false duplicates. It is reported
@@ -211,16 +228,17 @@ and writes `build-ort/tests/pipeline_quality_report.v1.json`. It records source-
 
 | Metric | Baseline | Regression guard |
 | --- | ---: | ---: |
-| Sampled text completeness | 0.8934 | 0.88 |
-| Full-text duplication rate (11/15 pages) | 0.1421 | <= 0.16 |
-| Reading-order anchor recall | 0.8571 | 0.84 |
-| Pairwise reading-order score | 0.9385 | 0.92 |
+| Sampled text completeness | 0.9654 | 0.88 |
+| Full-text duplication rate (11/15 pages) | 0.1262 | <= 0.16 |
+| Reading-order anchor recall | 0.9091 | 0.84 |
+| Pairwise reading-order score | 0.9779 | 0.92 |
 
-The aggregate covers 2,280 reviewed characters and 77 anchors; 2,037 characters and 66 anchors are matched, and 122
-of 130 comparable anchor pairs are ordered correctly. Across the 11 full-text references, 4,856 of 34,170 output
-characters exceed the 35,742-character reference multiset. Companion full-text CER is `0.4608` and has no regression
-threshold yet. `irs_fw4_2024_selected:p02` currently emits only one empty header block and scores zero on completeness
-and anchor recall. This failure remains in the corpus and report so an aggregate score cannot hide it.
+These values re-score parser `3e7ac23` with `semi_global_levenshtein_v1`: 2,201 of 2,280 reviewed characters and 70 of
+77 anchors match; 133 of 136 comparable pairs are correctly ordered. The three errors are on the NASA contents
+page, while seven unmatched anchors remain visible in recall. Across the 11 full-text references, 5,024 of 39,816
+output characters exceed the 35,742-character reference multiset. Companion full-text CER is `0.3642` and has no
+regression threshold yet. This matcher correction changes anchor accounting, not parser output; it must not be
+reported as an accuracy improvement over the previous matcher. No annotations or regression floors were changed.
 
 The Pipeline gate also wraps the five committed DocLayNet images in deterministic 200 DPI PDFs and evaluates final
 assembled `DocumentBlock` objects, rather than calling the layout Backend directly. At IoU `0.5`, the baseline has

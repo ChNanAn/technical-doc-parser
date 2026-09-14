@@ -5,13 +5,14 @@
 from __future__ import annotations
 
 import json
+import random
 import unittest
 from pathlib import Path
 
 from benchmark_common import EvaluationError, levenshtein_distance, maximum_iou_matching
 from evaluate_layout import evaluate_layout
 from evaluate_ocr import evaluate_ocr
-from evaluate_pipeline import evaluate_pipeline, quality_profile_threshold_failures
+from evaluate_pipeline import _best_alignment, evaluate_pipeline, quality_profile_threshold_failures
 from evaluate_table import evaluate_table
 
 
@@ -109,6 +110,108 @@ class LayoutEvaluatorTest(unittest.TestCase):
 
 
 class PipelineEvaluatorTest(unittest.TestCase):
+    @staticmethod
+    def anchor_report(anchors: list[str], blocks: list[str]) -> dict:
+        ground_truth = {
+            "task": "pipeline_text_order",
+            "samples": [{
+                "id": "page",
+                "anchors": [{"id": str(i), "text": text} for i, text in enumerate(anchors)],
+                "reading_order": [str(i) for i in range(len(anchors))],
+            }],
+        }
+        predictions = {
+            "task": "pipeline_text_order",
+            "samples": [{"id": "page", "blocks": [{"text": text} for text in blocks]}],
+        }
+        return evaluate_pipeline(ground_truth, predictions)
+
+    def test_exact_anchor_wins_over_scattered_characters_in_an_earlier_block(self) -> None:
+        report = self.anchor_report(
+            ["middle marker", "alpha beta"], ["alpha xxxxxxxxx beta", "middle marker", "alpha beta"]
+        )
+        self.assertEqual(1.0, report["summary"]["reading_order_score"])
+        self.assertEqual("semi_global_levenshtein_v1", report["config"]["anchor_alignment"])
+        self.assertEqual(2, report["samples"][0]["anchors"][1]["alignment"]["block_index"])
+
+    def test_ocr_errors_match_a_local_phrase_instead_of_scattered_exact_characters(self) -> None:
+        report = self.anchor_report(
+            ["middle marker", "alpha beta gamma"],
+            ["alpha xxxxxxxxx beta yyyyyyyyy gamma", "middle marker", "alpha betx gamma"],
+        )
+        self.assertEqual(1.0, report["summary"]["reading_order_score"])
+
+    def test_exact_offsets_preserve_order_inside_one_block_with_repeated_words(self) -> None:
+        report = self.anchor_report(
+            ["common words first", "common words second"], ["common words first then common words second"]
+        )
+        self.assertEqual(1.0, report["summary"]["reading_order_score"])
+        reversed_report = self.anchor_report(
+            ["common words second", "common words first"], ["common words first then common words second"]
+        )
+        self.assertEqual(0.0, reversed_report["summary"]["reading_order_score"])
+
+    def test_inserted_noise_cannot_count_as_a_strong_anchor_match(self) -> None:
+        report = self.anchor_report(["alpha beta"], ["alpha xxxxxxxxx beta"])
+        self.assertEqual(0, report["summary"]["matched_anchors"])
+
+    def test_local_alignment_handles_each_edit_type_and_reports_normalized_offsets(self) -> None:
+        for text in ("alpha betx gamma", "alpha bet gamma", "alpha betxa gamma"):
+            with self.subTest(text=text):
+                report = self.anchor_report(["Alpha Beta Gamma"], ["prefix\n" + text + "\tsuffix"])
+                anchor = report["samples"][0]["anchors"][0]
+                self.assertTrue(anchor["matched_for_order"])
+                self.assertEqual(
+                    {"block_index": 0, "start": 7, "end": 7 + len(text), "edit_distance": 1}, anchor["alignment"]
+                )
+                self.assertAlmostEqual(1 - 1 / 16, anchor["alignment_similarity"])
+        unicode_report = self.anchor_report(["ＡＢＣ 中国"], ["引言\nabc\t中国 结尾"])
+        self.assertEqual(
+            {"block_index": 0, "start": 3, "end": 9, "edit_distance": 0},
+            unicode_report["samples"][0]["anchors"][0]["alignment"],
+        )
+
+    def test_duplicate_occurrences_use_first_position_without_consulting_expected_order(self) -> None:
+        report = self.anchor_report(
+            ["middle marker", "alpha beta"], ["alpha beta", "middle marker", "alpha beta"]
+        )
+        self.assertEqual(0.0, report["summary"]["reading_order_score"])
+        self.assertEqual(0, report["samples"][0]["anchors"][1]["alignment"]["block_index"])
+        same_anchor = self.anchor_report(["alpha beta", "alpha beta"], ["alpha beta"])
+        self.assertEqual(0.0, same_anchor["summary"]["reading_order_score"])
+
+    def test_reversed_local_matches_still_fail_reading_order(self) -> None:
+        for blocks in (["bravx marker", "alphx marker"], ["bravx marker then alphx marker"]):
+            report = self.anchor_report(["alpha marker", "bravo marker"], blocks)
+            self.assertEqual(2, report["summary"]["matched_anchors"])
+            self.assertEqual(0.0, report["summary"]["reading_order_score"])
+            self.assertEqual([{"before": "0", "after": "1"}], report["samples"][0]["order_errors"])
+
+    def test_empty_and_unrelated_predictions_have_no_alignment(self) -> None:
+        for blocks in ([], [""], ["123456"]):
+            report = self.anchor_report(["alpha beta"], blocks)
+            anchor = report["samples"][0]["anchors"][0]
+            self.assertIsNone(anchor["alignment"])
+            self.assertEqual(0.0, anchor["alignment_similarity"])
+            self.assertEqual(0.0, anchor["completeness"])
+        split = self.anchor_report(["alpha beta"], ["alpha", "beta"])
+        self.assertEqual(0, split["summary"]["matched_anchors"])
+
+    def test_substring_alignment_cost_matches_exhaustive_levenshtein_oracle(self) -> None:
+        rng = random.Random(414)
+        for _ in range(120):
+            reference = "".join(rng.choices("abc", k=rng.randint(1, 6)))
+            block = "".join(rng.choices("abc", k=rng.randint(0, 9)))
+            expected = min(
+                levenshtein_distance(reference, block[start:end])
+                for start in range(len(block) + 1) for end in range(start, len(block) + 1)
+            )
+            actual = _best_alignment(reference, [block])
+            with self.subTest(reference=reference, block=block):
+                self.assertEqual(expected, actual.edit_distance)
+                self.assertEqual(expected, levenshtein_distance(reference, block[actual.start:actual.end]))
+                self.assertLessEqual(actual.characters, min(len(reference), actual.end - actual.start))
+
     def test_reports_completeness_anchor_recall_and_pairwise_order(self) -> None:
         ground_truth = {
             "task": "pipeline_text_order",

@@ -9,7 +9,7 @@ import hashlib
 import sys
 import unicodedata
 from collections import Counter
-from difflib import SequenceMatcher
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -123,18 +123,56 @@ def _full_text_metrics(reference: str, prediction: str) -> dict[str, int | float
     }
 
 
-def _best_alignment(reference: str, blocks: list[str]) -> tuple[int, float]:
-    best_characters = 0
-    best_position = 0.0
+@dataclass(frozen=True)
+class AnchorAlignment:
+    characters: int
+    edit_distance: int
+    block_index: int
+    start: int
+    end: int
+
+    def rank(self) -> tuple[int, int, int, int, int]:
+        # Equal-quality repeated occurrences choose the first position, independently of expected order.
+        return (self.edit_distance, -self.characters, self.block_index, self.start, self.end)
+
+
+def _align_substring(reference: str, block: str, block_index: int) -> AnchorAlignment:
+    # Semi-global Levenshtein alignment: block prefix/suffix are free, but edits
+    # inside the selected contiguous span cost one. Stream through the block with
+    # two rows of anchor length, so long output blocks do not grow DP memory.
+    # Cells track (edit cost, negative exact-match count, start offset).
+    previous = [(index, 0, 0) for index in range(len(reference) + 1)]
+    best = (len(reference), 0, 0, 0)
+    for column, predicted in enumerate(block, 1):
+        current = [(0, 0, column)]
+        for row, character in enumerate(reference, 1):
+            cost, matches, start = previous[row - 1]
+            diagonal = (cost + (character != predicted), matches - (character == predicted), start)
+            cost, matches, start = current[-1]
+            deletion = (cost + 1, matches, start)
+            cost, matches, start = previous[row]
+            insertion = (cost + 1, matches, start)
+            current.append(min(diagonal, deletion, insertion))
+        best = min(best, (*current[-1], column))
+        previous = current
+    cost, negative_matches, start, end = best
+    return AnchorAlignment(-negative_matches, cost, block_index, start, end)
+
+
+def _best_alignment(reference: str, blocks: list[str]) -> AnchorAlignment:
+    # Search every block for an exact phrase before considering noisy candidates.
+    # This also avoids dynamic programming for clean native text.
     for block_index, block in enumerate(blocks):
-        matcher = SequenceMatcher(None, reference, block, autojunk=False)
-        matching = matcher.get_matching_blocks()
-        matched_characters = sum(match.size for match in matching)
-        if matched_characters > best_characters:
-            largest = max(matching, key=lambda match: match.size)
-            best_characters = matched_characters
-            best_position = block_index + safe_ratio(largest.b, max(len(block), 1))
-    return best_characters, best_position
+        start = block.find(reference)
+        if start >= 0:
+            return AnchorAlignment(len(reference), 0, block_index, start, start + len(reference))
+    best = AnchorAlignment(0, len(reference), -1, 0, 0)
+    for block_index, block in enumerate(blocks):
+        if block:
+            candidate = _align_substring(reference, block, block_index)
+            if candidate.rank() < best.rank():
+                best = candidate
+    return best
 
 
 def evaluate_pipeline(
@@ -181,10 +219,12 @@ def evaluate_pipeline(
         anchor_reports = []
         for anchor in anchors:
             reference = normalize_text(anchor["text"])
-            aligned_characters, position = _best_alignment(reference, blocks)
+            alignment = _best_alignment(reference, blocks)
+            aligned_characters = alignment.characters
             completeness = safe_ratio(aligned_characters, len(reference))
-            matched = completeness >= anchor_match_threshold
-            alignments[anchor["id"]] = {"position": position, "matched": matched}
+            similarity = max(0.0, 1.0 - alignment.edit_distance / len(reference))
+            matched = similarity >= anchor_match_threshold
+            alignments[anchor["id"]] = {"position": (alignment.block_index, alignment.start), "matched": matched}
             total_reference_characters += len(reference)
             total_aligned_characters += aligned_characters
             total_anchors += 1
@@ -196,18 +236,32 @@ def evaluate_pipeline(
                     "aligned_characters": aligned_characters,
                     "completeness": completeness,
                     "matched_for_order": matched,
+                    "alignment_similarity": similarity,
+                    "alignment": (
+                        {
+                            "block_index": alignment.block_index,
+                            "start": alignment.start,
+                            "end": alignment.end,
+                            "edit_distance": alignment.edit_distance,
+                        }
+                        if alignment.characters else None
+                    ),
                 }
             )
 
         comparable_pairs = 0
         correct_pairs = 0
+        order_errors = []
         for left_index, left_id in enumerate(reading_order):
             for right_id in reading_order[left_index + 1 :]:
                 left = alignments[left_id]
                 right = alignments[right_id]
                 if left["matched"] and right["matched"]:
                     comparable_pairs += 1
-                    correct_pairs += int(left["position"] < right["position"])
+                    if left["position"] < right["position"]:
+                        correct_pairs += 1
+                    else:
+                        order_errors.append({"before": left_id, "after": right_id})
         total_pairs += comparable_pairs
         total_correct_pairs += correct_pairs
         sample_reports.append(
@@ -230,6 +284,7 @@ def evaluate_pipeline(
                 "full_text": full_text_metrics,
                 "comparable_pairs": comparable_pairs,
                 "correct_pairs": correct_pairs,
+                "order_errors": order_errors,
                 "anchors": anchor_reports,
             }
         )
@@ -245,6 +300,9 @@ def evaluate_pipeline(
             "whitespace": "collapsed",
             "ignore_case": True,
             "anchor_match_threshold": anchor_match_threshold,
+            "anchor_alignment": "semi_global_levenshtein_v1",
+            "anchor_match_score": "1 - edit_distance / reference_characters",
+            "anchor_position_units": "normalized_unicode_codepoints_in_block",
             "text_duplication_matching": "normalized_character_multiset",
             "full_text_unavailable_policy": "exclude_and_report_coverage",
         },

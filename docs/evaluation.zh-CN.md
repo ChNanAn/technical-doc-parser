@@ -181,18 +181,21 @@ Projected Row Header Box 对齐。CER 使用 NFKC、折叠空白和大小写不�
 
 | 指标 | 当前基线 | 回归门槛 |
 | --- | ---: | ---: |
-| 采样文本完整率 | 0.8934 | 0.88 |
-| 全文重复率（覆盖 11/15 页） | 0.1421 | <= 0.16 |
-| Reading-order Anchor Recall | 0.8571 | 0.84 |
-| Pairwise Reading-order Score | 0.9385 | 0.92 |
+| 采样文本完整率 | 0.9654 | 0.88 |
+| 全文重复率（覆盖 11/15 页） | 0.1262 | <= 0.16 |
+| Reading-order Anchor Recall | 0.9091 | 0.84 |
+| Pairwise Reading-order Score | 0.9779 | 0.92 |
 
-当前匹配 2,037 个复核字符和 66 个 Anchor，130 个可比较 Pair 中有 122 个顺序正确。11 个原生 PDF 页面还
-提供 35,742 个归一化全文参考字符；字符多重集匹配在 34,170 个输出字符中识别出 4,856 个超额字符。由于该
-顺序无关的统计也会受替换错误影响，报告同时给出全文 CER `0.4608`。4 个纯图片页面不进入这两个分母，
-而是通过 Reference Coverage 明确报告。其中一张 IRS W-4
-Worksheet 页面目前只生成一个空 Header Block，文本完整率和 Anchor Recall 都是 0；该失败被有意保留在
-Corpus 和报告中，作为可见的改进目标。这些下限只保护固定语料和固定模型策略不发生回退，不是生产验收线。
-复现命令、指标范围和语料来源见 [Benchmark 指南](../tests/benchmark/README.md)。
+以上使用 `semi_global_levenshtein_v1` 对解析器 `3e7ac23` 的相同输出重新计分：优先匹配完整归一化短语，
+否则寻找编辑距离最小的连续片段，插入、删除、替换均计入代价。参与顺序计分要求
+`1 - edit_distance / reference_characters >= 0.8`。报告保留块编号、片段偏移、编辑距离和逆序锚点对。
+这修复了零散字符导致的错误匹配，未改变解析器输出；旧锚点指标需要对保存的预测重新计分才能比较版本。
+
+当前对齐 2,201 个复核字符、命中 70 个 Anchor，136 个可比较 Pair 中有 133 个顺序正确。
+剩余 3 组逆序位于 NASA 目录页，另有 7 个未命中 Anchor。11 个原生 PDF 页面提供 35,742 个归一化全文
+参考字符，39,816 个输出字符中有 5,024 个超额字符，全文 CER 仍为 `0.3642`。4 个纯图片页面不进入全文
+指标分母，通过 Reference Coverage 明确报告。既有门槛保持不变，只保护固定语料和模型策略，不是生产验收线。
+算法、重复短语和跨块限制、复现命令及语料来源见 [Benchmark 指南](../tests/benchmark/README.md)。
 
 Pipeline Gate 还会把仓库中 5 张 DocLayNet 图片确定性封装成 200 DPI PDF，并在 IoU `0.5` 下评测最终组装的
 `DocumentBlock`。对照 151 个参考 Block，当前输出 118 个预测并命中 104 个：Precision `0.8814`、Recall

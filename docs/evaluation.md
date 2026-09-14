@@ -285,20 +285,24 @@ characters and 77 reading-order anchors.
 
 | Metric | Baseline | Regression guard |
 | --- | ---: | ---: |
-| Sampled text completeness | 0.8934 | 0.88 |
-| Full-text duplication rate (11/15 pages) | 0.1421 | <= 0.16 |
-| Reading-order anchor recall | 0.8571 | 0.84 |
-| Pairwise reading-order score | 0.9385 | 0.92 |
+| Sampled text completeness | 0.9654 | 0.88 |
+| Full-text duplication rate (11/15 pages) | 0.1262 | <= 0.16 |
+| Reading-order anchor recall | 0.9091 | 0.84 |
+| Pairwise reading-order score | 0.9779 | 0.92 |
 
-The baseline matches 2,037 reviewed characters and 66 anchors; 122 of 130 comparable pairs are correctly ordered.
-The 11 native-PDF pages also provide 35,742 normalized reference characters. Character-multiset matching finds 4,856
-extra characters among 34,170 output characters; because this order-independent count also reacts to substitutions,
-the report includes companion full-text CER `0.4608`. The four image-only pages are excluded and reported through
-reference coverage rather than silently entering either denominator.
-One selected IRS W-4 worksheet page currently produces only an empty header block and scores zero for completeness
-and anchor recall. It is intentionally retained as a visible failure and improvement target. These floors detect
-regression under the pinned corpus and model policy; they are not production acceptance thresholds. Reproduction
-commands, metric scope, and corpus sources are in the [Benchmark Guide](../tests/benchmark/README.md).
+These values re-score parser `3e7ac23` using `semi_global_levenshtein_v1`. Exact normalized phrases take precedence;
+otherwise minimum-edit contiguous spans are used, with insertion/deletion/substitution costs. Order matching requires
+`1 - edit_distance / reference_characters >= 0.8`. Reports retain block/span offsets, edit distances and incorrect
+anchor pairs. This corrects false matches caused by scattered characters and does not change parser output.
+Old anchor metrics must be recomputed on saved predictions before comparing parser versions.
+
+The baseline aligns 2,201 reviewed characters and matches 70 anchors; 133 of 136 comparable pairs are correctly
+ordered. The three remaining order errors are on the NASA contents page; seven anchors remain unmatched. The 11
+native-PDF pages provide 35,742 normalized reference characters, with 5,024 extra characters among 39,816 output
+characters. Full-text CER remains `0.3642`. The four image-only pages are excluded from full-text metrics and
+reported through reference coverage. These floors protect the pinned corpus/model policy and retain their existing
+values; they are not production acceptance thresholds. Algorithm details, repeated-phrase/block-boundary limits,
+commands and sources are in the [Benchmark Guide](../tests/benchmark/README.md).
 
 The Pipeline gate separately wraps the five committed DocLayNet images in deterministic 200 DPI PDFs and evaluates
 the final assembled `DocumentBlock` objects at IoU `0.5`. Against 151 reference blocks, the current output has 131

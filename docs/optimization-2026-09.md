@@ -619,3 +619,66 @@ unchanged at CER 0.656152 and WER 0.810256. The 15-page pipeline and five-page t
 reports match the saved pre-change summaries and every sample: anchor completeness
 0.984211, reading-order score 0.960265, full-text CER 0.364193 (11 reference pages),
 table structure F1 1.0 and cell-text CER 0.057661 across 384 cells.
+
+## Correcting anchor alignment before further reading-order tuning
+
+On 2026-09-14, inspection of the saved `3e7ac23` pipeline predictions found that the
+two-column formula page already emitted left-column blocks followed by right-column
+blocks, yet its evaluator reported two inversions. Reproduction logs identified the
+cause in `_best_alignment`: `SequenceMatcher` counted fragments scattered throughout
+each block and selected the block with the most matching characters, using the largest
+fragment's location. That could place a noisy right-column sentence in a long unrelated
+left-column paragraph. On NIST page 3, a table-title anchor matched all 37 characters as
+fragments in block 0, winning a tie against an exact phrase in block 2. Synthetic tests
+reproduced both false inversions and a noisy false-positive anchor before modification.
+
+Alignment now searches all blocks for an exact normalized phrase first. If none exists,
+semi-global Levenshtein alignment selects a contiguous span within one block. Prefixes
+and suffixes are free; insertions, deletions and substitutions inside the span cost one.
+Equal costs prefer more unchanged characters, then the earliest block/start/end. No
+selection uses the annotated reading order. Completeness counts unchanged characters
+from the selected alignment; order participation requires normalized edit similarity
+of at least 0.8. Exact hits avoid dynamic programming. Fuzzy matching takes O(m*n) time
+for an m-character anchor and n-character block, with O(m) state by streaming through
+the output text. It needs no new dependency or model.
+
+Reports retain `version: 2` and add `config.anchor_alignment` with the algorithm revision
+`semi_global_levenshtein_v1`, the score definition and offset units. Each anchor exposes
+similarity, edit distance, zero-based block index and half-open normalized-code-point
+span, or null when nothing matches. Each sample lists incorrectly ordered matched
+anchor pairs. These are text diagnostics, not pixel coordinates. Repeated identical
+phrases still choose the earliest exact occurrence; cross-block anchors remain outside
+the single-block alignment scope.
+
+Re-scoring the exact same 15-page predictions changes the following anchor accounting:
+
+| Metric | Previous scattered matching | Contiguous alignment |
+| --- | ---: | ---: |
+| Aligned reviewed characters | 2,244 / 2,280 | 2,201 / 2,280 |
+| Sampled completeness | 0.984211 | 0.965351 |
+| Matched anchors | 74 / 77 | 70 / 77 |
+| Anchor recall | 0.961039 | 0.909091 |
+| Correct/comparable pairs | 145 / 151 | 133 / 136 |
+| Pairwise order score | 0.960265 | 0.977941 |
+
+These changes are measurement corrections, not parser accuracy improvements. Four
+previously credited anchors become unmatched: the two IRS refund/amount anchors, a
+NIST contents entry and a NASA payload entry. Formula-page and NIST-table false
+inversions disappear, while NASA contents-page matching exposes three previously hidden
+inversions involving the propulsion anchor. The new order denominator is smaller, so
+order score must continue to be read with anchor recall. No annotations or thresholds
+were changed. Predictions are byte-identical to the saved input, and every sample's
+full-text metrics are unchanged: corpus CER 0.364193, duplication 0.126180, and 11/15
+reference coverage. Old reports without the matcher revision must be re-scored on
+saved predictions before comparing parser versions.
+
+All 27 evaluator unit tests passed, including nine new alignment cases and a fixed-seed
+120-case exhaustive substring/edit-distance oracle. Tests cover exact and OCR-corrupted
+phrases, noise insertions, Unicode normalization, same-block order, reversed order,
+duplicate occurrences, missing text and block boundaries. The four selected CTest
+entries passed: evaluator tests, corpus integrity, quality-report generator tests and
+the schema-validated canonical pipeline report. The existing quality profile passes
+unchanged. Parser/model tests were not rerun because no engine code or predictions
+changed. Evidence and source-pose reproduction logs are in
+`/tmp/tdp-reading-order.lOQAr2`; NASA contents ordering is the next identified parser
+diagnostic target.

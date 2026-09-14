@@ -1,5 +1,6 @@
 #include "image/page_image_cache.h"
 #include "table/table_backend.h"
+#include "table/table_text_assignment.h"
 
 #include <algorithm>
 #include <array>
@@ -64,12 +65,6 @@ struct Prediction {
     std::string label;
     document::BBox bbox;
     double confidence = 0.0;
-};
-
-struct Token {
-    std::string text;
-    document::BBox bbox;
-    double confidence = 1.0;
 };
 
 bool envFlag(const char* name) {
@@ -292,58 +287,6 @@ std::string closestLayoutBlockId(const document::PageLayout& layout, const docum
     return id;
 }
 
-std::vector<Token> collectTokens(const document::PageText& text) {
-    std::vector<Token> tokens;
-    for (const document::TextLine& line : text.lines) {
-        if (line.spans.empty()) {
-            if (!line.text.empty()) {
-                tokens.push_back({line.text, line.bbox, line.confidence});
-            }
-            continue;
-        }
-        for (const document::TextSpan& span : line.spans) {
-            if (!span.text.empty()) {
-                tokens.push_back({span.text, span.bbox, span.confidence});
-            }
-        }
-    }
-    return tokens;
-}
-
-bool centerInside(const document::BBox& outer, const document::BBox& inner) {
-    const double x = (inner.x0 + inner.x1) * 0.5;
-    const double y = (inner.y0 + inner.y1) * 0.5;
-    return x >= outer.x0 && x <= outer.x1 && y >= outer.y0 && y <= outer.y1;
-}
-
-void assignCellText(document::TableCell& cell, const std::vector<Token>& tokens) {
-    std::vector<const Token*> matches;
-    for (const Token& token : tokens) {
-        if (centerInside(cell.bbox, token.bbox)) {
-            matches.push_back(&token);
-        }
-    }
-    std::stable_sort(matches.begin(), matches.end(), [](const Token* lhs, const Token* rhs) {
-        const double lhs_center = (lhs->bbox.y0 + lhs->bbox.y1) * 0.5;
-        const double rhs_center = (rhs->bbox.y0 + rhs->bbox.y1) * 0.5;
-        if (std::abs(lhs_center - rhs_center) > 3.0) {
-            return lhs_center < rhs_center;
-        }
-        return lhs->bbox.x0 < rhs->bbox.x0;
-    });
-    double confidence = 0.0;
-    for (const Token* token : matches) {
-        if (!cell.text.empty()) {
-            cell.text += ' ';
-        }
-        cell.text += token->text;
-        confidence += token->confidence;
-    }
-    if (!matches.empty()) {
-        cell.confidence = std::min(cell.confidence, confidence / static_cast<double>(matches.size()));
-    }
-}
-
 std::vector<int> rowsCoveredBy(const document::BBox& bbox, const std::vector<Prediction>& rows) {
     std::vector<int> indices;
     for (std::size_t index = 0; index < rows.size(); ++index) {
@@ -373,7 +316,7 @@ bool overlapsHeader(const document::BBox& bbox, const std::vector<Prediction>& h
     });
 }
 
-void buildGrid(document::Table& table, const std::vector<Prediction>& structure, const std::vector<Token>& tokens) {
+void buildGrid(document::Table& table, const std::vector<Prediction>& structure) {
     std::vector<Prediction> rows;
     std::vector<Prediction> columns;
     std::vector<Prediction> headers;
@@ -430,7 +373,6 @@ void buildGrid(document::Table& table, const std::vector<Prediction>& structure,
         cell.is_header = object.label == "table projected row header" || overlapsHeader(object.bbox, headers);
         cell.bbox = object.bbox;
         cell.confidence = object.confidence;
-        assignCellText(cell, tokens);
         table.rows[static_cast<std::size_t>(cell.row_index)].cells.push_back(std::move(cell));
         for (const int row : covered_rows) {
             for (const int column : covered_columns) {
@@ -450,7 +392,6 @@ void buildGrid(document::Table& table, const std::vector<Prediction>& structure,
             cell.is_header = table.rows[row_index].is_header;
             cell.bbox = intersectBBox(rows[row_index].bbox, columns[column_index].bbox);
             cell.confidence = std::min(rows[row_index].confidence, columns[column_index].confidence);
-            assignCellText(cell, tokens);
             table.rows[row_index].cells.push_back(std::move(cell));
         }
         std::stable_sort(table.rows[row_index].cells.begin(),
@@ -561,7 +502,7 @@ bool TableTransformerOnnxBackend::recognize(const TableRequest& request, TableRe
             }
         }
         suppressDuplicateRegions(regions);
-        const std::vector<Token> tokens = collectTokens(request.text);
+        const auto tokens = detail::collectTableTextTokens(request.text);
 
         for (const Prediction& region : regions) {
             const cv::Rect crop_rect = expandedCrop(region.bbox, image.size(), config_.crop_padding);
@@ -596,7 +537,14 @@ bool TableTransformerOnnxBackend::recognize(const TableRequest& request, TableRe
                     table.structure_objects.push_back({object.label, object.bbox, object.confidence});
                 }
             }
-            buildGrid(table, structure, tokens);
+            buildGrid(table, structure);
+            const auto assignment = detail::assignTableText(table, tokens);
+            if (debug) {
+                std::cerr << "[table-transformer] text_assignment page=" << request.page.page_number
+                          << " table=" << table.id << " assigned_tokens=" << assignment.assigned_tokens
+                          << " ambiguous_tokens=" << assignment.ambiguous_tokens
+                          << " unassigned_tokens=" << assignment.unassigned_tokens << '\n';
+            }
             result.tables.tables.push_back(std::move(table));
         }
 

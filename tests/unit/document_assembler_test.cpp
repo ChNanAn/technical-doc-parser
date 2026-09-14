@@ -164,6 +164,54 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
     EXPECT_EQ(document.blocks[1].table_rows[0].cells[0].source_refs[0].page_id, "page_1");
 }
 
+TEST(DocumentAssemblerTest, SuppressesNearIdenticalFigureWhenTableOwnsItsNativeLines) {
+    auto page_text = makePageText();
+    page_text.lines[0] = makeLine("First row", {200.0, 200.0, 800.0, 230.0});
+    page_text.lines[1] = makeLine("Second row", {200.0, 240.0, 800.0, 270.0});
+
+    doc_parser::document::LayoutBlock figure;
+    figure.id = "figure";
+    figure.type = doc_parser::document::LayoutBlockType::Figure;
+    figure.bbox = {100.0, 190.0, 850.0, 280.0};
+    figure.text_line_indices = {0, 1};
+    doc_parser::document::LayoutBlock table_block;
+    table_block.id = "table";
+    table_block.type = doc_parser::document::LayoutBlockType::Table;
+    table_block.bbox = {190.0, 195.0, 820.0, 275.0};
+    table_block.text_line_indices = {0, 1};
+    doc_parser::document::PageLayout layout;
+    layout.page_index = 0;
+    layout.page_number = 1;
+    layout.blocks = {figure, table_block};
+
+    doc_parser::document::PageReadingOrder order;
+    order.page_index = 0;
+    order.page_number = 1;
+    order.items = {{figure.id, 0, 0}, {table_block.id, 1, 1}};
+
+    doc_parser::document::TableCell cell;
+    cell.text = "structured row";
+    cell.bbox = table_block.bbox;
+    doc_parser::document::TableRow row;
+    row.cells.push_back(cell);
+    doc_parser::document::Table table;
+    table.id = "table_1";
+    table.layout_block_id = table_block.id;
+    table.bbox = table_block.bbox;
+    table.rows.push_back(row);
+    doc_parser::document::PageTables page_tables;
+    page_tables.tables.push_back(table);
+
+    doc_parser::document::ParsedDocument document;
+    doc_parser::document::PipelineArtifacts artifacts;
+    ASSERT_TRUE(doc_parser::assembly::DocumentAssembler().assemble(
+        {"fixture.pdf", "pdf", 144, {makePage()}, {page_text}, {layout}, {order}, {page_tables}}, document, artifacts));
+
+    ASSERT_EQ(document.blocks.size(), 1U);
+    EXPECT_EQ(document.blocks[0].type, doc_parser::document::DocumentBlockType::Table);
+    EXPECT_EQ(document.blocks[0].text, "First row\nSecond row");
+}
+
 TEST(DocumentAssemblerTest, RejectsMismatchedPageCounts) {
     const doc_parser::assembly::DocumentAssembler assembler;
     doc_parser::document::ParsedDocument document;

@@ -16,6 +16,7 @@ add_executable(domain_unit_tests
     structured_text_document_exporter_test.cpp
     table_backend_test.cpp
     table_recognition_stage_test.cpp
+    table_text_assignment_test.cpp
     text_normalizer_test.cpp
     text_extraction_stage_test.cpp
     utf8_test.cpp

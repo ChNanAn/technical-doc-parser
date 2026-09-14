@@ -682,3 +682,29 @@ unchanged. Parser/model tests were not rerun because no engine code or predictio
 changed. Evidence and source-pose reproduction logs are in
 `/tmp/tdp-reading-order.lOQAr2`; NASA contents ordering is the next identified parser
 diagnostic target.
+
+## Resolving overlapping table and figure text ownership
+
+The NASA contents reproduction on 2026-09-14 showed one native text line assigned to
+both a detected table and an overlapping `Picture` layout block. Assembly consequently
+published the directory twice, and the duplicate copy changed the apparent reading
+order. The same ownership shape was present on the NIST table sample. The table
+transformer also allowed one token to populate multiple overlapping cells; its previous
+baseline sort used a non-transitive vertical tolerance.
+
+Table text assignment now gives each valid source token one cell owner. Candidates are
+ranked by intersection coverage, normalized center distance, and logical row/column
+position. Text is sorted by bounded baseline groups with a transitive ordering, and the
+assignment reports ambiguous and uncovered tokens in the existing table debug stream.
+Assembly suppresses a Figure only when table/figure IoU is at least 0.5 and both blocks
+share at least 80% of their native line ownership. Such a near-identical visual block
+uses the table's native line text, preserving rows the structure model did not cover;
+figures containing unique titles or body text remain visible.
+
+The 15-page quality run passes with reading-order score 1.0, duplication rate 0.027735,
+and full-text CER 0.254435 (previously 0.977941, 0.126180, and 0.364193 for the same
+parser revision and evaluator). Anchor recall remains 0.909091; the completeness change
+to 0.964035 reflects native line text replacing structured cell text for the duplicated
+directory. Table structure F1 and cell-text CER remain 1.0 and 0.057661 across 384
+cells. The ONNX table benchmark, orientation pipeline tests, and focused unit tests pass;
+the ownership behavior is covered by synthetic assembly and token-assignment cases.

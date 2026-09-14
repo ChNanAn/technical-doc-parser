@@ -29,6 +29,8 @@ versioned document contract.
 - Match pipeline evaluation anchors to contiguous text spans with edit penalties, preventing scattered characters
   from hiding missing text or creating false reading-order errors. Report alignment offsets and incorrect anchor
   pairs; identify the revised matcher so saved predictions can be re-scored consistently.
+- Preserve complete native reading text for heavily under-segmented form tables while retaining their structured rows,
+  preventing full-page form labels from being discarded or reordered.
 - Recover Jobs abandoned by crashed Workers using renewed execution leases and fenced publication. Keep each
   execution's artifacts separate, resume event sequences, bound crash retries, and commit terminal events with
   acknowledgment. API and Web resolve the current execution; deploy these components together after stopping old Workers.

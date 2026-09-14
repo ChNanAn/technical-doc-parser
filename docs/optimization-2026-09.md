@@ -708,3 +708,18 @@ to 0.964035 reflects native line text replacing structured cell text for the dup
 directory. Table structure F1 and cell-text CER remain 1.0 and 0.057661 across 384
 cells. The ONNX table benchmark, orientation pipeline tests, and focused unit tests pass;
 the ownership behavior is covered by synthetic assembly and token-assignment cases.
+
+## Preserving native text for under-segmented forms
+
+The IRS Form 1040 reproduction showed a related failure mode: a full-page form was
+represented by 394 native lines but the structure model emitted only 49 rows and 18
+columns. Publishing the compact grid as the block's plain text discarded reading text
+and reordered labels, although the structured rows were still useful to clients.
+
+Assembly now keeps the structured rows while selecting native block text when the table
+has at least twice as many native lines as detected rows and the structured text is at
+least 10% shorter. This is a geometry- and evidence-based rule, independent of document
+names or form templates. The two IRS pages improve from CER 0.48456/0.46711 to
+0.00271/0.00029. Across the 15-page corpus, completeness is 0.978509, anchor recall
+0.961039, reading-order score 1.0, and full-text CER 0.182418. Table structure F1 and
+cell-text CER remain unchanged at 1.0 and 0.057661.

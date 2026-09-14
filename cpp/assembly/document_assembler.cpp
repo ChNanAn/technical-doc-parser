@@ -159,6 +159,21 @@ std::string tableText(const document::Table& table) {
     return text;
 }
 
+bool structureLosesNativeText(const document::LayoutBlock& layout_block,
+                              const document::Table& table,
+                              const std::string& native_text,
+                              const std::string& structured_text) {
+    if (native_text.empty() || structured_text.empty() || table.rows.empty()) {
+        return false;
+    }
+    // A form can legitimately be a table, but its detector grid may collapse
+    // many native lines into a small set of wide rows. Keep the semantic grid
+    // while exposing the complete native reading text in that case.
+    const bool undersegmented = layout_block.text_line_indices.size() >= table.rows.size() * 2U;
+    const bool materially_shorter = structured_text.size() * 10U < native_text.size() * 9U;
+    return undersegmented && materially_shorter;
+}
+
 double bboxArea(const document::BBox& bbox) {
     return std::max(0.0, bbox.x1 - bbox.x0) * std::max(0.0, bbox.y1 - bbox.y0);
 }
@@ -228,8 +243,10 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
                         {block.page_id, cell.bbox, cell.text, blockTextSource(page.text, layout_block)});
                 }
             }
-            if (!prefer_native_table_text) {
-                block.text = tableText(*table);
+            const std::string structured_text = tableText(*table);
+            if (!prefer_native_table_text &&
+                !structureLosesNativeText(layout_block, *table, block.text, structured_text)) {
+                block.text = structured_text;
             }
             block.confidence = std::min(block.confidence, table->confidence);
         }

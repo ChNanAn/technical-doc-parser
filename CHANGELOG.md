@@ -25,6 +25,7 @@ versioned document contract.
 
 ### Fixed
 
+- Update the Web dependency lock to patched Nano ID, PostCSS and Vitest versions so the Platform CI audit passes.
 - Match pipeline evaluation anchors to contiguous text spans with edit penalties, preventing scattered characters
   from hiding missing text or creating false reading-order errors. Report alignment offsets and incorrect anchor
   pairs; identify the revised matcher so saved predictions can be re-scored consistently.

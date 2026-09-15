@@ -31,6 +31,10 @@ versioned document contract.
   pairs; identify the revised matcher so saved predictions can be re-scored consistently.
 - Preserve complete native reading text for heavily under-segmented form tables while retaining their structured rows,
   preventing full-page form labels from being discarded or reordered.
+- Resolve near-identical figure/table ownership before reading order, preserving the complete union of source lines
+  and remapping caption targets. Retain ambiguous overlaps and keep detected table/cell structure intact.
+- Order linked captions as children of their figure or table, preventing wide captions from splitting column bands
+  and keeping reading-order diagnostics consistent with the delivered target-then-caption order.
 - Recover Jobs abandoned by crashed Workers using renewed execution leases and fenced publication. Keep each
   execution's artifacts separate, resume event sequences, bound crash retries, and commit terminal events with
   acknowledgment. API and Web resolve the current execution; deploy these components together after stopping old Workers.
@@ -40,7 +44,8 @@ versioned document contract.
   and cached Run state in one Redis script. Queue messages now carry Attempt identity.
 - Recover browser status after SSE interruptions and missed terminal events; durable terminal states override
   stale Redis state.
-- Use transitive coordinate comparisons throughout reading-order sorting and reject non-finite coordinates.
+- Use transitive coordinate comparisons in reading order, layout column refinement, and fallback line recovery;
+  keep row tolerance in bounded grouping and reject non-finite coordinates before sorting.
 - Publish JSON, Markdown, and HTML files atomically so readers do not observe partial writes.
 
 ### Changed

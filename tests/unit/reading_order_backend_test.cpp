@@ -164,6 +164,68 @@ TEST(ReadingOrderBackendTest, PlacesLinkedCaptionAfterTarget) {
     ASSERT_EQ(result.reading_order.items.size(), 2U);
     EXPECT_EQ(result.reading_order.items[0].layout_block_id, "figure");
     EXPECT_EQ(result.reading_order.items[1].layout_block_id, "caption");
+    EXPECT_TRUE(result.reading_order.trace.cycle_breaks.empty());
+    const auto& placement = result.reading_order.trace.placements.back();
+    EXPECT_EQ(placement.layout_block_id, "caption");
+    EXPECT_EQ(placement.parent_layout_block_id, "figure");
+    EXPECT_EQ(placement.band_index, result.reading_order.trace.placements.front().band_index);
+}
+
+TEST(ReadingOrderBackendTest, KeepsWideCaptionWithItsTargetAcrossColumnBands) {
+    auto figure = makeBlock("figure", doc_parser::document::LayoutBlockType::Figure, {100, 100, 400, 200});
+    auto caption = makeBlock("caption", doc_parser::document::LayoutBlockType::Text, {100, 205, 900, 235});
+    caption.source_label = "Caption";
+    caption.related_block_id = "figure";
+    const std::vector<doc_parser::document::LayoutBlock> blocks{
+        figure,
+        caption,
+        makeBlock("left", doc_parser::document::LayoutBlockType::Text, {100, 260, 400, 360}),
+        makeBlock("right", doc_parser::document::LayoutBlockType::Text, {600, 100, 900, 200}),
+        makeBlock("right_bottom", doc_parser::document::LayoutBlockType::Text, {600, 260, 900, 360})};
+    std::vector<int> permutation{0, 1, 2, 3, 4};
+    do {
+        std::vector<doc_parser::document::LayoutBlock> shuffled;
+        for (int index : permutation)
+            shuffled.push_back(blocks[index]);
+        const auto order = orderLayout(makeLayout(shuffled));
+        EXPECT_EQ(orderedIds(order), (std::vector<std::string>{"figure", "caption", "left", "right", "right_bottom"}));
+        EXPECT_EQ(order.trace.placements.size(), blocks.size());
+        EXPECT_TRUE(order.trace.cycle_breaks.empty());
+    } while (std::next_permutation(permutation.begin(), permutation.end()));
+}
+
+TEST(ReadingOrderBackendTest, GroupsMultipleCaptionsInGeometricOrder) {
+    auto figure = makeBlock("figure", doc_parser::document::LayoutBlockType::Figure, {100, 100, 900, 200});
+    auto first = makeBlock("first", doc_parser::document::LayoutBlockType::Text, {100, 205, 900, 225});
+    auto second = makeBlock("second", doc_parser::document::LayoutBlockType::Text, {100, 230, 900, 250});
+    first.source_label = "Caption";
+    second.source_label = "figure_title";
+    first.related_block_id = second.related_block_id = "figure";
+    const auto order = orderLayout(makeLayout({second, figure, first}));
+    EXPECT_EQ(orderedIds(order), (std::vector<std::string>{"figure", "first", "second"}));
+    EXPECT_EQ(order.trace.edge_counts.at("caption_target"), 2);
+    EXPECT_TRUE(order.trace.cycle_breaks.empty());
+}
+
+TEST(ReadingOrderBackendTest, KeepsDanglingCyclicAndNonCaptionLinksInNormalFlow) {
+    using Type = doc_parser::document::LayoutBlockType;
+    auto first = makeBlock("first", Type::Text, {100, 100, 900, 130});
+    auto second = makeBlock("second", Type::Text, {100, 150, 900, 180});
+    auto dangling = makeBlock("dangling", Type::Text, {100, 200, 900, 230});
+    auto unrelated = makeBlock("unrelated", Type::Text, {100, 250, 900, 280});
+    auto self = makeBlock("self", Type::Text, {100, 300, 900, 330});
+    auto figure = makeBlock("figure", Type::Figure, {100, 350, 900, 500});
+    first.source_label = second.source_label = dangling.source_label = self.source_label = "Caption";
+    first.related_block_id = "second";
+    second.related_block_id = "first";
+    dangling.related_block_id = "absent";
+    unrelated.related_block_id = "figure";
+    self.related_block_id = "self";
+    const auto order = orderLayout(makeLayout({figure, self, unrelated, dangling, second, first}));
+    EXPECT_EQ(orderedIds(order),
+              (std::vector<std::string>{"first", "second", "dangling", "unrelated", "self", "figure"}));
+    EXPECT_EQ(order.trace.placements.size(), 6U);
+    EXPECT_TRUE(order.trace.cycle_breaks.empty());
 }
 
 TEST(ReadingOrderBackendTest, DetectsThreeColumnsIndependentlyOfInputOrder) {
@@ -191,7 +253,7 @@ TEST(ReadingOrderBackendTest, DetectsThreeColumnsIndependentlyOfInputOrder) {
 
     EXPECT_EQ(orderedIds(first_order), expected);
     EXPECT_EQ(orderedIds(second_order), expected);
-    EXPECT_EQ(first_order.trace.algorithm, "band-column-topological-v2");
+    EXPECT_EQ(first_order.trace.algorithm, "band-column-topological-v3");
     ASSERT_EQ(first_order.trace.placements.size(), 6U);
     EXPECT_EQ(first_order.trace.placements[0].column_end, 1);
     EXPECT_EQ(first_order.trace.placements[1].column_end, 2);

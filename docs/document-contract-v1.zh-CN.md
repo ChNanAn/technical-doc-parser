@@ -102,6 +102,10 @@ bbox: [x0, y0, x1, y1]
 Table Block 可以包含有序 Rows 和 Cells。Cell 只强制要求 `text`；行列下标、Span、表头标记、bbox、
 Score 和来源引用都可选。能力较弱的 Backend 可以诚实地产出 Partial Result，而不是猜测结构。
 
+Table Block 的 `text` 表示阅读文本。当识别出的单元格遗漏来源文字时，引擎可以使用来源文本行填充此字段，
+同时在 `table.rows` 中保留识别出的表格结构。按文档顺序阅读时应使用 Block 的 `text`；从单元格重新拼接可能
+再次丢失文字或改变阅读顺序。
+
 字段存在时遵循：
 
 - Row 和 Column 下标从 0 开始。
@@ -124,6 +128,10 @@ Document v1 保留下游日常使用所需的解释信息：
 
 完整执行过程属于独立的 Pipeline Trace 契约，包括每个 Stage 的尝试、请求与实际 Backend、fallback 原因、
 耗时、模型身份、错误和 Debug Artifact。将其与 Document v1 分开，可以避免 Worker 内部状态永久固化为 SDK 字段。
+
+可选 Debug 数据会记录表格的 `text_mode`（`cells` 或 `source_lines`），以及图注阅读序位置的
+`parent_layout_block_id`。它们属于诊断扩展，不是 Document v1 核心必需字段。当前引擎先输出图或表，再紧接
+输出关联图注；来源图片中位于图表上方的图注也遵循这一约定。
 
 ## 兼容策略
 

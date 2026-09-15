@@ -159,59 +159,10 @@ std::string tableText(const document::Table& table) {
     return text;
 }
 
-bool structureLosesNativeText(const document::LayoutBlock& layout_block,
-                              const document::Table& table,
-                              const std::string& native_text,
-                              const std::string& structured_text) {
-    if (native_text.empty() || structured_text.empty() || table.rows.empty()) {
-        return false;
-    }
-    // A form can legitimately be a table, but its detector grid may collapse
-    // many native lines into a small set of wide rows. Keep the semantic grid
-    // while exposing the complete native reading text in that case.
-    const bool undersegmented = layout_block.text_line_indices.size() >= table.rows.size() * 2U;
-    const bool materially_shorter = structured_text.size() * 10U < native_text.size() * 9U;
-    return undersegmented && materially_shorter;
-}
-
-double bboxArea(const document::BBox& bbox) {
-    return std::max(0.0, bbox.x1 - bbox.x0) * std::max(0.0, bbox.y1 - bbox.y0);
-}
-
-double intersectionOverUnion(const document::BBox& lhs, const document::BBox& rhs) {
-    const double intersection = std::max(0.0, std::min(lhs.x1, rhs.x1) - std::max(lhs.x0, rhs.x0)) *
-                                std::max(0.0, std::min(lhs.y1, rhs.y1) - std::max(lhs.y0, rhs.y0));
-    const double combined = bboxArea(lhs) + bboxArea(rhs) - intersection;
-    return combined <= 0.0 ? 0.0 : intersection / combined;
-}
-
-bool duplicateVisualBlock(const document::LayoutBlock& table, const document::LayoutBlock& candidate) {
-    if (table.type != document::LayoutBlockType::Table || candidate.type != document::LayoutBlockType::Figure ||
-        intersectionOverUnion(table.bbox, candidate.bbox) < 0.5 || table.text_line_indices.empty()) {
-        return false;
-    }
-    const std::set<int> table_lines(table.text_line_indices.begin(), table.text_line_indices.end());
-    const std::size_t shared = static_cast<std::size_t>(
-        std::count_if(candidate.text_line_indices.begin(), candidate.text_line_indices.end(), [&](int index) {
-            return table_lines.find(index) != table_lines.end();
-        }));
-    if (candidate.text_line_indices.empty()) {
-        return false;
-    }
-    const double table_coverage = static_cast<double>(shared) / static_cast<double>(table_lines.size());
-    const double candidate_coverage =
-        static_cast<double>(shared) / static_cast<double>(candidate.text_line_indices.size());
-    // A figure that contains a table plus a title/caption/body text is a real
-    // visual block. Suppress only near-identical line ownership, where neither
-    // block carries substantial unique native text.
-    return table_coverage >= 0.8 && candidate_coverage >= 0.8;
-}
-
 document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts& page,
                                           const document::LayoutBlock& layout_block,
                                           std::string document_block_id,
-                                          const std::map<std::string, std::string>& related_block_ids,
-                                          bool prefer_native_table_text) {
+                                          const std::map<std::string, std::string>& related_block_ids) {
     document::DocumentBlock block;
     block.id = std::move(document_block_id);
     block.type = toDocumentBlockType(layout_block.type);
@@ -243,10 +194,8 @@ document::DocumentBlock makeDocumentBlock(const document::PipelinePageArtifacts&
                         {block.page_id, cell.bbox, cell.text, blockTextSource(page.text, layout_block)});
                 }
             }
-            const std::string structured_text = tableText(*table);
-            if (!prefer_native_table_text &&
-                !structureLosesNativeText(layout_block, *table, block.text, structured_text)) {
-                block.text = structured_text;
+            if (table->text_mode == document::TableTextMode::Cells) {
+                block.text = tableText(*table);
             }
             block.confidence = std::min(block.confidence, table->confidence);
         }
@@ -398,25 +347,7 @@ bool DocumentAssembler::assemble(DocumentAssembleRequest request,
     const std::set<std::string> repeated_furniture = repeatedFurniture(artifacts.pages);
     for (const document::PipelinePageArtifacts& parsed_page : artifacts.pages) {
         std::vector<int> included_indices;
-        std::set<int> suppressed_duplicate_figures;
-        std::set<int> tables_with_native_text;
-        for (std::size_t table_index = 0; table_index < parsed_page.layout.blocks.size(); ++table_index) {
-            const auto& table_block = parsed_page.layout.blocks[table_index];
-            if (table_block.type != document::LayoutBlockType::Table) {
-                continue;
-            }
-            for (std::size_t figure_index = 0; figure_index < parsed_page.layout.blocks.size(); ++figure_index) {
-                const auto& figure_block = parsed_page.layout.blocks[figure_index];
-                if (duplicateVisualBlock(table_block, figure_block)) {
-                    suppressed_duplicate_figures.insert(static_cast<int>(figure_index));
-                    tables_with_native_text.insert(static_cast<int>(table_index));
-                }
-            }
-        }
         for (const int layout_block_index : orderedLayoutBlockIndices(parsed_page)) {
-            if (suppressed_duplicate_figures.find(layout_block_index) != suppressed_duplicate_figures.end()) {
-                continue;
-            }
             const document::LayoutBlock& layout_block =
                 parsed_page.layout.blocks[static_cast<std::size_t>(layout_block_index)];
             const std::string signature = furnitureSignature(parsed_page, layout_block);
@@ -434,11 +365,7 @@ bool DocumentAssembler::assemble(DocumentAssembleRequest request,
         for (const int layout_block_index : included_indices) {
             const auto& layout_block = parsed_page.layout.blocks[static_cast<std::size_t>(layout_block_index)];
             document.blocks.push_back(
-                makeDocumentBlock(parsed_page,
-                                  layout_block,
-                                  related_block_ids[layout_block.id],
-                                  related_block_ids,
-                                  tables_with_native_text.find(layout_block_index) != tables_with_native_text.end()));
+                makeDocumentBlock(parsed_page, layout_block, related_block_ids[layout_block.id], related_block_ids));
         }
     }
 

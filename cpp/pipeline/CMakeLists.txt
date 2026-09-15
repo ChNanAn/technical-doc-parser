@@ -3,6 +3,7 @@ add_library(doc_parser_pipeline
     pipeline_service_factory.cpp
     document_pipeline.cpp
     layout_analysis_stage.cpp
+    page_structure.cpp
     pipeline_context.cpp
     reading_order_stage.cpp
     table_recognition_stage.cpp

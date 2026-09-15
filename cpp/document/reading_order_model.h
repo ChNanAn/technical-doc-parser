@@ -12,6 +12,7 @@ struct ReadingOrderPlacement {
     int band_index = 0;
     int column_start = 0;
     int column_end = 0;
+    std::string parent_layout_block_id = {};
 };
 
 struct ReadingOrderCycleBreak {

@@ -6,6 +6,7 @@ add_executable(domain_unit_tests
     document_assembler_test.cpp
     document_engine_test.cpp
     page_pipeline_test.cpp
+    page_structure_test.cpp
     file_fingerprint_test.cpp
     json_document_exporter_test.cpp
     layout_backend_test.cpp

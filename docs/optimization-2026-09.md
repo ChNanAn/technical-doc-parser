@@ -723,3 +723,59 @@ names or form templates. The two IRS pages improve from CER 0.48456/0.46711 to
 0.00271/0.00029. Across the 15-page corpus, completeness is 0.978509, anchor recall
 0.961039, reading-order score 1.0, and full-text CER 0.182418. Table structure F1 and
 cell-text CER remain unchanged at 1.0 and 0.057661.
+
+## Resolving page structure before reading order
+
+The 2026-09-15 review reproduced three concrete failures before changing the engine.
+Layout line sorting still used pairwise coordinate tolerances that are not transitive;
+permuting near-equal coordinates changed the result. An above-table caption produced
+a geometric edge opposite to its target edge, so cycle breaking removed the caption
+constraint and a later relocation silently reinstated it. Finally, the earlier 80%
+figure/table overlap rule discarded an entire figure even when it owned a unique
+source line. The previous preservation claim was too broad: the NASA contents page
+still lost 31 normalized characters after duplicate suppression.
+
+Column refinement and fallback line recovery now use strict coordinate comparisons
+with source-index tie breaks. Row tolerance is applied only within bounded baseline
+groups, and invalid source boxes do not enter these sorts. Regressions cover all 120
+input permutations of the close-coordinate fixture and repeated application.
+
+A shared page-structure pass runs after table attachment and unassigned-line recovery,
+before reading order consumes layout indices. It retains the conservative IoU >= 0.5
+and bilateral unique-line overlap >= 0.8 thresholds, but transfers the complete union
+of source lines before removing a near-identical figure. Layout bounds cover the
+consumed lines, confidence is conservatively combined, and caption targets are remapped.
+Detected table/cell geometry and cell contents remain intact. Invalid evidence or
+multiple candidate table owners retain the figure; partial overlap resolution remains
+future work. Table text selection is explicit (`cells` or `source_lines`), including
+the existing form fallback and empty grids with available source text. Assembly now
+uses this decision without suppressing visual blocks after ordering.
+
+Linked captions are children of their figure/table for band and column ordering.
+They no longer compete as column seeds or require relocation after cycle breaking.
+The existing target-then-caption output convention is retained, including captions
+above their target in the source. Reading-order diagnostics identify the algorithm as
+`band-column-topological-v3` and record `parent_layout_block_id`; child placements
+inherit the parent's band and columns. Invalid caption links remain in normal flow.
+The Document v1 core schema is unchanged.
+
+Validation: 176 ONNX-build unit tests and 174 unit tests with ONNX disabled passed
+(the latter build still enables OpenCV and PDFium). Nine selected CTest checks passed:
+the pipeline quality benchmark and v1 report, block-type and table benchmarks,
+orientation pipeline, partial-document contract, install consumer, C API smoke and
+C API exports. An actual NASA CLI debug export also passed the Document v1 schema.
+Synthetic regressions cover lossless ownership, ambiguous owners, invalid/duplicate
+indices, idempotence, source provenance, caption remapping through final relations,
+multiple captions and 120 wide-caption input permutations.
+
+Against the saved 15-page baseline, only NASA:p01 full-text metrics changed: its 31
+missing characters were restored, reducing page CER from 0.017348 to 0. The corpus
+full-text CER decreased from 0.182418 to 0.181551 (6520 to 6489 edits across 35742
+reference characters). Anchor completeness remains 2231/2280, anchor recall 74/77,
+and comparable reading-order pairs 150/150. These pairs cover matched anchors, not
+every block; full-text references cover only 11 of 15 pages. All per-sample table and
+block-type metrics remain unchanged, including table structure F1 1.0 and cell-text
+CER 0.057661 across 384 cells. Extra-character count remains 2311; the small reported
+duplication-rate decrease comes from the larger recovered-text denominator. No graph
+performance improvement is claimed. Reproduction and validation logs are under
+`/tmp/tdp-order-unification.gdJIbr` for this local run.

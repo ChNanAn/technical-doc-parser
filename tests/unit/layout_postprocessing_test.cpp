@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -47,6 +49,46 @@ TEST(LayoutPostprocessingTest, ReordersInterleavedLinesInsideMergedMultiColumnBl
     EXPECT_EQ(blocks[0].text_line_indices, (std::vector<int>{0, 2, 1, 3}));
     EXPECT_EQ(stats.reordered_blocks, 1);
     EXPECT_EQ(stats.maximum_columns, 2);
+}
+
+TEST(LayoutPostprocessingTest, OrdersNearlyEqualLineCoordinatesTransitively) {
+    doc_parser::document::PageText text;
+    text.lines = {makeLine("a", {102, 100, 402, 130}),
+                  makeLine("b", {101, 100.00075, 401, 130.00075}),
+                  makeLine("c", {100, 100.0015, 400, 130.0015}),
+                  makeLine("right one", {600, 100, 900, 130}),
+                  makeLine("right two", {600, 150, 900, 180})};
+    std::vector<int> indices{0, 1, 2, 3, 4};
+    do {
+        std::vector<doc_parser::document::LayoutBlock> blocks{makeTextBlock(indices)};
+        doc_parser::layout::detail::refineMultiColumnTextLineOrder(text, blocks);
+        EXPECT_EQ(blocks[0].text_line_indices, (std::vector<int>{0, 1, 2, 3, 4}));
+        EXPECT_EQ(doc_parser::layout::detail::refineMultiColumnTextLineOrder(text, blocks).reordered_blocks, 0);
+    } while (std::next_permutation(indices.begin(), indices.end()));
+}
+
+TEST(LayoutPostprocessingTest, LeavesInvalidLineGeometryUnchangedBeforeSorting) {
+    for (double invalid : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
+        doc_parser::document::PageText text;
+        text.lines = {makeLine("invalid", {100, invalid, 400, 130}),
+                      makeLine("right", {600, 100, 900, 130}),
+                      makeLine("left", {100, 150, 400, 180}),
+                      makeLine("right again", {600, 150, 900, 180})};
+        std::vector<doc_parser::document::LayoutBlock> blocks{makeTextBlock({3, 0, 2, 1})};
+        EXPECT_EQ(doc_parser::layout::detail::refineMultiColumnTextLineOrder(text, blocks).reordered_blocks, 0);
+        EXPECT_EQ(blocks[0].text_line_indices, (std::vector<int>{3, 0, 2, 1}));
+    }
+}
+
+TEST(LayoutPostprocessingTest, RecoversOverlappingBaselinesWithBoundedRowGroups) {
+    doc_parser::document::PageText text;
+    text.lines = {
+        makeLine("a", {102, 300, 402, 330}), makeLine("b", {101, 310, 401, 340}), makeLine("c", {100, 320, 400, 350})};
+    doc_parser::document::PageLayout layout;
+    doc_parser::layout::detail::recoverUnassignedTextLines(text, makePage(), layout);
+    ASSERT_EQ(layout.blocks.size(), 1U);
+    EXPECT_EQ(layout.blocks[0].text_line_indices, (std::vector<int>{1, 0, 2}));
+    EXPECT_EQ(doc_parser::layout::detail::recoverUnassignedTextLines(text, makePage(), layout).recovered_lines, 0);
 }
 
 TEST(LayoutPostprocessingTest, DoesNotTreatParagraphIndentationAsColumns) {

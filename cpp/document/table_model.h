@@ -39,6 +39,11 @@ struct TableStructureObject {
     double confidence = 1.0;
 };
 
+enum class TableTextMode {
+    Cells,
+    SourceLines,
+};
+
 struct Table {
     std::string id;
     std::string layout_block_id;
@@ -53,6 +58,8 @@ struct Table {
     std::vector<TableColumn> columns;
     std::vector<TableRow> rows;
     std::vector<TableStructureObject> structure_objects;
+    // Resolved before reading order; assembly keeps the selected representation.
+    TableTextMode text_mode = TableTextMode::Cells;
 };
 
 struct PageTables {

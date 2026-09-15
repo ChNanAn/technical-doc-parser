@@ -164,7 +164,7 @@ TEST(DocumentAssemblerTest, BuildsDocumentBlocksFromLayoutAndTables) {
     EXPECT_EQ(document.blocks[1].table_rows[0].cells[0].source_refs[0].page_id, "page_1");
 }
 
-TEST(DocumentAssemblerTest, SuppressesNearIdenticalFigureWhenTableOwnsItsNativeLines) {
+TEST(DocumentAssemblerTest, UsesResolvedTableTextModeAndKeepsProvidedLayoutAndOrder) {
     auto page_text = makePageText();
     page_text.lines[0] = makeLine("First row", {200.0, 200.0, 800.0, 230.0});
     page_text.lines[1] = makeLine("Second row", {200.0, 240.0, 800.0, 270.0});
@@ -199,6 +199,7 @@ TEST(DocumentAssemblerTest, SuppressesNearIdenticalFigureWhenTableOwnsItsNativeL
     table.layout_block_id = table_block.id;
     table.bbox = table_block.bbox;
     table.rows.push_back(row);
+    table.text_mode = doc_parser::document::TableTextMode::SourceLines;
     doc_parser::document::PageTables page_tables;
     page_tables.tables.push_back(table);
 
@@ -207,9 +208,11 @@ TEST(DocumentAssemblerTest, SuppressesNearIdenticalFigureWhenTableOwnsItsNativeL
     ASSERT_TRUE(doc_parser::assembly::DocumentAssembler().assemble(
         {"fixture.pdf", "pdf", 144, {makePage()}, {page_text}, {layout}, {order}, {page_tables}}, document, artifacts));
 
-    ASSERT_EQ(document.blocks.size(), 1U);
-    EXPECT_EQ(document.blocks[0].type, doc_parser::document::DocumentBlockType::Table);
-    EXPECT_EQ(document.blocks[0].text, "First row\nSecond row");
+    ASSERT_EQ(document.blocks.size(), 2U);
+    EXPECT_EQ(document.blocks[0].type, doc_parser::document::DocumentBlockType::Figure);
+    EXPECT_EQ(document.blocks[1].type, doc_parser::document::DocumentBlockType::Table);
+    EXPECT_EQ(document.blocks[1].text, "First row\nSecond row");
+    EXPECT_EQ(document.blocks[1].table_rows[0].cells[0].text, "structured row");
 }
 
 TEST(DocumentAssemblerTest, RejectsMismatchedPageCounts) {

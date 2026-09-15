@@ -616,18 +616,6 @@ BandOrder orderBand(const std::vector<PageElement>& group_elements,
         }
     }
 
-    std::map<std::string, int> local_by_id;
-    for (std::size_t index = 0; index < elements.size(); ++index) {
-        local_by_id[elements[index].block->id] = static_cast<int>(index);
-    }
-    for (std::size_t index = 0; index < elements.size(); ++index) {
-        const std::string& target_id = elements[index].block->related_block_id;
-        const auto target = local_by_id.find(target_id);
-        if (!target_id.empty() && target != local_by_id.end()) {
-            addEdge(edges, target->second, static_cast<int>(index), kSameColumnConfidence, "caption_target");
-        }
-    }
-
     recordEdgeCounts(edges, trace);
     const std::vector<int> local_order =
         stableTopologicalOrder(elements, result.ranges, result.column_count, std::move(edges), trace);
@@ -718,38 +706,65 @@ std::vector<int> predictGroupOrder(const std::vector<PageElement>& elements,
     return order;
 }
 
-std::vector<int> placeCaptionsAfterTargets(const std::vector<PageElement>& elements, const std::vector<int>& order) {
-    std::vector<int> linked_captions;
-    for (const int index : order) {
-        const LayoutBlock& block = *elements[static_cast<std::size_t>(index)].block;
-        if (!block.related_block_id.empty()) {
-            linked_captions.push_back(index);
-        }
+std::vector<int>
+orderBody(const std::vector<PageElement>& elements, int& next_band_index, document::ReadingOrderTrace& trace) {
+    std::map<std::string, int> by_id;
+    for (std::size_t index = 0; index < elements.size(); ++index) {
+        by_id.emplace(elements[index].block->id, static_cast<int>(index));
     }
-    if (linked_captions.empty()) {
-        return order;
-    }
-
-    std::vector<int> result;
-    for (const int index : order) {
-        if (std::find(linked_captions.begin(), linked_captions.end(), index) != linked_captions.end()) {
+    std::vector<int> parents(elements.size(), -1);
+    std::map<int, std::vector<int>> captions;
+    for (std::size_t index = 0; index < elements.size(); ++index) {
+        const auto& block = *elements[index].block;
+        const bool is_caption = block.type == LayoutBlockType::Text &&
+                                (block.source_label == "Caption" || block.source_label == "caption" ||
+                                 block.source_label == "figure_title");
+        const auto target = by_id.find(block.related_block_id);
+        if (!is_caption || target == by_id.end() || target->second == static_cast<int>(index)) {
             continue;
         }
-        result.push_back(index);
-        const std::string& target_id = elements[static_cast<std::size_t>(index)].block->id;
-        for (const int caption_index : linked_captions) {
-            const LayoutBlock& caption = *elements[static_cast<std::size_t>(caption_index)].block;
-            if (caption.related_block_id == target_id) {
-                result.push_back(caption_index);
-            }
+        const auto type = elements[static_cast<std::size_t>(target->second)].block->type;
+        if (type == LayoutBlockType::Figure || type == LayoutBlockType::Table) {
+            parents[index] = target->second;
+            captions[target->second].push_back(static_cast<int>(index));
         }
     }
-    for (const int caption_index : linked_captions) {
-        if (std::find(result.begin(), result.end(), caption_index) == result.end()) {
-            result.push_back(caption_index);
+
+    // The visual target defines its region/column; its captions are children of
+    // that region, not competing column seeds or nodes to move after cycle breaking.
+    std::vector<PageElement> roots;
+    std::vector<int> root_indices;
+    for (std::size_t index = 0; index < elements.size(); ++index) {
+        if (parents[index] < 0) {
+            roots.push_back(elements[index]);
+            root_indices.push_back(static_cast<int>(index));
         }
     }
-    return result;
+    const auto root_order = predictGroupOrder(roots, "body", next_band_index, trace);
+    std::map<std::string, document::ReadingOrderPlacement> placements;
+    for (const auto& placement : trace.placements) {
+        placements.emplace(placement.layout_block_id, placement);
+    }
+    std::vector<int> order;
+    order.reserve(elements.size());
+    for (int root : root_order) {
+        const int index = root_indices[static_cast<std::size_t>(root)];
+        order.push_back(index);
+        const auto children = captions.find(index);
+        if (children == captions.end()) {
+            continue;
+        }
+        const auto& id = elements[static_cast<std::size_t>(index)].block->id;
+        for (int caption : sortedByPosition(elements, children->second)) {
+            order.push_back(caption);
+            auto placement = placements.at(id);
+            placement.layout_block_id = elements[static_cast<std::size_t>(caption)].block->id;
+            placement.parent_layout_block_id = id;
+            trace.placements.push_back(std::move(placement));
+            ++trace.edge_counts["caption_target"];
+        }
+    }
+    return order;
 }
 
 void appendItems(const std::vector<PageElement>& elements,
@@ -798,7 +813,7 @@ bool DoclingLikeReadingOrderBackend::order(const ReadingOrderRequest& request, R
     }
     result.reading_order.page_index = request.layout.page_index;
     result.reading_order.page_number = request.layout.page_number;
-    result.reading_order.trace.algorithm = "band-column-topological-v2";
+    result.reading_order.trace.algorithm = "band-column-topological-v3";
 
     const std::set<LayoutBlockType> header_types{LayoutBlockType::Header};
     const std::set<LayoutBlockType> footer_types{LayoutBlockType::Footer};
@@ -812,8 +827,7 @@ bool DoclingLikeReadingOrderBackend::order(const ReadingOrderRequest& request, R
     appendItems(headers,
                 predictGroupOrder(headers, "header", next_band_index, result.reading_order.trace),
                 result.reading_order);
-    const std::vector<int> body_order =
-        placeCaptionsAfterTargets(body, predictGroupOrder(body, "body", next_band_index, result.reading_order.trace));
+    const std::vector<int> body_order = orderBody(body, next_band_index, result.reading_order.trace);
     appendItems(body, body_order, result.reading_order);
     appendItems(footers,
                 predictGroupOrder(footers, "footer", next_band_index, result.reading_order.trace),

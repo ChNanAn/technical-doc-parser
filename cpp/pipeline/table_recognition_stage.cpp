@@ -1,6 +1,7 @@
 #include "pipeline/table_recognition_stage.h"
 
 #include "layout/layout_postprocessing.h"
+#include "pipeline/page_structure.h"
 
 #include <algorithm>
 #include <cmath>
@@ -154,6 +155,12 @@ StageResult<document::PageTables> TableRecognitionStage::recognizePage(const Pip
                       recovery.skipped_furniture_lines,
                       recovery.skipped_marginalia_lines);
     }
+    const auto structure = resolvePageStructure(text, layout, result.tables);
+    spdlog::debug("page_structure: page={} merged_figures={} preserved_unique_lines={} source_text_tables={}",
+                  page.page_number,
+                  structure.merged_figures,
+                  structure.preserved_unique_lines,
+                  structure.source_text_tables);
     recognition.value = std::move(result.tables);
     recognition.diagnostics = std::move(result.diagnostics);
 

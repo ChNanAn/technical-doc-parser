@@ -109,6 +109,10 @@ A table block may carry ordered rows and cells. Cell `text` is the only required
 spans, header flags, bboxes, scores, and source references are optional so a weak backend can publish an honest
 partial result instead of inventing structure.
 
+A table block's `text` is its reading text. When detected cells omit source content, the engine can use source
+lines for this field while retaining the detected structure in `table.rows`. Consumers reading the document should
+use the block's `text`; reconstructing it from cells can reintroduce omissions or change the reading order.
+
 When present:
 
 - Row and column indices are zero-based.
@@ -134,6 +138,11 @@ Document v1 keeps the explanation needed by ordinary consumers:
 The complete execution history belongs in a separate Pipeline Trace contract: stage attempts, requested and resolved
 backends, fallback reasons, timings, model identities, errors, and debug artifacts. Keeping that trace outside
 Document v1 prevents worker internals from becoming permanent SDK fields.
+
+Optional debug data records table `text_mode` (`cells` or `source_lines`) and reading-order placement
+`parent_layout_block_id` for linked captions. These are diagnostic extension fields, not required Document v1
+core fields. The current engine emits a figure/table before its linked captions, including captions positioned
+above the visual region in the source image.
 
 ## Compatibility Policy
 

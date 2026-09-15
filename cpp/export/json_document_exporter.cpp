@@ -422,6 +422,7 @@ nlohmann::json pageReadingOrderToJson(const document::PageReadingOrder& page_rea
             {"band_index", placement.band_index},
             {"column_start", placement.column_start},
             {"column_end", placement.column_end},
+            {"parent_layout_block_id", placement.parent_layout_block_id},
         });
     }
 
@@ -496,6 +497,7 @@ nlohmann::json pageTablesToJson(const document::PageTables& page_tables) {
         tables.push_back({
             {"id", table.id},
             {"layout_block_id", table.layout_block_id},
+            {"text_mode", table.text_mode == document::TableTextMode::SourceLines ? "source_lines" : "cells"},
             {"bbox", debugBboxToJson(table.bbox)},
             {"confidence", table.confidence},
             {"source_label", table.source_label},

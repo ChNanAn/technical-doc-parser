@@ -52,7 +52,10 @@ bool hasVisibleText(const std::string& text) {
     return std::any_of(text.begin(), text.end(), [](unsigned char value) { return !std::isspace(value); });
 }
 
-bool validBBox(const document::BBox& bbox) { return bbox.x1 > bbox.x0 && bbox.y1 > bbox.y0; }
+bool validBBox(const document::BBox& bbox) {
+    return std::isfinite(bbox.x0) && std::isfinite(bbox.y0) && std::isfinite(bbox.x1) && std::isfinite(bbox.y1) &&
+           bbox.x1 > bbox.x0 && bbox.y1 > bbox.y0;
+}
 
 bool isFurniture(document::LayoutBlockType type) {
     return type == document::LayoutBlockType::Header || type == document::LayoutBlockType::Footer;
@@ -144,15 +147,19 @@ void expandBBox(document::BBox& destination, const document::BBox& source) {
     destination.y1 = std::max(destination.y1, source.y1);
 }
 
-void sortLineIndicesRowWise(const document::PageText& text, std::vector<int>& line_indices, double median_line_height) {
-    std::stable_sort(line_indices.begin(), line_indices.end(), [&](int lhs, int rhs) {
-        const document::BBox& left = text.lines[static_cast<std::size_t>(lhs)].bbox;
-        const document::BBox& right = text.lines[static_cast<std::size_t>(rhs)].bbox;
-        if (std::abs(left.y0 - right.y0) > 1.0e-3) {
-            return left.y0 < right.y0;
-        }
+bool linePositionLess(const document::PageText& text, int lhs, int rhs) {
+    const auto& left = text.lines[static_cast<std::size_t>(lhs)].bbox;
+    const auto& right = text.lines[static_cast<std::size_t>(rhs)].bbox;
+    if (left.y0 != right.y0)
+        return left.y0 < right.y0;
+    if (left.x0 != right.x0)
         return left.x0 < right.x0;
-    });
+    return lhs < rhs;
+}
+
+void sortLineIndicesRowWise(const document::PageText& text, std::vector<int>& line_indices, double median_line_height) {
+    std::stable_sort(
+        line_indices.begin(), line_indices.end(), [&](int lhs, int rhs) { return linePositionLess(text, lhs, rhs); });
 
     const double row_tolerance = std::max(1.0, median_line_height * 0.50);
     for (std::size_t row_begin = 0; row_begin < line_indices.size();) {
@@ -175,15 +182,10 @@ void sortLineIndicesRowWise(const document::PageText& text, std::vector<int>& li
     }
 }
 
-std::vector<FallbackLineGroup> groupFallbackLines(const document::PageText& text, std::vector<int> line_indices) {
-    std::stable_sort(line_indices.begin(), line_indices.end(), [&](int lhs, int rhs) {
-        const document::BBox& left = text.lines[static_cast<std::size_t>(lhs)].bbox;
-        const document::BBox& right = text.lines[static_cast<std::size_t>(rhs)].bbox;
-        if (std::abs(left.y0 - right.y0) > 1.0e-3) {
-            return left.y0 < right.y0;
-        }
-        return left.x0 < right.x0;
-    });
+std::vector<FallbackLineGroup>
+groupFallbackLines(const document::PageText& text, std::vector<int> line_indices, double median_line_height) {
+    std::stable_sort(
+        line_indices.begin(), line_indices.end(), [&](int lhs, int rhs) { return linePositionLess(text, lhs, rhs); });
 
     std::vector<FallbackLineGroup> groups;
     for (const int line_index : line_indices) {
@@ -214,21 +216,7 @@ std::vector<FallbackLineGroup> groupFallbackLines(const document::PageText& text
     }
 
     for (FallbackLineGroup& group : groups) {
-        std::stable_sort(group.line_indices.begin(), group.line_indices.end(), [&](int lhs, int rhs) {
-            const document::BBox& left = text.lines[static_cast<std::size_t>(lhs)].bbox;
-            const document::BBox& right = text.lines[static_cast<std::size_t>(rhs)].bbox;
-            const double overlap_y = std::max(0.0, std::min(left.y1, right.y1) - std::max(left.y0, right.y0));
-            const double left_height = std::max(0.0, left.y1 - left.y0);
-            const double right_height = std::max(0.0, right.y1 - right.y0);
-            const double shorter_height = std::max(1.0e-3, std::min(left_height, right_height));
-            if (overlap_y / shorter_height >= 0.50) {
-                return left.x0 < right.x0;
-            }
-            if (std::abs(left.y0 - right.y0) > 1.0e-3) {
-                return left.y0 < right.y0;
-            }
-            return left.x0 < right.x0;
-        });
+        sortLineIndicesRowWise(text, group.line_indices, median_line_height);
     }
     return groups;
 }
@@ -906,10 +894,13 @@ detectLineColumns(const document::PageText& text, const document::LayoutBlock& b
         const document::BBox& right = text.lines[static_cast<std::size_t>(rhs)].bbox;
         const double left_center = (left.x0 + left.x1) * 0.5;
         const double right_center = (right.x0 + right.x1) * 0.5;
-        if (std::abs(left_center - right_center) > 1.0e-3) {
+        if (left_center != right_center) {
             return left_center < right_center;
         }
-        return left.y0 < right.y0;
+        if (left.y0 != right.y0) {
+            return left.y0 < right.y0;
+        }
+        return lhs < rhs;
     });
 
     std::vector<LineColumn> columns;
@@ -1048,6 +1039,10 @@ LayoutRefinementStats refineMultiColumnTextLineOrder(const document::PageText& t
                 break;
             }
             const document::BBox& bbox = text.lines[static_cast<std::size_t>(line_index)].bbox;
+            if (!validBBox(bbox)) {
+                heights.clear();
+                break;
+            }
             heights.push_back(std::max(0.0, bbox.y1 - bbox.y0));
         }
         const double median_height = median(std::move(heights));
@@ -1064,12 +1059,7 @@ LayoutRefinementStats refineMultiColumnTextLineOrder(const document::PageText& t
         refined.reserve(block.text_line_indices.size());
         for (LineColumn& column : columns) {
             std::sort(column.line_indices.begin(), column.line_indices.end(), [&](int lhs, int rhs) {
-                const document::BBox& left = text.lines[static_cast<std::size_t>(lhs)].bbox;
-                const document::BBox& right = text.lines[static_cast<std::size_t>(rhs)].bbox;
-                if (std::abs(left.y0 - right.y0) > 1.0e-3) {
-                    return left.y0 < right.y0;
-                }
-                return left.x0 < right.x0;
+                return linePositionLess(text, lhs, rhs);
             });
             refined.insert(refined.end(), column.line_indices.begin(), column.line_indices.end());
         }
@@ -1149,7 +1139,7 @@ LayoutRecoveryStats recoverUnassignedTextLines(const document::PageText& text,
     std::vector<FallbackLineGroup> header_groups;
     std::vector<FallbackLineGroup> footer_groups;
     std::vector<FallbackLineGroup> fallback_groups = coalesceDenseGridGroups(
-        text, page, groupFallbackLines(text, std::move(recoverable)), median_line_height, stats);
+        text, page, groupFallbackLines(text, std::move(recoverable), median_line_height), median_line_height, stats);
     for (FallbackLineGroup& group : fallback_groups) {
         switch (recoveredGroupType(text, page, layout.blocks, group, median_line_height)) {
         case document::LayoutBlockType::Header:
